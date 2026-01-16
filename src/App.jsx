@@ -1,12 +1,24 @@
-﻿import { useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import "./App.css";
-import { Heart, Menu, Search, Sparkles, Shirt, BarChart3 } from "lucide-react";
+import {
+  Heart,
+  Menu,
+  Search,
+  Sparkles,
+  Shirt,
+  BarChart3,
+  Filter,
+  User,
+} from "lucide-react";
 
 const initialClothing = [
   {
     id: 1,
     name: "Sky Knit Pullover",
     category: "Knit",
+    gender: "Womens",
+    style: "Minimal",
+    price: 129000,
     design_img_url: "/image1.jpeg",
     size_specs: { shoulder: 46, chest: 104, waist: 90 },
   },
@@ -14,6 +26,9 @@ const initialClothing = [
     id: 2,
     name: "Rose Short Jacket",
     category: "Jacket",
+    gender: "Womens",
+    style: "Romantic",
+    price: 189000,
     design_img_url: "/image2.jpeg",
     size_specs: { shoulder: 42, chest: 96, waist: 86 },
   },
@@ -21,6 +36,9 @@ const initialClothing = [
     id: 3,
     name: "Chestnut Blazer",
     category: "Jacket",
+    gender: "Mens",
+    style: "Classic",
+    price: 219000,
     design_img_url: "/image3.jpeg",
     size_specs: { shoulder: 44, chest: 102, waist: 92 },
   },
@@ -28,6 +46,9 @@ const initialClothing = [
     id: 4,
     name: "Oat Knit Sweater",
     category: "Knit",
+    gender: "Unisex",
+    style: "Minimal",
+    price: 149000,
     design_img_url: "/image4.jpeg",
     size_specs: { shoulder: 48, chest: 106, waist: 94 },
   },
@@ -35,6 +56,9 @@ const initialClothing = [
     id: 5,
     name: "Midnight Puffer",
     category: "Outerwear",
+    gender: "Unisex",
+    style: "Street",
+    price: 279000,
     design_img_url: "/image5.jpeg",
     size_specs: { shoulder: 50, chest: 114, waist: 106 },
   },
@@ -42,6 +66,9 @@ const initialClothing = [
     id: 6,
     name: "Cloud Belt Coat",
     category: "Coat",
+    gender: "Womens",
+    style: "Classic",
+    price: 249000,
     design_img_url: "/image6.png",
     size_specs: { shoulder: 46, chest: 108, waist: 100 },
   },
@@ -49,6 +76,9 @@ const initialClothing = [
     id: 7,
     name: "Ink Slip Dress",
     category: "Dress",
+    gender: "Womens",
+    style: "Romantic",
+    price: 159000,
     design_img_url: "/image7.png",
     size_specs: { shoulder: 36, chest: 82, waist: 66 },
   },
@@ -155,6 +185,7 @@ const initialComments = [
     user: "tester.one",
     rating: 5,
     text: "테스트 코멘트입니다. 핏이 괜찮아요.",
+    created_at: "2026-02-03",
     parent_id: null,
     is_creator: false,
   },
@@ -164,6 +195,7 @@ const initialComments = [
     user: "creator.test",
     rating: 5,
     text: "테스트 답변입니다. 의견 감사합니다.",
+    created_at: "2026-02-03",
     parent_id: 1,
     is_creator: true,
   },
@@ -173,6 +205,7 @@ const initialComments = [
     user: "tester.two",
     rating: 4,
     text: "허리 라인을 조금 수정하면 좋겠습니다.",
+    created_at: "2026-02-02",
     parent_id: null,
     is_creator: false,
   },
@@ -182,6 +215,7 @@ const initialComments = [
     user: "creator.test",
     rating: 5,
     text: "다음 샘플에서 반영하겠습니다.",
+    created_at: "2026-02-02",
     parent_id: 3,
     is_creator: true,
   },
@@ -280,17 +314,39 @@ const formatDate = (value) => {
   )}-${String(date.getDate()).padStart(2, "0")}`;
 };
 
+const formatRelative = (value) => {
+  const now = Date.now();
+  const then = new Date(value).getTime();
+  const diffMs = Math.max(0, now - then);
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 1) return "방금 전";
+  if (minutes < 60) return `${minutes}분 전`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}시간 전`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}일 전`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}개월 전`;
+  const years = Math.floor(months / 12);
+  return `${years}년 전`;
+};
+
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
 function App() {
   const [activeTab, setActiveTab] = useState("discover");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState("All");
+  const [selectedGender, setSelectedGender] = useState("All");
+  const [selectedStyle, setSelectedStyle] = useState("All");
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [selectedSort, setSelectedSort] = useState("recommended");
   const [fundings, setFundings] = useState(initialFunding);
   const [clothing, setClothing] = useState(initialClothing);
-  const [comments] = useState(initialComments);
+  const [comments, setComments] = useState(initialComments);
   const [detailItem, setDetailItem] = useState(null);
   const [detailTab, setDetailTab] = useState("overview");
+  const [darkMode, setDarkMode] = useState(false);
   const [prompt, setPrompt] = useState("");
   const [fabric, setFabric] = useState({ stretch: 5, weight: 5, stiffness: 5 });
   const [selectedMannequin, setSelectedMannequin] = useState(mannequins[1].id);
@@ -307,12 +363,43 @@ function App() {
   const [isComposing, setIsComposing] = useState(false);
   const [userProfile, setUserProfile] = useState(userBase);
   const [brands, setBrands] = useState(initialBrands);
+  const [notificationOpen, setNotificationOpen] = useState(false);
+  const [notifications, setNotifications] = useState([
+    {
+      id: 1,
+      title: "New feedback",
+      message: "@rose.form sent a comment.",
+      removing: false,
+    },
+    {
+      id: 2,
+      title: "Funding update",
+      message: "OAT EDITION reached 70%.",
+      removing: false,
+    },
+  ]);
+  const [commentDraft, setCommentDraft] = useState({
+    rating: 5,
+    text: "",
+  });
+  const [editingCommentId, setEditingCommentId] = useState(null);
+  const [commentMenuId, setCommentMenuId] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
 
   const fundingsFeed = useMemo(() => {
     return [...fundings]
       .filter((item) => item.status === "FUNDING")
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   }, [fundings]);
+
+  const likedClothingIds = useMemo(
+    () => fundings.filter((item) => item.liked).map((item) => item.clothing_id),
+    [fundings]
+  );
+
+  const closetItems = useMemo(() => {
+    return clothing.filter((item) => likedClothingIds.includes(item.id));
+  }, [clothing, likedClothingIds]);
 
   const clothingMap = useMemo(() => {
     return clothing.reduce((map, item) => {
@@ -333,13 +420,40 @@ function App() {
   }, [fundingsFeed, clothingMap]);
 
   const filteredFundings = useMemo(() => {
-    if (selectedCategory === "All") {
-      return fundingsFeed;
+    const filtered = fundingsFeed.filter((item) => {
+      const cloth = clothingMap[item.clothing_id];
+      if (!cloth) return false;
+      const matchesCategory =
+        selectedCategory === "All" || cloth.category === selectedCategory;
+      const matchesGender =
+        selectedGender === "All" || cloth.gender === selectedGender;
+      const matchesStyle =
+        selectedStyle === "All" || cloth.style === selectedStyle;
+      return matchesCategory && matchesGender && matchesStyle;
+    });
+    const sorted = [...filtered];
+    switch (selectedSort) {
+      case "latest":
+        sorted.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        break;
+      case "popular":
+        sorted.sort((a, b) => b.likes - a.likes);
+        break;
+      case "price":
+        sorted.sort((a, b) => a.goal_amount - b.goal_amount);
+        break;
+      default:
+        break;
     }
-    return fundingsFeed.filter(
-      (item) => clothingMap[item.clothing_id]?.category === selectedCategory
-    );
-  }, [fundingsFeed, clothingMap, selectedCategory]);
+    return sorted;
+  }, [
+    fundingsFeed,
+    clothingMap,
+    selectedCategory,
+    selectedGender,
+    selectedStyle,
+    selectedSort,
+  ]);
 
   const generateDesign = () => {
     const trimmed = prompt.trim();
@@ -352,6 +466,9 @@ function App() {
       name: trimmed || `AI 컨셉 ${nextId}`,
       category: "Concept",
       design_img_url: nextImage,
+      gender: "Unisex",
+      style: "Minimal",
+      price: 169000,
       size_specs: { shoulder: 44, chest: 98, waist: 82 },
       design_prompt: trimmed || "미니멀 테일러링 실루엣",
     };
@@ -404,11 +521,16 @@ function App() {
       prev.map((item) => {
         if (item.id !== fundingId) return item;
         const nextLiked = !item.liked;
-        return {
+        const nextItem = {
           ...item,
           liked: nextLiked,
           likes: item.likes + (nextLiked ? 1 : -1),
         };
+        setDetailItem((current) => {
+          if (!current || current.funding.id !== fundingId) return current;
+          return { ...current, funding: nextItem };
+        });
+        return nextItem;
       })
     );
   };
@@ -478,30 +600,90 @@ function App() {
     );
   };
 
+  const submitComment = () => {
+    const trimmed = commentDraft.text.trim();
+    if (!detailItem?.clothing?.id || !trimmed) return;
+    if (editingCommentId) {
+      setComments((prev) =>
+        prev.map((item) =>
+          item.id === editingCommentId
+            ? { ...item, rating: commentDraft.rating, text: trimmed }
+            : item
+        )
+      );
+    } else {
+      const nextId = Math.max(0, ...comments.map((item) => item.id)) + 1;
+      setComments((prev) => [
+        {
+          id: nextId,
+          clothing_id: detailItem.clothing.id,
+          user: "test.user",
+          rating: commentDraft.rating,
+          text: trimmed,
+          created_at: formatDate(new Date()),
+          parent_id: null,
+          is_creator: false,
+        },
+        ...prev,
+      ]);
+    }
+    setCommentDraft((prev) => ({ ...prev, text: "" }));
+    setEditingCommentId(null);
+  };
+
+  const detailProgress = detailItem
+    ? clamp(
+        Math.round(
+          (detailItem.funding.current_amount / detailItem.funding.goal_amount) *
+            100
+        ),
+        0,
+        100
+      )
+    : 0;
+
+  const resetFilters = () => {
+    setSelectedCategory("All");
+    setSelectedGender("All");
+    setSelectedStyle("All");
+    setFilterOpen(false);
+  };
+
+  useEffect(() => {
+    document.body.classList.toggle("dark", darkMode);
+  }, [darkMode]);
+
   return (
-    <div className={`app ${sidebarOpen ? "" : "sidebar-collapsed"}`}>
+    <div
+      className={`app ${sidebarOpen ? "" : "sidebar-collapsed"} ${
+        darkMode ? "dark" : ""
+      }`}
+    >
       <aside className="sidebar">
-        <button
-          className="menu-btn sidebar-toggle"
-          type="button"
-          onClick={() => setSidebarOpen((prev) => !prev)}
-          aria-label="Toggle sidebar"
-        >
-          <span />
-          <span />
-          <span />
-        </button>
-        <button
-          className="brand"
-          type="button"
-          onClick={() => {
-            setActiveTab("discover");
-            setDetailItem(null);
-          }}
-        >
-          <span className="brand-mark">Motif</span>
-          <span className="brand-sub">Modify Your Mode</span>
-        </button>
+        <div className="sidebar-header">
+          <button
+            className="menu-btn sidebar-toggle"
+            type="button"
+            onClick={() => setSidebarOpen((prev) => !prev)}
+            aria-label="Toggle sidebar"
+          >
+            <Menu size={20} strokeWidth={1.8} />
+          </button>
+
+          <button
+            className="brand"
+            type="button"
+            onClick={() => {
+              setActiveTab("discover");
+              setDetailItem(null);
+              resetFilters();
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+          >
+            <span className="brand-mark">Motif</span>
+            <span className="brand-sub">Modify Your Mode</span>
+          </button>
+        </div>
         <nav className="nav">
           {[
             {
@@ -524,7 +706,6 @@ function App() {
               label: "Portfolio",
               icon: <BarChart3 size={20} strokeWidth={1.5} />, // 세련된 차트 모양 📊
             },
-            // 만약 프로필도 필요하다면!
           ].map((item) => (
             <button
               key={item.key}
@@ -539,7 +720,11 @@ function App() {
         </nav>
         <div className="sidebar-footer">
           <p className="caption">Black / White minimal</p>
-          <button className="ghost" type="button">
+          <button
+            className="ghost"
+            type="button"
+            onClick={() => setDarkMode((prev) => !prev)}
+          >
             <span className="nav-label">Settings</span>
           </button>
         </div>
@@ -547,28 +732,106 @@ function App() {
 
       <main className="main">
         <header className="topbar">
+          <button
+            className="top-logo"
+            type="button"
+            onClick={() => {
+              setActiveTab("discover");
+              setDetailItem(null);
+              resetFilters();
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+            aria-label="Go to Discover"
+          >
+            <img src="/logo.png" alt="Motif logo" />
+          </button>
           <div className="search">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <circle cx="11" cy="11" r="6" />
-              <path d="M16 16l4 4" />
-            </svg>
             <input
               type="text"
               placeholder="Search brands, creators, items..."
             />
+            <button className="search-btn" type="button" aria-label="Search">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="11" cy="11" r="6" />
+                <path d="M16 16l4 4" />
+              </svg>
+            </button>
           </div>
           <div className="top-actions">
+            <div className="notif-wrap">
+              <button
+                className="icon-btn"
+                type="button"
+                aria-label="Notifications"
+                aria-expanded={notificationOpen}
+                onClick={() => setNotificationOpen((prev) => !prev)}
+              >
+                {notifications.length > 0 && (
+                  <span className="notif-dot" aria-hidden="true" />
+                )}
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M6 16h12l-1.6-2.6V9a4.4 4.4 0 0 0-8.8 0v4.4L6 16z" />
+                  <path d="M9.5 18a2.5 2.5 0 0 0 5 0" />
+                </svg>
+              </button>
+              {notificationOpen && (
+                <div className="notif-panel" role="menu">
+                  <div className="notif-header">
+                    <div className="notif-title">
+                      <strong>Notifications</strong>
+                      <span>{notifications.length} new</span>
+                    </div>
+                  </div>
+                  <ul>
+                    {notifications.length === 0 ? (
+                      <li className="notif-empty">알림이 없습니다</li>
+                    ) : (
+                      notifications.map((item) => (
+                        <li
+                          key={item.id}
+                          className={item.removing ? "removing" : ""}
+                        >
+                          <div>
+                            <strong>{item.title}</strong>
+                            <span>{item.message}</span>
+                          </div>
+                          <button
+                            className="notif-item-close"
+                            type="button"
+                            aria-label="Delete notification"
+                            onClick={() => {
+                              setNotifications((prev) =>
+                                prev.map((notice) =>
+                                  notice.id === item.id
+                                    ? { ...notice, removing: true }
+                                    : notice
+                                )
+                              );
+                              window.setTimeout(() => {
+                                setNotifications((prev) =>
+                                  prev.filter((notice) => notice.id !== item.id)
+                                );
+                              }, 220);
+                            }}
+                          >
+                            ×
+                          </button>
+                        </li>
+                      ))
+                    )}
+                  </ul>
+                </div>
+              )}
+            </div>
             <button
               className="icon-btn"
               type="button"
-              aria-label="Notifications"
+              aria-label="Profile"
+              onClick={() => {
+                setActiveTab("profile");
+                setDetailItem(null);
+              }}
             >
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M6 16h12l-1.6-2.6V9a4.4 4.4 0 0 0-8.8 0v4.4L6 16z" />
-                <path d="M9.5 18a2.5 2.5 0 0 0 5 0" />
-              </svg>
-            </button>
-            <button className="icon-btn" type="button" aria-label="Profile">
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <circle cx="12" cy="8" r="4" />
                 <path d="M4 20c2-4 14-4 16 0" />
@@ -584,23 +847,87 @@ function App() {
               <p>Find your next signature look</p>
             </div>
 
-            <div className="tag-group">
-              {categories.map((category) => (
-                <button
-                  key={category}
-                  type="button"
-                  className={`tag ${
-                    selectedCategory === category ? "active" : ""
-                  }`}
-                  onClick={() => setSelectedCategory(category)}
+            <div className="tag-row">
+              <div className="tag-group">
+                {categories.map((category) => (
+                  <button
+                    key={category}
+                    type="button"
+                    className={`tag ${
+                      selectedCategory === category ? "active" : ""
+                    }`}
+                    onClick={() => setSelectedCategory(category)}
+                  >
+                    {category}
+                  </button>
+                ))}
+              </div>
+              <div className="filter-wrap">
+                <select
+                  className="sort-select"
+                  value={selectedSort}
+                  onChange={(event) => setSelectedSort(event.target.value)}
                 >
-                  {category}
+                  <option value="recommended">추천순</option>
+                  <option value="latest">최신순</option>
+                  <option value="popular">인기순</option>
+                  <option value="price">낮은가격순</option>
+                </select>
+                <button
+                  className="filter-btn"
+                  type="button"
+                  aria-label="Filter"
+                  aria-expanded={filterOpen}
+                  onClick={() => setFilterOpen((prev) => !prev)}
+                >
+                  <Filter size={16} strokeWidth={1.8} />
                 </button>
-              ))}
+                {filterOpen && (
+                  <div className="filter-panel">
+                    <label className="filter-field">
+                      Gender
+                      <select
+                        value={selectedGender}
+                        onChange={(event) =>
+                          setSelectedGender(event.target.value)
+                        }
+                      >
+                        {["All", "Mens", "Womens", "Unisex"].map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="filter-field">
+                      Style
+                      <select
+                        value={selectedStyle}
+                        onChange={(event) =>
+                          setSelectedStyle(event.target.value)
+                        }
+                      >
+                        {[
+                          "All",
+                          "Minimal",
+                          "Street",
+                          "Classic",
+                          "Sport",
+                          "Romantic",
+                        ].map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="feed-grid">
-              {filteredFundings.slice(0, 3).map((item, index) => {
+              {filteredFundings.map((item, index) => {
                 const cloth = clothingMap[item.clothing_id];
                 const progress = clamp(
                   Math.round((item.current_amount / item.goal_amount) * 100),
@@ -635,20 +962,19 @@ function App() {
                         >
                           <Heart size={18} strokeWidth={1.6} />
                         </button>
-                        <span className="like-count">{item.likes}</span>
                       </div>
-                      <div className="card-overlay" aria-hidden="true">
-                        <div className="overlay-heart">
-                          <Heart size={20} strokeWidth={1.5} />
-                        </div>
-                        <div className="overlay-cta">
-                          <span>Quick Try-on</span>
-                        </div>
-                      </div>
+                      <div className="card-overlay" aria-hidden="true"></div>
                     </button>
                     <div className="card-body">
                       <div className="card-title">
-                        <h3>{item.brand}</h3>
+                        <div className="card-title-row">
+                          <h3>{item.brand}</h3>
+                          <span className="price-inline">
+                            {currency.format(
+                              clothingMap[item.clothing_id]?.price || 0
+                            )}
+                          </span>
+                        </div>
                         <span className="designer-handle">
                           {item.designer_handle}
                         </span>
@@ -689,126 +1015,353 @@ function App() {
                   >
                     ×
                   </button>
-                  <div className="modal-header">
-                    <div>
-                      <h2>{detailItem.funding.brand}</h2>
-                      <p>{detailItem.clothing?.name}</p>
-                    </div>
-                    <div className="pill-group">
-                      {["overview", "story", "feedback"].map((tab) => (
-                        <button
-                          key={tab}
-                          type="button"
-                          className={`pill ${
-                            detailTab === tab ? "active" : ""
-                          }`}
-                          onClick={() => setDetailTab(tab)}
-                        >
-                          {tab === "overview" && "Overview"}
-                          {tab === "story" && "Story"}
-                          {tab === "feedback" && "Feedback"}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="modal-body">
-                    <img
-                      src={detailItem.clothing?.design_img_url}
-                      alt="detail"
-                    />
-                    <div>
-                      {detailTab === "overview" && (
-                        <div className="detail-block">
-                          <h4>브랜드 개요</h4>
-                          <p>
-                            현대적 미니멀리즘을 추구하는 프리미엄 브랜드입니다.
-                            지속 가능한 소재와 실험적 패턴으로 투자를
-                            유도합니다.
-                          </p>
+                  <div className="modal-stack">
+                    <div className="modal-header">
+                      <div>
+                        <h2>{detailItem.funding.brand}</h2>
+                        <p>{detailItem.clothing?.name}</p>
+                      </div>
+                      <div className="pill-group">
+                        {["overview", "story", "feedback"].map((tab) => (
                           <button
+                            key={tab}
                             type="button"
-                            className="primary"
-                            onClick={() => handleTryOn(detailItem.clothing?.id)}
+                            className={`pill ${
+                              detailTab === tab ? "active" : ""
+                            }`}
+                            onClick={() => setDetailTab(tab)}
                           >
-                            내 사진에 입혀보기
+                            {tab === "overview" && "Overview"}
+                            {tab === "story" && "Story"}
+                            {tab === "feedback" && "Feedback"}
                           </button>
-                          <div className="spec-grid">
-                            <div>
-                              <span>소재</span>
-                              <strong>프리미엄 울 블렌드</strong>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="modal-body">
+                      <div className="detail-media">
+                        <button
+                          type="button"
+                          className="detail-media-btn"
+                          onClick={() =>
+                            setImagePreview(detailItem.clothing?.design_img_url)
+                          }
+                          aria-label="Expand image"
+                        >
+                          <img
+                            src={detailItem.clothing?.design_img_url}
+                            alt="detail"
+                          />
+                        </button>
+                        <button
+                          type="button"
+                          className="floating-tryon"
+                          onClick={() => handleTryOn(detailItem.clothing?.id)}
+                        >
+                          Fitting
+                        </button>
+                      </div>
+                      <div>
+                        {detailTab === "overview" && (
+                          <div className="detail-block">
+                            <div className="price-row">
+                              <div>
+                                <span className="price-label">Price</span>
+                                <strong className="price-strong">
+                                  {currency.format(
+                                    detailItem.clothing?.price || 0
+                                  )}
+                                </strong>
+                              </div>
+                              <button
+                                type="button"
+                                className={`like-count-inline subtle ${
+                                  detailItem.funding.liked ? "liked" : ""
+                                }`}
+                                aria-label="Likes"
+                                onClick={() =>
+                                  handleLike(detailItem.funding.id)
+                                }
+                              >
+                                <Heart size={14} strokeWidth={1.6} />
+                                {detailItem.funding.likes}
+                              </button>
                             </div>
-                            <div>
-                              <span>원산지</span>
-                              <strong>이탈리아 / 일본</strong>
+                            <h4>옷 세부내용</h4>
+                            <p>
+                              {detailItem.clothing?.name}은(는) 절제된 실루엣과
+                              깔끔한 마감으로 일상과 포멀 모두에 어울립니다.
+                            </p>
+                            <div
+                              style={{
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: "8px",
+                              }}
+                            >
+                              <div
+                                style={{
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  alignItems: "center",
+                                }}
+                              >
+                                <span>진행도</span>
+                                <strong style={{ fontSize: "14px" }}>
+                                  {detailProgress}%
+                                </strong>
+                              </div>
+
+                              {/* 막대 그래프 (게이지) */}
+                              <div className="detail-bar-track">
+                                <div
+                                  className="detail-bar-fill"
+                                  style={{ width: `${detailProgress}%` }}
+                                />
+                              </div>
                             </div>
-                            <div>
-                              <span>배송 예정</span>
-                              <strong>2026년 4월</strong>
+                            <div className="spec-grid">
+                              <div>
+                                <span>소재</span>
+                                <strong>프리미엄 울 블렌드</strong>
+                              </div>
+                              <div>
+                                <span>원산지</span>
+                                <strong>이탈리아 / 일본</strong>
+                              </div>
+                              <div>
+                                <span>배송 예정</span>
+                                <strong>2026년 4월</strong>
+                              </div>
+                              <div>
+                                <span>사이즈</span>
+                                <strong>XS - XL</strong>
+                              </div>
                             </div>
-                            <div>
-                              <span>사이즈</span>
-                              <strong>XS - XL</strong>
+                            <div className="spec-grid">
+                              {[
+                                { label: "신축성", value: fabric.stretch },
+                                { label: "무게감", value: fabric.weight },
+                                { label: "탄탄함", value: fabric.stiffness },
+                              ].map((item) => (
+                                <div className="spec-card" key={item.label}>
+                                  <div className="spec-card-head">
+                                    <span className="spec-label">
+                                      {item.label}
+                                    </span>
+                                    <strong className="spec-value">
+                                      {item.value}/10
+                                    </strong>
+                                  </div>
+                                  <div className="detail-bar-track">
+                                    <div
+                                      className="detail-bar-fill"
+                                      style={{
+                                        width: `${(item.value / 10) * 100}%`,
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                              ))}
                             </div>
                           </div>
-                        </div>
-                      )}
-                      {detailTab === "story" && (
-                        <div className="detail-block">
-                          <h4>스토리</h4>
-                          <p>
-                            디자인 콘셉트는 정제된 테일러링과 도시적인
-                            대비입니다. 이번 컬렉션은 장인 정신과 AI 기반
-                            데이터가 결합된 하이브리드 제작을 목표로 합니다.
-                          </p>
-                          <div className="story-meta">
-                            <div>
-                              <span>목표 금액</span>
-                              <strong>
-                                {currency.format(
-                                  detailItem.funding.goal_amount
-                                )}
-                              </strong>
-                            </div>
-                            <div>
-                              <span>현재 모집</span>
-                              <strong>
-                                {currency.format(
-                                  detailItem.funding.current_amount
-                                )}
-                              </strong>
+                        )}
+                        {detailTab === "story" && (
+                          <div className="detail-block">
+                            <h4>브랜드 스토리</h4>
+                            <p>
+                              {detailItem.funding.brand}는 장인 정신과 데이터
+                              기반 디자인을 결합해 지속 가능한 컬렉션을
+                              선보입니다. 이번 라인업은 도시적인 실루엣과 실용적
+                              디테일을 강조하며, 고객 피드백을 빠르게 반영하는
+                              것을 목표로 합니다.
+                            </p>
+                            <div className="story-meta">
+                              <div className="story-row">
+                                <span>목표 금액</span>
+                                <strong>
+                                  {currency.format(
+                                    detailItem.funding.goal_amount
+                                  )}
+                                </strong>
+                                <div className="story-bar">
+                                  <div
+                                    className="story-fill"
+                                    style={{ width: "100%" }}
+                                  />
+                                </div>
+                              </div>
+                              <div className="story-row">
+                                <span>현재 모집</span>
+                                <strong>
+                                  {currency.format(
+                                    detailItem.funding.current_amount
+                                  )}
+                                </strong>
+                                <div className="story-bar">
+                                  <div
+                                    className="story-fill"
+                                    style={{ width: `${detailProgress}%` }}
+                                  />
+                                </div>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      )}
-                      {detailTab === "feedback" && (
-                        <div className="detail-block">
-                          <h4>소셜 피드백</h4>
-                          <div className="comment-list">
-                            {comments
-                              .filter(
+                        )}
+                        {detailTab === "feedback" && (
+                          <div className="detail-block">
+                            <h4>소셜 피드백</h4>
+                            <div className="comment-list compact">
+                              {comments.filter(
                                 (comment) =>
                                   comment.clothing_id ===
                                   detailItem.clothing?.id
-                              )
-                              .map((comment) => (
-                                <div key={comment.id} className="comment">
-                                  <div className="comment-header">
-                                    <strong>@{comment.user}</strong>
-                                    <span>{ratingStars(comment.rating)}</span>
-                                  </div>
-                                  <p>{comment.text}</p>
-                                  {comment.parent_id && comment.is_creator && (
-                                    <span className="label">
-                                      창작자 공식 답변
-                                    </span>
-                                  )}
+                              ).length === 0 ? (
+                                <div className="comment-empty">
+                                  첫 피드백을 등록해보세요
                                 </div>
-                              ))}
+                              ) : (
+                                comments
+                                  .filter(
+                                    (comment) =>
+                                      comment.clothing_id ===
+                                      detailItem.clothing?.id
+                                  )
+                                  .map((comment) => (
+                                    <div
+                                      key={comment.id}
+                                      className={`comment compact ${
+                                        comment.parent_id && comment.is_creator
+                                          ? "reply"
+                                          : ""
+                                      }`}
+                                    >
+                                      <span className="comment-rating">
+                                        {ratingStars(comment.rating)}
+                                      </span>
+                                      <div className="comment-body">
+                                        <div className="comment-meta">
+                                          <div className="comment-user">
+                                            <strong>@{comment.user}</strong>
+                                            {comment.parent_id &&
+                                              comment.is_creator && (
+                                                <span className="creator-badge">
+                                                  창작자
+                                                </span>
+                                              )}
+                                          </div>
+                                          <span className="comment-time">
+                                            {formatRelative(
+                                              comment.created_at || new Date()
+                                            )}
+                                          </span>
+                                        </div>
+                                        <span>{comment.text}</span>
+                                      </div>
+                                      <div className="comment-menu">
+                                        <button
+                                          type="button"
+                                          className="comment-menu-btn"
+                                          aria-label="Comment actions"
+                                          onClick={() =>
+                                            setCommentMenuId((prev) =>
+                                              prev === comment.id
+                                                ? null
+                                                : comment.id
+                                            )
+                                          }
+                                        >
+                                          ⋮
+                                        </button>
+                                        {commentMenuId === comment.id && (
+                                          <div className="comment-menu-pop">
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                setCommentDraft({
+                                                  rating: comment.rating,
+                                                  text: comment.text,
+                                                });
+                                                setEditingCommentId(comment.id);
+                                                setCommentMenuId(null);
+                                              }}
+                                            >
+                                              수정
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                setComments((prev) =>
+                                                  prev.filter(
+                                                    (item) =>
+                                                      item.id !== comment.id
+                                                  )
+                                                );
+                                                setCommentMenuId(null);
+                                              }}
+                                            >
+                                              삭제
+                                            </button>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))
+                              )}
+                            </div>
+                            <div className="comment-form compact">
+                              <div className="comment-input-row">
+                                <select
+                                  value={commentDraft.rating}
+                                  onChange={(event) =>
+                                    setCommentDraft((prev) => ({
+                                      ...prev,
+                                      rating: Number(event.target.value),
+                                    }))
+                                  }
+                                >
+                                  {[5, 4, 3, 2, 1].map((value) => (
+                                    <option key={value} value={value}>
+                                      {ratingStars(value)}
+                                    </option>
+                                  ))}
+                                </select>
+                                <input
+                                  value={commentDraft.text}
+                                  onChange={(event) =>
+                                    setCommentDraft((prev) => ({
+                                      ...prev,
+                                      text: event.target.value,
+                                    }))
+                                  }
+                                  placeholder="한 줄 피드백을 남겨주세요."
+                                />
+                              </div>
+                              <button
+                                type="button"
+                                className="primary"
+                                onClick={submitComment}
+                              >
+                                {editingCommentId ? "댓글 수정" : "댓글 등록"}
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
                   </div>
+                </div>
+              </div>
+            )}
+            {imagePreview && (
+              <div
+                className="image-modal"
+                role="dialog"
+                aria-modal="true"
+                onClick={() => setImagePreview(null)}
+              >
+                <div className="image-modal-content">
+                  <img src={imagePreview} alt="preview" />
                 </div>
               </div>
             )}
@@ -1034,22 +1587,55 @@ function App() {
 
             <div className="closet">
               <div className="closet-header">
-                <h2>Digital Closet</h2>
-                <span>{clothing.length} items</span>
+                <h2>My Closet</h2>
+                <span>{closetItems.length} items</span>
               </div>
               <div className="closet-grid">
-                {clothing.map((item) => (
+                {closetItems.map((item) => (
                   <div
                     key={item.id}
                     className={`closet-card ${
                       focusClothingId === item.id ? "selected" : ""
                     }`}
                   >
-                    <img src={item.design_img_url} alt={item.name} />
-                    <div>
-                      <strong>{item.name}</strong>
-                      <span>{item.category}</span>
-                    </div>
+                    <button
+                      type="button"
+                      className="closet-remove"
+                      aria-label="Remove from closet"
+                      onClick={() => {
+                        setFundings((prev) =>
+                          prev.map((funding) =>
+                            funding.clothing_id === item.id
+                              ? {
+                                  ...funding,
+                                  liked: false,
+                                  likes: Math.max(0, funding.likes - 1),
+                                }
+                              : funding
+                          )
+                        );
+                      }}
+                    >
+                      ×
+                    </button>
+                    <button
+                      type="button"
+                      className="closet-link"
+                      onClick={() => {
+                        const funding = fundings.find(
+                          (entry) => entry.clothing_id === item.id
+                        );
+                        if (!funding) return;
+                        setActiveTab("discover");
+                        setDetailItem({ funding, clothing: item });
+                        setDetailTab("overview");
+                      }}
+                    >
+                      <img src={item.design_img_url} alt={item.name} />
+                      <div>
+                        <strong>{item.name}</strong>
+                      </div>
+                    </button>
                     <button
                       type="button"
                       className="secondary"
@@ -1064,6 +1650,9 @@ function App() {
                     </button>
                   </div>
                 ))}
+                {closetItems.length === 0 && (
+                  <p className="closet-empty">좋아요한 아이템이 없습니다.</p>
+                )}
               </div>
             </div>
           </section>
@@ -1127,6 +1716,15 @@ function App() {
                 </div>
               </div>
             </div>
+          </section>
+        )}
+
+        {activeTab === "profile" && (
+          <section className="content">
+            <div className="page-title">
+              <h1>Profile</h1>
+              <p>프로필 설정과 피팅 이력을 관리합니다.</p>
+            </div>
 
             <div className="profile-grid">
               <div className="panel">
@@ -1176,4 +1774,3 @@ function App() {
 }
 
 export default App;
-
