@@ -226,10 +226,6 @@
   stroke-linejoin: round;
 }
 
-.nav-item:hover {
-  background: #f5f5f5;
-}
-
 .nav-item.active {
   background: #000000;
   color: #ffffff;
@@ -281,15 +277,15 @@
 }
 
 .top-logo img {
-  width: 100px;
-  height: 44px;
+  width: 200px;
+  height: 50px;
   object-fit: contain;
 }
 
 .search {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 3x;
   background: #ffffff;
   padding: 8px 12px;
   border-radius: 999px;
@@ -413,6 +409,7 @@
     padding 0.22s ease 0.12s, border-color 0.22s ease 0.12s;
   will-change: transform, opacity;
 }
+
 
 .notif-panel li.removing {
   opacity: 0;
@@ -594,9 +591,13 @@
   font-family: var(--font-display);
 }
 
+.page-title {
+  margin-bottom: 32px;
+}
+
 .page-title p {
   color: var(--muted);
-  margin-bottom: 30px;
+  margin-bottom: 0;
 }
 
 .feed-grid {
@@ -618,7 +619,7 @@
 
 .tag-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 16px;
   margin-bottom: 28px;
 }
@@ -626,6 +627,16 @@
 .tag-row .tag-group {
   margin-bottom: 0;
 }
+
+.tag-line {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  width: 100%;
+}
+
 
 .filter-wrap {
   margin-left: auto;
@@ -712,14 +723,28 @@
   box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.05);
 }
 
+.filter-reset {
+  border: 1px solid var(--border);
+  background: #ffffff;
+  color: #111111;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 11px;
+  cursor: pointer;
+  justify-self: flex-end;
+}
+
 .tag {
   border: 1px solid var(--border);
   background: #ffffff;
   color: #111111;
-  padding: 8px 18px;
+  padding: 8px 32px;
   border-radius: 999px;
   font-size: 13px;
   cursor: pointer;
+  position: relative;
+  padding-right: 30px;
+  text-align: center;
 }
 
 .tag.active {
@@ -727,6 +752,28 @@
   color: #ffffff;
   border-color: #000000;
 }
+
+.tag-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.tag-clear {
+  position: absolute;
+  top: 5px;
+  right: 13px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 12px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 
 .card {
   background: #ffffff;
@@ -1029,7 +1076,7 @@ button.ghost:hover {
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 24px;
+  padding: 40px;
   z-index: 10;
   animation: fade 0.2s ease;
 }
@@ -1037,37 +1084,53 @@ button.ghost:hover {
 .modal-content {
   background: #ffffff;
   border-radius: 20px;
-  max-width: 980px;
-  width: 100%;
-  padding: 24px;
+  max-width: 1200px; /* 아까 넓힌 크기 유지 */
+  width: 95%;
+  padding: 44px; /* 내부 여백 */
+  
   position: relative;
   display: flex;
   flex-direction: column;
-  height: 720px;
-  max-height: 80vh;
-}
 
+  /* ✨ 치트키: 이 한 줄이면 무조건 화면 정중앙으로 붕 뜹니다! */
+  margin: auto; 
+
+  /* 높이 설정 정리 (화면의 85%만큼만 커지게) */
+  height: 82vh; 
+  max-height: 90vh; /* 화면이 작아도 90%는 넘지 않게 안전장치 */
+
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+}
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 16px;
+  gap: 32px;
 }
-
 .modal-body {
   display: grid;
-  grid-template-columns: 1.1fr 1fr;
-  gap: 24px;
+  /* ✨ 핵심 1: 비율을 1:1로 고정해서 내용 양과 상관없이 위치 딱 맞춤 */
+  grid-template-columns: 1fr 1fr; 
+  gap: 40px; /* 사진과 글 사이 간격을 더 시원하게 (28px -> 40px) */
+  
   margin-top: 20px;
-  min-height: 520px;
   flex: 1;
   min-height: 0;
+  height: 100%;
+  overflow: hidden; /* 레이아웃 깨짐 방지 */
 }
 
 .detail-media {
   position: relative;
-  height: 520px;
+  height: 100%;
+  max-height: 100%;
   overflow: hidden;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  background: #f7f7f7;
+  padding: 16px;
 }
 
 .modal-body img {
@@ -1081,16 +1144,21 @@ button.ghost:hover {
   border: none;
   background: transparent;
   padding: 0;
-  width: 100%;
+  width: min(70%, 360px);
   height: 100%;
+  aspect-ratio: 3 / 4;
   cursor: zoom-in;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 6px;
 }
 
 .detail-media-btn img {
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .floating-tryon {
@@ -1131,16 +1199,24 @@ button.ghost:hover {
   background: #111111;
 }
 
-.modal-body > div {
+.detail-scroll {
   height: 100%;
+  min-height: 0;
   overflow-y: auto;
-  padding-right: 6px;
+  padding-right: 10px;
+  padding-bottom: 40px;
+}
+
+.detail-scroll .detail-block {
+  padding: 8px 0 24px;
+  gap: 22px;
+  overflow: visible;
 }
 
 .close {
   position: absolute;
-  top: 12px;
-  right: 16px;
+  top: 32px;
+  right: 32px;
   border: none;
   background: none;
   font-size: 24px;
@@ -1149,8 +1225,20 @@ button.ghost:hover {
 
 .pill-group {
   display: flex;
-  gap: 8px;
+  gap: 16px;
   flex-wrap: wrap;
+}
+
+.modal-header .pill {
+  width: 92px;
+  height: 28px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  font-weight: 500;
+  overflow-y: auto;
 }
 
 .pill {
@@ -1167,18 +1255,65 @@ button.ghost:hover {
   border-color: #000000;
 }
 
+/* --- App.css의 .detail-block 수정 --- */
 .detail-block {
   display: flex;
   flex-direction: column;
-  height: 100%;
-
-  min-height: 480px;
+  min-height: 0;
+  justify-content: flex-start;
+  padding: 8px 0 24px;
   gap: 22px;
+}
+
+.detail-mode-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.design-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 14px;
+  background: #fafafa;
+}
+
+.design-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.design-canvas-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+
+.design-canvas {
+  width: 100%;
+  max-width: 520px;
+  height: 320px;
+  border-radius: 14px;
+  border: 1px dashed var(--border);
+  background: #ffffff;
+  cursor: crosshair;
+}
+
+.design-hint {
+  font-size: 12px;
+  color: var(--muted);
 }
 
 .detail-block p {
   line-height: 1.7;
 }
+
 
 .detail-title-row {
   display: flex;
@@ -1187,17 +1322,50 @@ button.ghost:hover {
   gap: 12px;
 }
 
+.price-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.price-row > div {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.price-like-row {
+  justify-content: flex-end;
+}
+
+.price-row .like-count-inline {
+  align-self: flex-end;
+}
+
+.price-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.price-strong {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
 .detail-metrics {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
   font-size: 12px;
 }
 
 .detail-metrics div {
   border: 1px solid var(--border);
   border-radius: 16px;
-  padding: 12px;
+  padding: 10px;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -1206,13 +1374,13 @@ button.ghost:hover {
 .spec-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
 }
 
 .spec-grid div {
   border: 1px solid var(--border);
   border-radius: 16px;
-  padding: 12px;
+  padding: 10px;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -1247,7 +1415,7 @@ button.ghost:hover {
 
 .spec-track {
   height: 4px;
-  background: #d9d9d9;
+  background: #e6e6e6;
   border-radius: 999px;
   overflow: hidden;
 }
@@ -1605,7 +1773,7 @@ button.ghost:hover {
 .fitting-layout {
   display: grid;
   grid-template-columns: 1.1fr 0.9fr;
-  gap: 18px;
+  gap: 28px;
   margin-bottom: 20px;
 }
 
@@ -1796,8 +1964,7 @@ button.ghost:hover {
 .portfolio-grid {
   display: grid;
   grid-template-columns: 1.2fr 0.8fr;
-  gap: 18px;
-  margin-top: 28px;
+  gap: 28px;
   margin-bottom: 18px;
 }
 
@@ -1892,8 +2059,7 @@ button.ghost:hover {
 .profile-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 18px;
-  margin-top: 28px;
+  gap: 28px;
 }
 
 .measurement-grid {
@@ -2011,6 +2177,62 @@ button.ghost:hover {
   }
 
   .modal-content {
-    padding: 16px;
+    padding: 30px;
   }
 }
+
+/* --- 여기서부터 App.css 맨 아래에 복사해서 붙여넣으세요 --- */
+
+/* 1. 카드 전체 모양 */
+.spec-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0;
+  /* 기존에 있던 다른 spec-card 스타일은 무시하고 이걸로 덮어씌워짐 */
+}
+
+/* 2. 라벨(신축성)과 점수(5/10)를 양옆으로 배치 */
+.spec-card-head {
+  display: flex;
+  justify-content: space-between; /* 양끝 정렬 핵심! */
+  align-items: center;
+  margin-bottom: 8px; /* 막대바랑 간격 띄우기 */
+}
+
+/* 3. 글자 색상 꾸미기 */
+.spec-label {
+  font-size: 13px;
+  color: var(--muted); /* 회색 */
+}
+
+.spec-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink); /* 검정 */
+}
+
+/* 4. 막대 그래프 (회색 배경) */
+.detail-bar-track {
+  width: 100%;
+  height: 6px;
+  background: #e6e6e6;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+/* 5. 막대 그래프 (검은색 채움) */
+.detail-bar-fill {
+  height: 100%;
+  background: #111111;
+  border-radius: 10px;
+  transition: width 0.5s ease;
+}
+
+/* 다크모드일 때 글자색 하얗게 */
+.app.dark .spec-value { color: #ffffff; }
+.app.dark .detail-bar-track { background: #333; }
+.app.dark .detail-bar-fill { background: #fff; }
+.app.dark .spec-track { background: #333; }
+.app.dark .spec-fill { background: #fff; }
+/* --- 모달 디자인 긴급 수정 (여기서부터 복사하세요) --- */

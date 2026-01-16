@@ -336,7 +336,8 @@ const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 function App() {
   const [activeTab, setActiveTab] = useState("discover");
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [selectedCategory, setSelectedCategory] = useState("All");
+  const [selectedMainCategory, setSelectedMainCategory] = useState("All");
+  const [selectedSubCategory, setSelectedSubCategory] = useState("All");
   const [selectedGender, setSelectedGender] = useState("All");
   const [selectedStyle, setSelectedStyle] = useState("All");
   const [filterOpen, setFilterOpen] = useState(false);
@@ -385,6 +386,7 @@ function App() {
   const [editingCommentId, setEditingCommentId] = useState(null);
   const [commentMenuId, setCommentMenuId] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const [designCategory, setDesignCategory] = useState("상의");
 
   const fundingsFeed = useMemo(() => {
     return [...fundings]
@@ -408,6 +410,18 @@ function App() {
     }, {});
   }, [clothing]);
 
+  const categoryToMain = useMemo(
+    () => ({
+      Knit: "Tops",
+      Jacket: "Outer",
+      Outerwear: "Outer",
+      Coat: "Outer",
+      Dress: "Dress",
+      Concept: "Tops",
+    }),
+    []
+  );
+
   const categories = useMemo(() => {
     const set = new Set();
     fundingsFeed.forEach((item) => {
@@ -416,20 +430,47 @@ function App() {
         set.add(category);
       }
     });
-    return ["All", ...Array.from(set)];
+    return Array.from(set);
   }, [fundingsFeed, clothingMap]);
+
+  const mainCategories = useMemo(
+    () => ["All", "Tops", "Outer", "Bottoms", "Dress"],
+    []
+  );
+  const mainCategoryLabels = useMemo(
+    () => ({
+      All: "전체",
+      Tops: "상의",
+      Outer: "아우터",
+      Bottoms: "하의",
+      Dress: "원피스",
+    }),
+    []
+  );
+
+  const subCategories = useMemo(() => {
+    const filtered = categories.filter((category) => {
+      if (selectedMainCategory === "All") return true;
+      const mapped = categoryToMain[category] || "Tops";
+      return mapped === selectedMainCategory;
+    });
+    return ["All", ...filtered];
+  }, [categories, selectedMainCategory, categoryToMain]);
 
   const filteredFundings = useMemo(() => {
     const filtered = fundingsFeed.filter((item) => {
       const cloth = clothingMap[item.clothing_id];
       if (!cloth) return false;
-      const matchesCategory =
-        selectedCategory === "All" || cloth.category === selectedCategory;
+      const mappedMain = categoryToMain[cloth.category] || "Tops";
+      const matchesMain =
+        selectedMainCategory === "All" || mappedMain === selectedMainCategory;
+      const matchesSub =
+        selectedSubCategory === "All" || cloth.category === selectedSubCategory;
       const matchesGender =
         selectedGender === "All" || cloth.gender === selectedGender;
       const matchesStyle =
         selectedStyle === "All" || cloth.style === selectedStyle;
-      return matchesCategory && matchesGender && matchesStyle;
+      return matchesMain && matchesSub && matchesGender && matchesStyle;
     });
     const sorted = [...filtered];
     switch (selectedSort) {
@@ -449,7 +490,8 @@ function App() {
   }, [
     fundingsFeed,
     clothingMap,
-    selectedCategory,
+    selectedMainCategory,
+    selectedSubCategory,
     selectedGender,
     selectedStyle,
     selectedSort,
@@ -642,8 +684,38 @@ function App() {
       )
     : 0;
 
+  const handleCanvasDraw = (event) => {
+    const canvas = event.currentTarget;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.lineWidth = 3;
+    ctx.lineCap = "round";
+    ctx.strokeStyle = "#111111";
+    const rect = canvas.getBoundingClientRect();
+    const startX = event.clientX - rect.left;
+    const startY = event.clientY - rect.top;
+    ctx.beginPath();
+    ctx.moveTo(startX, startY);
+
+    const draw = (moveEvent) => {
+      const x = moveEvent.clientX - rect.left;
+      const y = moveEvent.clientY - rect.top;
+      ctx.lineTo(x, y);
+      ctx.stroke();
+    };
+
+    const stop = () => {
+      window.removeEventListener("mousemove", draw);
+      window.removeEventListener("mouseup", stop);
+    };
+
+    window.addEventListener("mousemove", draw);
+    window.addEventListener("mouseup", stop);
+  };
+
   const resetFilters = () => {
-    setSelectedCategory("All");
+    setSelectedMainCategory("All");
+    setSelectedSubCategory("All");
     setSelectedGender("All");
     setSelectedStyle("All");
     setFilterOpen(false);
@@ -719,13 +791,12 @@ function App() {
           ))}
         </nav>
         <div className="sidebar-footer">
-          <p className="caption">Black / White minimal</p>
           <button
             className="ghost"
             type="button"
             onClick={() => setDarkMode((prev) => !prev)}
           >
-            <span className="nav-label">Settings</span>
+            <span className="nav-label">Mode</span>
           </button>
         </div>
       </aside>
@@ -743,7 +814,7 @@ function App() {
             }}
             aria-label="Go to Discover"
           >
-            <img src="/logo.png" alt="Motif logo" />
+            <img src="/logo2.png" alt="Motif logo" />
           </button>
           <div className="search">
             <input
@@ -848,19 +919,77 @@ function App() {
             </div>
 
             <div className="tag-row">
-              <div className="tag-group">
-                {categories.map((category) => (
-                  <button
-                    key={category}
-                    type="button"
-                    className={`tag ${
-                      selectedCategory === category ? "active" : ""
-                    }`}
-                    onClick={() => setSelectedCategory(category)}
-                  >
-                    {category}
-                  </button>
-                ))}
+              <div className="tag-line">
+                {selectedMainCategory === "All" ? (
+                  <div className="tag-group">
+                    {mainCategories.map((category) => (
+                      <button
+                        key={category}
+                        type="button"
+                        className={`tag ${
+                          selectedMainCategory === category ? "active" : ""
+                        }`}
+                        onClick={() => {
+                          setSelectedMainCategory(category);
+                          setSelectedSubCategory("All");
+                        }}
+                      >
+                        {mainCategoryLabels[category]}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="tag-group">
+                    <button
+                      type="button"
+                      className="tag active"
+                      onClick={() => setSelectedSubCategory("All")}
+                    >
+                      <span className="tag-label">
+                        {mainCategoryLabels[selectedMainCategory]}
+                      </span>
+                      <span
+                        className="tag-clear"
+                        role="button"
+                        aria-label="Clear main category"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setSelectedMainCategory("All");
+                          setSelectedSubCategory("All");
+                        }}
+                      >
+                        ×
+                      </span>
+                    </button>
+                    {subCategories
+                      .filter((category) => category !== "All")
+                      .map((category) => (
+                        <button
+                          key={category}
+                          type="button"
+                          className={`tag ${
+                            selectedSubCategory === category ? "active" : ""
+                          }`}
+                          onClick={() => setSelectedSubCategory(category)}
+                        >
+                          <span className="tag-label">{category}</span>
+                          {selectedSubCategory === category && (
+                            <span
+                              className="tag-clear"
+                              role="button"
+                              aria-label="Clear sub category"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setSelectedSubCategory("All");
+                              }}
+                            >
+                              ×
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                  </div>
+                )}
               </div>
               <div className="filter-wrap">
                 <select
@@ -921,6 +1050,13 @@ function App() {
                         ))}
                       </select>
                     </label>
+                    <button
+                      className="filter-reset"
+                      type="button"
+                      onClick={resetFilters}
+                    >
+                      초기화
+                    </button>
                   </div>
                 )}
               </div>
@@ -1061,11 +1197,11 @@ function App() {
                           Fitting
                         </button>
                       </div>
-                      <div>
+                      <div className="detail-scroll">
                         {detailTab === "overview" && (
                           <div className="detail-block">
                             <div className="price-row">
-                              <div>
+                              <div className="price-main">
                                 <span className="price-label">Price</span>
                                 <strong className="price-strong">
                                   {currency.format(
@@ -1073,53 +1209,27 @@ function App() {
                                   )}
                                 </strong>
                               </div>
-                              <button
-                                type="button"
-                                className={`like-count-inline subtle ${
-                                  detailItem.funding.liked ? "liked" : ""
-                                }`}
-                                aria-label="Likes"
-                                onClick={() =>
-                                  handleLike(detailItem.funding.id)
-                                }
-                              >
-                                <Heart size={14} strokeWidth={1.6} />
-                                {detailItem.funding.likes}
-                              </button>
+                              <div className="price-like-row">
+                                <button
+                                  type="button"
+                                  className={`like-count-inline subtle ${
+                                    detailItem.funding.liked ? "liked" : ""
+                                  }`}
+                                  aria-label="Likes"
+                                  onClick={() =>
+                                    handleLike(detailItem.funding.id)
+                                  }
+                                >
+                                  <Heart size={14} strokeWidth={1.6} />
+                                  {detailItem.funding.likes}
+                                </button>
+                              </div>
                             </div>
                             <h4>옷 세부내용</h4>
                             <p>
                               {detailItem.clothing?.name}은(는) 절제된 실루엣과
                               깔끔한 마감으로 일상과 포멀 모두에 어울립니다.
                             </p>
-                            <div
-                              style={{
-                                display: "flex",
-                                flexDirection: "column",
-                                gap: "8px",
-                              }}
-                            >
-                              <div
-                                style={{
-                                  display: "flex",
-                                  justifyContent: "space-between",
-                                  alignItems: "center",
-                                }}
-                              >
-                                <span>진행도</span>
-                                <strong style={{ fontSize: "14px" }}>
-                                  {detailProgress}%
-                                </strong>
-                              </div>
-
-                              {/* 막대 그래프 (게이지) */}
-                              <div className="detail-bar-track">
-                                <div
-                                  className="detail-bar-fill"
-                                  style={{ width: `${detailProgress}%` }}
-                                />
-                              </div>
-                            </div>
                             <div className="spec-grid">
                               <div>
                                 <span>소재</span>
@@ -1138,29 +1248,23 @@ function App() {
                                 <strong>XS - XL</strong>
                               </div>
                             </div>
-                            <div className="spec-grid">
+                            <div className="spec-bar">
                               {[
                                 { label: "신축성", value: fabric.stretch },
                                 { label: "무게감", value: fabric.weight },
                                 { label: "탄탄함", value: fabric.stiffness },
                               ].map((item) => (
-                                <div className="spec-card" key={item.label}>
-                                  <div className="spec-card-head">
-                                    <span className="spec-label">
-                                      {item.label}
-                                    </span>
-                                    <strong className="spec-value">
-                                      {item.value}/10
-                                    </strong>
-                                  </div>
-                                  <div className="detail-bar-track">
+                                <div className="spec-bar-row" key={item.label}>
+                                  <span>{item.label}</span>
+                                  <div className="spec-track">
                                     <div
-                                      className="detail-bar-fill"
+                                      className="spec-fill"
                                       style={{
                                         width: `${(item.value / 10) * 100}%`,
                                       }}
                                     />
                                   </div>
+                                  <strong>{item.value}/10</strong>
                                 </div>
                               ))}
                             </div>
@@ -1178,22 +1282,13 @@ function App() {
                             </p>
                             <div className="story-meta">
                               <div className="story-row">
-                                <span>목표 금액</span>
+                                <span>목표/현재</span>
                                 <strong>
+                                  목표{" "}
                                   {currency.format(
                                     detailItem.funding.goal_amount
-                                  )}
-                                </strong>
-                                <div className="story-bar">
-                                  <div
-                                    className="story-fill"
-                                    style={{ width: "100%" }}
-                                  />
-                                </div>
-                              </div>
-                              <div className="story-row">
-                                <span>현재 모집</span>
-                                <strong>
+                                  )}{" "}
+                                  · 현재{" "}
                                   {currency.format(
                                     detailItem.funding.current_amount
                                   )}
@@ -1203,6 +1298,9 @@ function App() {
                                     className="story-fill"
                                     style={{ width: `${detailProgress}%` }}
                                   />
+                                  <span className="story-percent">
+                                    {detailProgress}%
+                                  </span>
                                 </div>
                               </div>
                             </div>
@@ -1450,6 +1548,37 @@ function App() {
                         }
                       </p>
                       <p>Layer Order: Base → Mid → Outer</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="subsection">
+                  <h4>디자인 모드</h4>
+                  <div className="design-panel">
+                    <div className="design-tabs">
+                      {["상의", "하의", "아우터", "원피스"].map((category) => (
+                        <button
+                          key={category}
+                          type="button"
+                          className={`pill ${
+                            designCategory === category ? "active" : ""
+                          }`}
+                          onClick={() => setDesignCategory(category)}
+                        >
+                          {category}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="design-canvas-wrap">
+                      <canvas
+                        className="design-canvas"
+                        width="520"
+                        height="380"
+                        onMouseDown={handleCanvasDraw}
+                        aria-label="Design canvas"
+                      />
+                      <p className="design-hint">
+                        {designCategory} 실루엣을 드로잉하세요.
+                      </p>
                     </div>
                   </div>
                 </div>
