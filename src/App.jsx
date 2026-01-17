@@ -1,6 +1,23 @@
 ﻿import { useEffect, useMemo, useState } from "react";
 import "./App.css";
 import {
+  initialClothing,
+  initialFunding,
+  initialComments,
+  mannequins,
+  initialInvestments,
+  initialBrands,
+  userBase,
+  initialFittingHistory,
+  brandProfiles as initialBrandProfiles,
+} from "./data/seedData";
+import {
+  currency,
+  formatDate,
+  formatRelative,
+  clamp,
+} from "./utils/formatters";
+import {
   Heart,
   Menu,
   Search,
@@ -9,329 +26,8 @@ import {
   BarChart3,
   Filter,
   User,
+  Pencil,
 } from "lucide-react";
-
-const initialClothing = [
-  {
-    id: 1,
-    name: "Sky Knit Pullover",
-    category: "Knit",
-    gender: "Womens",
-    style: "Minimal",
-    price: 129000,
-    design_img_url: "/image1.jpeg",
-    size_specs: { shoulder: 46, chest: 104, waist: 90 },
-  },
-  {
-    id: 2,
-    name: "Rose Short Jacket",
-    category: "Jacket",
-    gender: "Womens",
-    style: "Romantic",
-    price: 189000,
-    design_img_url: "/image2.jpeg",
-    size_specs: { shoulder: 42, chest: 96, waist: 86 },
-  },
-  {
-    id: 3,
-    name: "Chestnut Blazer",
-    category: "Jacket",
-    gender: "Mens",
-    style: "Classic",
-    price: 219000,
-    design_img_url: "/image3.jpeg",
-    size_specs: { shoulder: 44, chest: 102, waist: 92 },
-  },
-  {
-    id: 4,
-    name: "Oat Knit Sweater",
-    category: "Knit",
-    gender: "Unisex",
-    style: "Minimal",
-    price: 149000,
-    design_img_url: "/image4.jpeg",
-    size_specs: { shoulder: 48, chest: 106, waist: 94 },
-  },
-  {
-    id: 5,
-    name: "Midnight Puffer",
-    category: "Outerwear",
-    gender: "Unisex",
-    style: "Street",
-    price: 279000,
-    design_img_url: "/image5.jpeg",
-    size_specs: { shoulder: 50, chest: 114, waist: 106 },
-  },
-  {
-    id: 6,
-    name: "Cloud Belt Coat",
-    category: "Coat",
-    gender: "Womens",
-    style: "Classic",
-    price: 249000,
-    design_img_url: "/image6.png",
-    size_specs: { shoulder: 46, chest: 108, waist: 100 },
-  },
-  {
-    id: 7,
-    name: "Ink Slip Dress",
-    category: "Dress",
-    gender: "Womens",
-    style: "Romantic",
-    price: 159000,
-    design_img_url: "/image7.png",
-    size_specs: { shoulder: 36, chest: 82, waist: 66 },
-  },
-];
-
-const initialFunding = [
-  {
-    id: 1,
-    clothing_id: 1,
-    brand: "SKYLINE",
-    designer_handle: "@skyline.designer",
-    participant_count: 234,
-    likes: 128,
-    liked: false,
-    status: "FUNDING",
-    goal_amount: 2200000,
-    current_amount: 860000,
-    created_at: "2026-02-04",
-  },
-  {
-    id: 2,
-    clothing_id: 2,
-    brand: "ROSE FORM",
-    designer_handle: "@rose.form",
-    participant_count: 312,
-    likes: 256,
-    liked: false,
-    status: "FUNDING",
-    goal_amount: 2600000,
-    current_amount: 1120000,
-    created_at: "2026-02-03",
-  },
-  {
-    id: 3,
-    clothing_id: 3,
-    brand: "CHESTNUT LAB",
-    designer_handle: "@chestnut.lab",
-    participant_count: 198,
-    likes: 94,
-    liked: false,
-    status: "FUNDING",
-    goal_amount: 3200000,
-    current_amount: 980000,
-    created_at: "2026-02-02",
-  },
-  {
-    id: 4,
-    clothing_id: 4,
-    brand: "OAT EDITION",
-    designer_handle: "@oat.edition",
-    participant_count: 156,
-    likes: 73,
-    liked: false,
-    status: "FUNDING",
-    goal_amount: 1800000,
-    current_amount: 760000,
-    created_at: "2026-02-01",
-  },
-  {
-    id: 5,
-    clothing_id: 5,
-    brand: "MIDNIGHT",
-    designer_handle: "@midnight.lab",
-    participant_count: 421,
-    likes: 312,
-    liked: false,
-    status: "FUNDING",
-    goal_amount: 4800000,
-    current_amount: 2140000,
-    created_at: "2026-01-30",
-  },
-  {
-    id: 6,
-    clothing_id: 6,
-    brand: "CLOUD LINE",
-    designer_handle: "@cloud.line",
-    participant_count: 289,
-    likes: 188,
-    liked: false,
-    status: "FUNDING",
-    goal_amount: 5400000,
-    current_amount: 2460000,
-    created_at: "2026-01-28",
-  },
-  {
-    id: 7,
-    clothing_id: 7,
-    brand: "INK ATELIER",
-    designer_handle: "@ink.atelier",
-    participant_count: 173,
-    likes: 142,
-    liked: false,
-    status: "FUNDING",
-    goal_amount: 2100000,
-    current_amount: 940000,
-    created_at: "2026-01-26",
-  },
-];
-
-const initialComments = [
-  {
-    id: 1,
-    clothing_id: 2,
-    user: "tester.one",
-    rating: 5,
-    text: "테스트 코멘트입니다. 핏이 괜찮아요.",
-    created_at: "2026-02-03",
-    parent_id: null,
-    is_creator: false,
-  },
-  {
-    id: 2,
-    clothing_id: 2,
-    user: "creator.test",
-    rating: 5,
-    text: "테스트 답변입니다. 의견 감사합니다.",
-    created_at: "2026-02-03",
-    parent_id: 1,
-    is_creator: true,
-  },
-  {
-    id: 3,
-    clothing_id: 3,
-    user: "tester.two",
-    rating: 4,
-    text: "허리 라인을 조금 수정하면 좋겠습니다.",
-    created_at: "2026-02-02",
-    parent_id: null,
-    is_creator: false,
-  },
-  {
-    id: 4,
-    clothing_id: 3,
-    user: "creator.test",
-    rating: 5,
-    text: "다음 샘플에서 반영하겠습니다.",
-    created_at: "2026-02-02",
-    parent_id: 3,
-    is_creator: true,
-  },
-];
-
-const mannequins = [
-  { id: "slim", label: "Slim", desc: "긴 실루엣, 얇은 어깨" },
-  { id: "athletic", label: "Athletic", desc: "균형 잡힌 체형" },
-  { id: "plus", label: "Plus-size", desc: "볼륨감 강조" },
-];
-
-const initialInvestments = [
-  {
-    id: 1,
-    brand: "TEST STUDIO",
-    amount: 150000,
-    status: "성공 - 제작 중",
-    eta: "2026-02-20",
-  },
-  {
-    id: 2,
-    brand: "TEST ESSENCE",
-    amount: 90000,
-    status: "배송 준비",
-    eta: "2026-02-10",
-  },
-  {
-    id: 3,
-    brand: "TEST HERITAGE",
-    amount: 240000,
-    status: "배송 완료",
-    eta: "2026-01-05",
-  },
-];
-
-const initialBrands = [
-  {
-    id: 1,
-    brand: "TEST ATELIER",
-    participantCount: 72,
-    currentCoin: 980000,
-    production_note: "테스트 메모: 원단 수급 중",
-    progress: 0.58,
-  },
-  {
-    id: 2,
-    brand: "TEST LAB",
-    participantCount: 34,
-    currentCoin: 420000,
-    production_note: "테스트 메모: 샘플 제작",
-    progress: 0.32,
-  },
-];
-
-const userBase = {
-  name: "Test User",
-  handle: "@test.user",
-  followerCount: 128,
-  followingCount: 64,
-  base_photo_url: "/image1.jpg",
-  measurements: {
-    shoulderWidth: 41,
-    chestCircum: 86,
-    waistCircum: 64,
-    hipCircum: 90,
-  },
-  bodyTypeLabel: "Athletic",
-  updatedAt: "2026-01-14",
-};
-
-const initialFittingHistory = [
-  {
-    id: 1,
-    title: "Layering Set 01",
-    image: "/image2.jpg",
-    date: "2026-01-10",
-  },
-  {
-    id: 2,
-    title: "Minimal Study",
-    image: "/image3.jpg",
-    date: "2026-01-08",
-  },
-];
-
-const currency = new Intl.NumberFormat("ko-KR");
-
-const ratingStars = (rating) =>
-  `${"★".repeat(rating)}${"☆".repeat(Math.max(0, 5 - rating))}`;
-
-const formatDate = (value) => {
-  const date = new Date(value);
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
-    2,
-    "0"
-  )}-${String(date.getDate()).padStart(2, "0")}`;
-};
-
-const formatRelative = (value) => {
-  const now = Date.now();
-  const then = new Date(value).getTime();
-  const diffMs = Math.max(0, now - then);
-  const minutes = Math.floor(diffMs / 60000);
-  if (minutes < 1) return "방금 전";
-  if (minutes < 60) return `${minutes}분 전`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}시간 전`;
-  const days = Math.floor(hours / 24);
-  if (days < 30) return `${days}일 전`;
-  const months = Math.floor(days / 30);
-  if (months < 12) return `${months}개월 전`;
-  const years = Math.floor(months / 12);
-  return `${years}년 전`;
-};
-
-const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
 function App() {
   const [activeTab, setActiveTab] = useState("discover");
@@ -365,18 +61,39 @@ function App() {
   const [userProfile, setUserProfile] = useState(userBase);
   const [brands, setBrands] = useState(initialBrands);
   const [notificationOpen, setNotificationOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [selectedBrandKey, setSelectedBrandKey] = useState(null);
+  const [followedBrands, setFollowedBrands] = useState([]);
+  const [brandProfiles, setBrandProfiles] = useState(initialBrandProfiles);
+  const [fittingAlbumOpen, setFittingAlbumOpen] = useState(false);
+  const [portfolioTab, setPortfolioTab] = useState("investee");
+  const [investments, setInvestments] = useState(initialInvestments);
+  const [isProfileEditing, setIsProfileEditing] = useState(false);
+  const [brandEditing, setBrandEditing] = useState(false);
+  const [portfolioListOpen, setPortfolioListOpen] = useState(null);
+  const [myBrandDetails, setMyBrandDetails] = useState({
+    brand: brand.name.toUpperCase(),
+    handle: "@motif.studio",
+    bio: "브랜드 소개를 추가해보세요.",
+    location: "Seoul",
+    logoUrl: "/logo.png",
+  });
+  const [introOpen, setIntroOpen] = useState(true);
   const [notifications, setNotifications] = useState([
     {
       id: 1,
       title: "New feedback",
       message: "@rose.form sent a comment.",
       removing: false,
+      target: { type: "feedback", clothingId: 2 },
     },
     {
       id: 2,
       title: "Funding update",
       message: "OAT EDITION reached 70%.",
       removing: false,
+      target: { type: "detail", clothingId: 4 },
     },
   ]);
   const [commentDraft, setCommentDraft] = useState({
@@ -409,6 +126,144 @@ function App() {
       return map;
     }, {});
   }, [clothing]);
+
+  const brandProfileMap = useMemo(() => {
+    return brandProfiles.reduce((map, profile) => {
+      map[profile.brand.toLowerCase()] = profile;
+      map[profile.handle.toLowerCase()] = profile;
+      return map;
+    }, {});
+  }, [brandProfiles]);
+
+  const followerSeries = useMemo(
+    () => [
+      { date: "2024-01", value: 42 },
+      { date: "2024-02", value: 58 },
+      { date: "2024-03", value: 67 },
+      { date: "2024-04", value: 84 },
+      { date: "2024-05", value: 96 },
+      { date: "2024-06", value: 112 },
+      { date: "2024-07", value: 138 },
+      { date: "2024-08", value: 165 },
+      { date: "2024-09", value: 192 },
+      { date: "2024-10", value: 214 },
+    ],
+    []
+  );
+  const followerValues = useMemo(
+    () => followerSeries.map((item) => item.value),
+    [followerSeries]
+  );
+  const followerChartWidth = useMemo(
+    () => Math.max(360, (followerSeries.length - 1) * 90),
+    [followerSeries.length]
+  );
+  const followerChartStep = useMemo(
+    () => followerChartWidth / Math.max(1, followerSeries.length - 1),
+    [followerChartWidth, followerSeries.length]
+  );
+  const followerChartPoints = useMemo(() => {
+    const height = 120;
+    const max = Math.max(...followerValues);
+    const min = Math.min(...followerValues);
+    return followerValues
+      .map((value, index) => {
+        const x = index * followerChartStep;
+        const y = height - ((value - min) / Math.max(1, max - min)) * height;
+        return `${x},${y}`;
+      })
+      .join(" ");
+  }, [followerChartStep, followerValues]);
+  const followerTicks = useMemo(() => {
+    const max = Math.max(...followerValues);
+    const min = Math.min(...followerValues);
+    const mid = Math.round((max + min) / 2);
+    return [max, mid, min];
+  }, [followerValues]);
+
+  const currentFollowerCount =
+    followerSeries[followerSeries.length - 1]?.value || 0;
+  const followingCount = followedBrands.length;
+
+  const selectedBrandProfile = useMemo(() => {
+    if (!selectedBrandKey) return null;
+    if (
+      selectedBrandKey === myBrandDetails.handle ||
+      selectedBrandKey === myBrandDetails.brand
+    ) {
+      return {
+        id: "my-brand",
+        brand: myBrandDetails.brand,
+        handle: myBrandDetails.handle,
+        followerCount: currentFollowerCount,
+        followingCount,
+        bio: myBrandDetails.bio,
+        location: myBrandDetails.location,
+      };
+    }
+    return (
+      brandProfiles.find(
+        (profile) =>
+          profile.handle === selectedBrandKey ||
+          profile.brand === selectedBrandKey
+      ) || null
+    );
+  }, [
+    brandProfiles,
+    currentFollowerCount,
+    followingCount,
+    myBrandDetails,
+    selectedBrandKey,
+  ]);
+
+  const searchResults = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return [];
+    const handleQuery = query.startsWith("@") ? query.slice(1) : query;
+    const results = [];
+
+    clothing.forEach((item) => {
+      if (item.name.toLowerCase().includes(query)) {
+        const funding = fundings.find((entry) => entry.clothing_id === item.id);
+        results.push({
+          type: "item",
+          label: item.name,
+          sublabel: funding?.brand || "",
+          clothingId: item.id,
+        });
+      }
+    });
+
+    const seenBrands = new Set();
+    fundings.forEach((entry) => {
+      const brandKey = entry.brand.toLowerCase();
+      const handleKey = entry.designer_handle?.toLowerCase() || "";
+      const matchesBrand = brandKey.includes(query);
+      const matchesHandle =
+        handleKey.includes(handleQuery) || handleKey.includes(query);
+      if ((matchesBrand || matchesHandle) && !seenBrands.has(brandKey)) {
+        const profile = brandProfileMap[brandKey] ||
+          brandProfileMap[handleKey] || {
+            id: brandKey,
+            brand: entry.brand,
+            handle: entry.designer_handle,
+            followerCount: 0,
+            followingCount: 0,
+            bio: "브랜드 프로필이 준비 중입니다.",
+            location: "Seoul",
+          };
+        results.push({
+          type: "brand",
+          label: profile.brand,
+          sublabel: profile.handle,
+          profile,
+        });
+        seenBrands.add(brandKey);
+      }
+    });
+
+    return results.slice(0, 6);
+  }, [brandProfileMap, clothing, fundings, searchQuery]);
 
   const categoryToMain = useMemo(
     () => ({
@@ -490,6 +345,7 @@ function App() {
   }, [
     fundingsFeed,
     clothingMap,
+    categoryToMain,
     selectedMainCategory,
     selectedSubCategory,
     selectedGender,
@@ -634,6 +490,14 @@ function App() {
     }));
   };
 
+  const updateProfileField = (key, value) => {
+    setUserProfile((prev) => ({
+      ...prev,
+      [key]: value,
+      updatedAt: formatDate(new Date()),
+    }));
+  };
+
   const updateNote = (brandId, value) => {
     setBrands((prev) =>
       prev.map((item) =>
@@ -684,6 +548,54 @@ function App() {
       )
     : 0;
 
+  const myBrandProfile = useMemo(
+    () => ({
+      id: "my-brand",
+      brand: myBrandDetails.brand,
+      handle: myBrandDetails.handle,
+      followerCount: currentFollowerCount,
+      followingCount,
+      bio: myBrandDetails.bio,
+      location: myBrandDetails.location,
+    }),
+    [currentFollowerCount, followingCount, myBrandDetails]
+  );
+
+  const followerProfiles = useMemo(
+    () => [
+      { handle: "@atelier.sen", name: "Atelier Sen" },
+      { handle: "@nordic.label", name: "Nordic Label" },
+      { handle: "@mono.city", name: "Mono City" },
+      { handle: "@pureform.lab", name: "Pureform Lab" },
+      { handle: "@linen.work", name: "Linen Work" },
+      { handle: "@crest.tailor", name: "Crest Tailor" },
+      { handle: "@dusty.hues", name: "Dusty Hues" },
+      { handle: "@studio.mono", name: "Studio Mono" },
+      { handle: "@flow.archive", name: "Flow Archive" },
+      { handle: "@quiet.room", name: "Quiet Room" },
+    ],
+    []
+  );
+
+  const followingProfiles = useMemo(
+    () =>
+      brandProfiles.filter((profile) =>
+        followedBrands.includes(profile.handle)
+      ),
+    [brandProfiles, followedBrands]
+  );
+
+  const brandFeed = useMemo(() => {
+    if (!selectedBrandProfile) return [];
+    return fundings
+      .filter((entry) => entry.brand === selectedBrandProfile.brand)
+      .map((entry) => ({
+        funding: entry,
+        clothing: clothingMap[entry.clothing_id],
+      }))
+      .filter((entry) => entry.clothing);
+  }, [clothingMap, fundings, selectedBrandProfile]);
+
   const handleCanvasDraw = (event) => {
     const canvas = event.currentTarget;
     const ctx = canvas.getContext("2d");
@@ -725,12 +637,167 @@ function App() {
     document.body.classList.toggle("dark", darkMode);
   }, [darkMode]);
 
+  useEffect(() => {
+    if (!introOpen) return;
+    const sections = document.querySelectorAll(".intro-section, .intro-actions");
+    if (!sections.length) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("is-visible");
+          }
+        });
+      },
+      { threshold: 0.55 }
+    );
+
+    sections.forEach((section) => observer.observe(section));
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [introOpen]);
+
+  const openClothingDetail = (clothingId) => {
+    const funding = fundings.find((entry) => entry.clothing_id === clothingId);
+    const cloth = clothingMap[clothingId];
+    if (!funding || !cloth) return;
+    setDetailItem({ funding, clothing: cloth });
+    setDetailTab("overview");
+    setActiveTab("discover");
+    setSearchOpen(false);
+  };
+
+  const openBrandProfile = (profile) => {
+    if (!profile) return;
+    const key = profile.handle || profile.brand;
+    setSelectedBrandKey(key);
+    setActiveTab("brand");
+    setDetailItem(null);
+    setSearchOpen(false);
+  };
+
+  const openNotificationTarget = (notice) => {
+    if (!notice?.target) return;
+    if (notice.target.type === "detail" || notice.target.type === "feedback") {
+      openClothingDetail(notice.target.clothingId);
+      if (notice.target.type === "feedback") {
+        setDetailTab("feedback");
+      }
+      return;
+    }
+    if (notice.target.type === "brand") {
+      const profile = brandProfiles.find(
+        (item) => item.handle === notice.target.handle
+      );
+      if (profile) {
+        openBrandProfile(profile);
+      }
+    }
+  };
+
+  const toggleFollowBrand = (handle) => {
+    if (!handle) return;
+    setFollowedBrands((prev) => {
+      const isFollowed = prev.includes(handle);
+      setBrandProfiles((current) =>
+        current.map((profile) =>
+          profile.handle === handle
+            ? {
+                ...profile,
+                followerCount: Math.max(
+                  0,
+                  profile.followerCount + (isFollowed ? -1 : 1)
+                ),
+              }
+            : profile
+        )
+      );
+      return isFollowed
+        ? prev.filter((item) => item !== handle)
+        : [...prev, handle];
+    });
+  };
+
   return (
     <div
       className={`app ${sidebarOpen ? "" : "sidebar-collapsed"} ${
         darkMode ? "dark" : ""
       }`}
     >
+      {introOpen && (
+        <div className="intro-overlay" role="dialog" aria-modal="true">
+          <section className="intro-hero">
+            <video
+              className="intro-video"
+              src="/background.mp4"
+              autoPlay
+              muted
+              loop
+              playsInline
+            />
+            <div className="intro-fade" />
+            <div className="intro-title-block">
+              <span className="intro-title-main">Modif</span>
+              <span className="intro-title-sub">Modify Your Mode</span>
+            </div>
+          </section>
+          <section className="intro-content">
+            <div className="intro-body intro-animate">
+              <div className="intro-sections">
+                <article className="intro-section" style={{ "--delay": "0ms" }}>
+                  <span className="intro-keyword">Create</span>
+                  <h3 className="intro-heading">상상, 현실의 패턴이 되다.</h3>
+                  <p className="intro-desc">
+                    AI 스튜디오에서 단 한 줄의 텍스트로
+                    <br />
+                    당신의 상상을 구체적인 실루엣으로 그려냅니다.
+                  </p>
+                </article>
+                <article className="intro-section" style={{ "--delay": "180ms" }}>
+                  <span className="intro-keyword">Invest</span>
+                  <h3 className="intro-heading">당신의 안목, 자산이 되다.</h3>
+                  <p className="intro-desc">
+                    전 세계 창작자들의 가치를 가장 먼저 발견하고,
+                    <br />
+                    미래의 유니콘 브랜드에 투자하세요.
+                  </p>
+                </article>
+                <article className="intro-section" style={{ "--delay": "360ms" }}>
+                  <span className="intro-keyword">Fit</span>
+                  <h3 className="intro-heading">입지 않아도, 완벽하게.</h3>
+                  <p className="intro-desc">
+                    내 체형 데이터로 경험하는 0.1mm의 디테일.
+                    <br />
+                    가상 피팅의 새로운 기준입니다.
+                  </p>
+                </article>
+              </div>
+              <div className="intro-actions">
+                <button
+                  type="button"
+                  className="intro-btn intro-btn-ghost"
+                  onClick={() => setIntroOpen(false)}
+                >
+                  시작하기
+                </button>
+                <button
+                  type="button"
+                  className="intro-btn"
+                  onClick={() => {
+                    setIntroOpen(false);
+                    setActiveTab("discover");
+                  }}
+                >
+                  둘러보기
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
       <aside className="sidebar">
         <div className="sidebar-header">
           <button
@@ -752,7 +819,7 @@ function App() {
               window.scrollTo({ top: 0, behavior: "smooth" });
             }}
           >
-            <span className="brand-mark">Motif</span>
+            <span className="brand-mark">Modif</span>
             <span className="brand-sub">Modify Your Mode</span>
           </button>
         </div>
@@ -814,12 +881,31 @@ function App() {
             }}
             aria-label="Go to Discover"
           >
-            <img src="/logo2.png" alt="Motif logo" />
+            <img src={darkMode ? "/logo.png" : "/logo2.png"} alt="Motif logo" />
           </button>
           <div className="search">
             <input
               type="text"
               placeholder="Search brands, creators, items..."
+              value={searchQuery}
+              onChange={(event) => {
+                setSearchQuery(event.target.value);
+                setSearchOpen(true);
+              }}
+              onFocus={() => setSearchOpen(true)}
+              onBlur={() => {
+                window.setTimeout(() => setSearchOpen(false), 120);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && searchResults.length > 0) {
+                  const first = searchResults[0];
+                  if (first.type === "item") {
+                    openClothingDetail(first.clothingId);
+                  } else {
+                    openBrandProfile(first.profile);
+                  }
+                }
+              }}
             />
             <button className="search-btn" type="button" aria-label="Search">
               <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -827,6 +913,33 @@ function App() {
                 <path d="M16 16l4 4" />
               </svg>
             </button>
+            {searchOpen && searchResults.length > 0 && (
+              <div className="search-results" role="listbox">
+                {searchResults.map((result) => (
+                  <button
+                    key={`${result.type}-${result.label}`}
+                    type="button"
+                    className="search-result-item"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => {
+                      if (result.type === "item") {
+                        openClothingDetail(result.clothingId);
+                      } else {
+                        openBrandProfile(result.profile);
+                      }
+                    }}
+                  >
+                    <span className="search-result-type">
+                      {result.type === "item" ? "Item" : "Brand"}
+                    </span>
+                    <div className="search-result-text">
+                      <strong>{result.label}</strong>
+                      <span>{result.sublabel}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <div className="top-actions">
             <div className="notif-wrap">
@@ -862,10 +975,14 @@ function App() {
                           key={item.id}
                           className={item.removing ? "removing" : ""}
                         >
-                          <div>
+                          <button
+                            type="button"
+                            className="notif-item"
+                            onClick={() => openNotificationTarget(item)}
+                          >
                             <strong>{item.title}</strong>
                             <span>{item.message}</span>
-                          </div>
+                          </button>
                           <button
                             className="notif-item-close"
                             type="button"
@@ -1334,9 +1451,22 @@ function App() {
                                           : ""
                                       }`}
                                     >
-                                      <span className="comment-rating">
-                                        {ratingStars(comment.rating)}
-                                      </span>
+                                      <div className="comment-rating">
+                                        {Array.from({ length: 5 }).map(
+                                          (_, index) => (
+                                            <span
+                                              key={index}
+                                              className={`star-icon ${
+                                                index < comment.rating
+                                                  ? "active"
+                                                  : ""
+                                              }`}
+                                            >
+                                              ★
+                                            </span>
+                                          )
+                                        )}
+                                      </div>
                                       <div className="comment-body">
                                         <div className="comment-meta">
                                           <div className="comment-user">
@@ -1409,21 +1539,28 @@ function App() {
                             </div>
                             <div className="comment-form compact">
                               <div className="comment-input-row">
-                                <select
-                                  value={commentDraft.rating}
-                                  onChange={(event) =>
-                                    setCommentDraft((prev) => ({
-                                      ...prev,
-                                      rating: Number(event.target.value),
-                                    }))
-                                  }
-                                >
-                                  {[5, 4, 3, 2, 1].map((value) => (
-                                    <option key={value} value={value}>
-                                      {ratingStars(value)}
-                                    </option>
+                                <div className="comment-rating-input">
+                                  {Array.from({ length: 5 }).map((_, index) => (
+                                    <button
+                                      key={index}
+                                      type="button"
+                                      className={`star-btn ${
+                                        index < commentDraft.rating
+                                          ? "active"
+                                          : ""
+                                      }`}
+                                      aria-label={`Rate ${index + 1} stars`}
+                                      onClick={() =>
+                                        setCommentDraft((prev) => ({
+                                          ...prev,
+                                          rating: index + 1,
+                                        }))
+                                      }
+                                    >
+                                      ★
+                                    </button>
                                   ))}
-                                </select>
+                                </div>
                                 <input
                                   value={commentDraft.text}
                                   onChange={(event) =>
@@ -1626,11 +1763,22 @@ function App() {
 
         {activeTab === "fitting" && (
           <section className="content">
-            <div className="page-title">
-              <h1>My Fitting</h1>
-              <p>
-                나만의 가상 드레스룸 - 레이어링과 AI 매칭을 동시에 확인합니다.
-              </p>
+            <div className="page-title page-title-row">
+              <div>
+                <h1>My Fitting</h1>
+                <p>
+                  나만의 가상 드레스룸 - 레이어링과 AI 매칭을 동시에 확인합니다.
+                </p>
+              </div>
+              <div className="page-title-actions">
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => setFittingAlbumOpen(true)}
+                >
+                  Fitting Album
+                </button>
+              </div>
             </div>
 
             <div className="fitting-layout">
@@ -1784,66 +1932,441 @@ function App() {
                 )}
               </div>
             </div>
+            {fittingAlbumOpen && (
+              <div className="modal" role="dialog" aria-modal="true">
+                <div className="modal-content album-modal-content">
+                  <button
+                    className="close"
+                    type="button"
+                    onClick={() => setFittingAlbumOpen(false)}
+                  >
+                    ×
+                  </button>
+                  <div className="album-modal-header">
+                    <h3>Fitting Album</h3>
+                    <span>{initialFittingHistory.length} items</span>
+                  </div>
+                  <div className="album">
+                    {initialFittingHistory.map((item) => (
+                      <div key={item.id} className="album-card">
+                        <img src={item.image} alt={item.title} />
+                        <div>
+                          <strong>{item.title}</strong>
+                          <span>{item.date}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </section>
         )}
 
         {activeTab === "portfolio" && (
           <section className="content">
-            <div className="page-title">
-              <h1>Portfolio</h1>
-              <p>나의 패션 자산 대시보드 - 투자와 창작 기록을 관리합니다.</p>
+            <div className="portfolio-head">
+              <div className="page-title">
+                <h1>Portfolio</h1>
+                <p>나의 패션 자산 대시보드 - 투자와 창작 기록을 관리합니다.</p>
+              </div>
+              <div className="portfolio-tabs">
+                <button
+                  type="button"
+                  className={`pill ${
+                    portfolioTab === "investee" ? "active" : ""
+                  }`}
+                  onClick={() => setPortfolioTab("investee")}
+                >
+                  Investee
+                </button>
+                <button
+                  type="button"
+                  className={`pill ${
+                    portfolioTab === "investor" ? "active" : ""
+                  }`}
+                  onClick={() => setPortfolioTab("investor")}
+                >
+                  Investor
+                </button>
+              </div>
             </div>
 
-            <div className="portfolio-grid">
-              <div className="panel">
-                <h3>My Brands (Investee)</h3>
-                <div className="chart">
-                  {brands.map((item) => (
-                    <div key={item.id} className="chart-row">
-                      <span>{item.brand}</span>
-                      <div className="chart-bar">
-                        <div style={{ width: `${item.progress * 100}%` }} />
+            {portfolioTab === "investee" && (
+              <div className="portfolio-grid">
+                <div className="panel">
+                  <h3>My Brands</h3>
+                  <div className="chart">
+                    {brands.map((item) => (
+                      <div key={item.id} className="chart-row">
+                        <span>{item.brand}</span>
+                        <div className="chart-bar">
+                          <div style={{ width: `${item.progress * 100}%` }} />
+                        </div>
+                        <span>{Math.round(item.progress * 100)}%</span>
                       </div>
-                      <span>{Math.round(item.progress * 100)}%</span>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
+                  <div className="brand-list">
+                    {brands.map((item) => (
+                      <div key={item.id} className="brand-card">
+                        <div>
+                          <strong>{item.brand}</strong>
+                          <p>
+                            참여 {item.participantCount}명 · \
+                            {currency.format(item.currentCoin)}
+                          </p>
+                        </div>
+                        <textarea
+                          value={item.production_note}
+                          onChange={(event) =>
+                            updateNote(item.id, event.target.value)
+                          }
+                        />
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <div className="brand-list">
-                  {brands.map((item) => (
-                    <div key={item.id} className="brand-card">
-                      <div>
-                        <strong>{item.brand}</strong>
-                        <p>
-                          참여 {item.participantCount}명 · \
-                          {currency.format(item.currentCoin)}
-                        </p>
+
+                <div className="panel">
+                  <h3>Followers & Following</h3>
+                  <div className="follow-stats">
+                    <button
+                      type="button"
+                      className="follow-stat-btn"
+                      onClick={() => setPortfolioListOpen("followers")}
+                    >
+                      <strong>{currentFollowerCount}</strong>
+                      <span>Followers</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="follow-stat-btn"
+                      onClick={() => setPortfolioListOpen("following")}
+                    >
+                      <strong>{followingCount}</strong>
+                      <span>Following</span>
+                    </button>
+                  </div>
+                  <div className="follow-chart">
+                    <div className="follow-chart-grid">
+                      <div className="follow-chart-y">
+                        {followerTicks.map((tick) => (
+                          <span key={tick}>{tick}</span>
+                        ))}
                       </div>
-                      <textarea
-                        value={item.production_note}
+                      <div className="follow-chart-scroll">
+                        <div
+                          className="follow-chart-canvas"
+                          style={{ width: `${followerChartWidth}px` }}
+                        >
+                          <svg
+                            viewBox={`0 0 ${followerChartWidth} 120`}
+                            aria-hidden="true"
+                          >
+                            <polyline
+                              points={followerChartPoints}
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                          <div className="follow-chart-x">
+                            {followerSeries.map((item, index) => (
+                              <span
+                                key={item.date}
+                                style={{
+                                  left: `${index * followerChartStep}px`,
+                                }}
+                              >
+                                {item.date}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="follow-chart-meta">
+                      <span>최근 증가</span>
+                      <strong>
+                        +{currentFollowerCount - followerSeries[0].value}
+                      </strong>
+                    </div>
+                  </div>
+                  <div className="follow-actions">
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() => openBrandProfile(myBrandProfile)}
+                    >
+                      내 브랜드 페이지
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {portfolioTab === "investor" && (
+              <div className="portfolio-grid single">
+                <div className="panel">
+                  <h3>My Investments</h3>
+                  <div className="investment-list">
+                    {investments.length === 0 ? (
+                      <p className="empty">펀딩한 내역이 없습니다.</p>
+                    ) : (
+                      investments.map((item) => (
+                        <div key={item.id} className="investment-card">
+                          <img src={item.image} alt={item.itemName} />
+                          <div>
+                            <strong>{item.brand}</strong>
+                            <p>{item.itemName}</p>
+                            <p>\{currency.format(item.amount)}</p>
+                            <span className="status">{item.status}</span>
+                            <span className="eta">예상 배송: {item.eta}</span>
+                          </div>
+                          <button
+                            type="button"
+                            className="ghost"
+                            onClick={() =>
+                              setInvestments((prev) =>
+                                prev.filter((entry) => entry.id !== item.id)
+                              )
+                            }
+                          >
+                            펀딩 취소
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {portfolioListOpen && (
+              <div className="modal" role="dialog" aria-modal="true">
+                <div className="modal-content follow-modal">
+                  <button
+                    className="close"
+                    type="button"
+                    onClick={() => setPortfolioListOpen(null)}
+                  >
+                    ×
+                  </button>
+                  <div className="follow-modal-header">
+                    <h3>
+                      {portfolioListOpen === "followers"
+                        ? "Followers"
+                        : "Following"}
+                    </h3>
+                    <span>
+                      {portfolioListOpen === "followers"
+                        ? followerProfiles.length
+                        : followingProfiles.length}
+                    </span>
+                  </div>
+                  <div className="follow-modal-list">
+                    {portfolioListOpen === "followers"
+                      ? followerProfiles.map((profile) => (
+                          <div
+                            key={profile.handle}
+                            className="follow-list-item"
+                          >
+                            <div>
+                              <strong>{profile.name}</strong>
+                              <span>{profile.handle}</span>
+                            </div>
+                            <button type="button" className="ghost">
+                              팔로우
+                            </button>
+                          </div>
+                        ))
+                      : followingProfiles.map((profile) => (
+                          <div
+                            key={profile.handle}
+                            className="follow-list-item"
+                          >
+                            <div>
+                              <strong>{profile.brand}</strong>
+                              <span>{profile.handle}</span>
+                            </div>
+                            <button
+                              type="button"
+                              className="ghost"
+                              onClick={() => toggleFollowBrand(profile.handle)}
+                            >
+                              Unfollow
+                            </button>
+                          </div>
+                        ))}
+                    {portfolioListOpen === "following" &&
+                      followingProfiles.length === 0 && (
+                        <div className="follow-empty">
+                          팔로우 중인 브랜드가 없습니다.
+                        </div>
+                      )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </section>
+        )}
+
+        {activeTab === "brand" && selectedBrandProfile && (
+          <section className="content">
+            <div className="page-title brand-title brand-title-row">
+              <div>
+                <h1>{selectedBrandProfile.brand}</h1>
+                <p>{selectedBrandProfile.handle}</p>
+              </div>
+              {selectedBrandProfile.handle === myBrandDetails.handle && (
+                <button
+                  type="button"
+                  className="brand-edit-btn"
+                  aria-label="Edit brand profile"
+                  onClick={() => {
+                    setBrandEditing((prev) => !prev);
+                    if (brandEditing) {
+                      setSelectedBrandKey(myBrandDetails.handle);
+                    }
+                  }}
+                >
+                  <Pencil size={16} strokeWidth={1.6} />
+                </button>
+              )}
+            </div>
+
+            <div className="brand-hero">
+              <div className="brand-hero-card">
+                <div className="brand-hero-info">
+                  {brandEditing &&
+                  selectedBrandProfile.handle === myBrandDetails.handle ? (
+                    <>
+                      <input
+                        value={myBrandDetails.logoUrl}
                         onChange={(event) =>
-                          updateNote(item.id, event.target.value)
+                          setMyBrandDetails((prev) => ({
+                            ...prev,
+                            logoUrl: event.target.value,
+                          }))
+                        }
+                        placeholder="로고 이미지 URL"
+                      />
+                      <input
+                        value={myBrandDetails.brand}
+                        onChange={(event) =>
+                          setMyBrandDetails((prev) => ({
+                            ...prev,
+                            brand: event.target.value,
+                          }))
                         }
                       />
-                    </div>
-                  ))}
+                      <input
+                        value={myBrandDetails.handle}
+                        onChange={(event) =>
+                          setMyBrandDetails((prev) => ({
+                            ...prev,
+                            handle: event.target.value,
+                          }))
+                        }
+                      />
+                      <textarea
+                        rows="3"
+                        value={myBrandDetails.bio}
+                        onChange={(event) =>
+                          setMyBrandDetails((prev) => ({
+                            ...prev,
+                            bio: event.target.value,
+                          }))
+                        }
+                      />
+                      <input
+                        value={myBrandDetails.location}
+                        onChange={(event) =>
+                          setMyBrandDetails((prev) => ({
+                            ...prev,
+                            location: event.target.value,
+                          }))
+                        }
+                        placeholder="지역"
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <img
+                        className="brand-hero-logo"
+                        src={myBrandDetails.logoUrl}
+                        alt={`${selectedBrandProfile.brand} logo`}
+                      />
+                      <strong>{selectedBrandProfile.brand}</strong>
+                      <span>{selectedBrandProfile.handle}</span>
+                      <p>{selectedBrandProfile.bio}</p>
+                      <small>{selectedBrandProfile.location}</small>
+                    </>
+                  )}
+                </div>
+                <div className="brand-hero-actions">
+                  <button
+                    type="button"
+                    className={
+                      followedBrands.includes(selectedBrandProfile.handle)
+                        ? "secondary"
+                        : "primary"
+                    }
+                    onClick={() =>
+                      toggleFollowBrand(selectedBrandProfile.handle)
+                    }
+                  >
+                    {followedBrands.includes(selectedBrandProfile.handle)
+                      ? "Following"
+                      : "Follow"}
+                  </button>
                 </div>
               </div>
 
-              <div className="panel">
-                <h3>My Investments (Investor)</h3>
-                <div className="investment-list">
-                  {initialInvestments.map((item) => (
-                    <div key={item.id} className="investment-card">
-                      <div>
-                        <strong>{item.brand}</strong>
-                        <p>\{currency.format(item.amount)}</p>
-                      </div>
-                      <span className="status">{item.status}</span>
-                      <span className="eta">예상 배송: {item.eta}</span>
-                    </div>
-                  ))}
+              <div className="brand-stats">
+                <div>
+                  <strong>{selectedBrandProfile.followerCount}</strong>
+                  <span>Followers</span>
+                </div>
+                <div>
+                  <strong>{selectedBrandProfile.followingCount}</strong>
+                  <span>Following</span>
+                </div>
+                <div>
+                  <strong>{brandFeed.length}</strong>
+                  <span>Designs</span>
                 </div>
               </div>
+            </div>
+
+            <div className="brand-feed">
+              {brandFeed.length === 0 ? (
+                <p className="empty">등록된 디자인이 없습니다.</p>
+              ) : (
+                brandFeed.map((entry) => (
+                  <button
+                    key={entry.clothing.id}
+                    type="button"
+                    className="brand-feed-card"
+                    onClick={() => openClothingDetail(entry.clothing.id)}
+                  >
+                    <img
+                      src={entry.clothing.design_img_url}
+                      alt={entry.clothing.name}
+                    />
+                    <div>
+                      <strong>{entry.clothing.name}</strong>
+                      <span>
+                        {currency.format(entry.clothing.price)} ·{" "}
+                        {entry.funding.participant_count}명 참여
+                      </span>
+                    </div>
+                  </button>
+                ))
+              )}
             </div>
           </section>
         )}
@@ -1852,46 +2375,129 @@ function App() {
           <section className="content">
             <div className="page-title">
               <h1>Profile</h1>
-              <p>프로필 설정과 피팅 이력을 관리합니다.</p>
+              <p>나의 기본 정보를 확인하고 수정합니다.</p>
             </div>
 
-            <div className="profile-grid">
-              <div className="panel">
-                <h3>체형 변경 및 이력 관리</h3>
+            <div className="profile-center">
+              <div className="panel profile-card">
+                <div className="profile-header">
+                  <img
+                    className="profile-photo"
+                    src={userProfile.base_photo_url}
+                    alt="profile"
+                  />
+                  <div>
+                    <h3>{userProfile.name}</h3>
+                    <span>{userProfile.handle}</span>
+                  </div>
+                  <div className="profile-actions">
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() => setIsProfileEditing((prev) => !prev)}
+                    >
+                      {isProfileEditing ? "완료" : "수정"}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="profile-fields">
+                  <label className="field">
+                    사용자 이름
+                    <input
+                      value={userProfile.name}
+                      disabled={!isProfileEditing}
+                      onChange={(event) =>
+                        updateProfileField("name", event.target.value)
+                      }
+                    />
+                  </label>
+                  <label className="field">
+                    사용자 id
+                    <input
+                      value={userProfile.handle}
+                      disabled={!isProfileEditing}
+                      onChange={(event) =>
+                        updateProfileField("handle", event.target.value)
+                      }
+                    />
+                  </label>
+                  <label className="field">
+                    피팅용 기본 전신 사진
+                    <input
+                      value={userProfile.base_photo_url}
+                      disabled={!isProfileEditing}
+                      onChange={(event) =>
+                        updateProfileField("base_photo_url", event.target.value)
+                      }
+                    />
+                  </label>
+                  <label className="field">
+                    체형 분류 라벨
+                    <input
+                      value={userProfile.bodyTypeLabel}
+                      disabled={!isProfileEditing}
+                      onChange={(event) =>
+                        updateProfileField("bodyTypeLabel", event.target.value)
+                      }
+                    />
+                  </label>
+                  <label className="field full">
+                    선호 스타일 태그 목록
+                    <input
+                      value={userProfile.styleTags.join(", ")}
+                      disabled={!isProfileEditing}
+                      onChange={(event) =>
+                        updateProfileField(
+                          "styleTags",
+                          event.target.value
+                            .split(",")
+                            .map((item) => item.trim())
+                            .filter(Boolean)
+                        )
+                      }
+                    />
+                  </label>
+                </div>
+
+                <h4>정밀 신체 수치 데이터</h4>
                 <div className="measurement-grid">
-                  {Object.entries(userProfile.measurements).map(
-                    ([key, value]) => (
-                      <label key={key} className="field">
-                        {key}
-                        <input
-                          type="number"
-                          value={value}
-                          onChange={(event) =>
-                            updateMeasurement(key, event.target.value)
-                          }
-                        />
-                      </label>
-                    )
-                  )}
+                  {[
+                    { label: "키", key: "height" },
+                    { label: "몸무게", key: "weight" },
+                    { label: "목둘레", key: "neckCircum" },
+                    { label: "어깨너비", key: "shoulderWidth" },
+                    { label: "가슴둘레", key: "chestCircum" },
+                    { label: "허리둘레", key: "waistCircum" },
+                    { label: "엉덩이둘레", key: "hipCircum" },
+                    { label: "팔길이", key: "armLength" },
+                    { label: "다리길이", key: "legLength" },
+                    { label: "발사이즈", key: "shoeSize" },
+                  ].map((field) => (
+                    <label key={field.key} className="field">
+                      {field.label}
+                      <input
+                        type="number"
+                        value={userProfile.measurements[field.key]}
+                        disabled={!isProfileEditing}
+                        onChange={(event) =>
+                          updateMeasurement(field.key, event.target.value)
+                        }
+                      />
+                    </label>
+                  ))}
                 </div>
                 <div className="meta">
                   <span>Updated: {userProfile.updatedAt}</span>
-                  <span>Body Label: {userProfile.bodyTypeLabel}</span>
                 </div>
-              </div>
 
-              <div className="panel">
-                <h3>Fitting Album</h3>
-                <div className="album">
-                  {initialFittingHistory.map((item) => (
-                    <div key={item.id} className="album-card">
-                      <img src={item.image} alt={item.title} />
-                      <div>
-                        <strong>{item.title}</strong>
-                        <span>{item.date}</span>
-                      </div>
-                    </div>
-                  ))}
+                <div className="profile-account-bar">
+                  <button type="button" className="ghost">
+                    구글 계정 변경
+                  </button>
+                  <button type="button" className="ghost">
+                    로그아웃
+                  </button>
                 </div>
               </div>
             </div>
