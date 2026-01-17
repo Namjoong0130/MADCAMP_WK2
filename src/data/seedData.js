@@ -344,6 +344,7 @@ export const userBase = {
     waistCircum: 64,
     hipCircum: 90,
     armLength: 58,
+    legLength: 98,
     wristCircum: 15,
     shoeSize: 250,
   },

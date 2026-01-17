@@ -80,6 +80,17 @@ function App() {
     logoUrl: "/logo.png",
   });
   const [introOpen, setIntroOpen] = useState(true);
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
+  const [onboardingStep, setOnboardingStep] = useState(0);
+  const [googleConnected, setGoogleConnected] = useState(false);
+  const [measurementMode, setMeasurementMode] = useState("manual");
+  const [signupDraft, setSignupDraft] = useState(() => ({
+    handle: userBase.handle,
+    name: userBase.name,
+    base_photo_url: userBase.base_photo_url,
+    measurements: { ...userBase.measurements },
+  }));
+  const [selectedStyleIds, setSelectedStyleIds] = useState([]);
   const [notifications, setNotifications] = useState([
     {
       id: 1,
@@ -302,6 +313,21 @@ function App() {
     }),
     []
   );
+  const signupMeasurementFields = useMemo(
+    () => [
+      { label: "키", key: "height" },
+      { label: "몸무게", key: "weight" },
+      { label: "목둘레", key: "neckCircum" },
+      { label: "어깨너비", key: "shoulderWidth" },
+      { label: "가슴둘레", key: "chestCircum" },
+      { label: "허리둘레", key: "waistCircum" },
+      { label: "엉덩이둘레", key: "hipCircum" },
+      { label: "팔길이", key: "armLength" },
+      { label: "다리길이", key: "legLength" },
+      { label: "발사이즈", key: "shoeSize" },
+    ],
+    []
+  );
 
   const subCategories = useMemo(() => {
     const filtered = categories.filter((category) => {
@@ -352,6 +378,15 @@ function App() {
     selectedStyle,
     selectedSort,
   ]);
+  const onboardingStyleItems = useMemo(() => {
+    const items = [];
+    for (const item of clothing) {
+      if (!item.design_img_url) continue;
+      items.push(item);
+      if (items.length >= 12) break;
+    }
+    return items;
+  }, [clothing]);
 
   const generateDesign = () => {
     const trimmed = prompt.trim();
@@ -633,9 +668,91 @@ function App() {
     setFilterOpen(false);
   };
 
+  const resetOnboarding = () => {
+    setSignupDraft({
+      handle: userProfile.handle,
+      name: userProfile.name,
+      base_photo_url: userProfile.base_photo_url,
+      measurements: { ...userProfile.measurements },
+    });
+    setSelectedStyleIds([]);
+    setGoogleConnected(false);
+    setOnboardingStep(0);
+    setMeasurementMode("manual");
+  };
+
+  const startOnboarding = () => {
+    setIntroOpen(false);
+    resetOnboarding();
+    setOnboardingOpen(true);
+  };
+
+  const updateSignupField = (key, value) => {
+    setSignupDraft((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const updateSignupMeasurement = (key, value) => {
+    const numeric = Number(value);
+    setSignupDraft((prev) => ({
+      ...prev,
+      measurements: { ...prev.measurements, [key]: numeric },
+    }));
+  };
+
+  const handleProfilePhotoChange = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      const url = URL.createObjectURL(file);
+      updateSignupField("base_photo_url", url);
+    }
+  };
+
+  const toggleStyleSelection = (clothingId) => {
+    setSelectedStyleIds((prev) =>
+      prev.includes(clothingId)
+        ? prev.filter((id) => id !== clothingId)
+        : [...prev, clothingId]
+    );
+  };
+
+  const finalizeOnboarding = () => {
+    const nextStyleTags = Array.from(
+      new Set(
+        selectedStyleIds
+          .map((id) => clothingMap[id]?.style)
+          .filter(Boolean)
+      )
+    );
+    setUserProfile((prev) => ({
+      ...prev,
+      handle: signupDraft.handle,
+      name: signupDraft.name,
+      base_photo_url: signupDraft.base_photo_url,
+      measurements: { ...prev.measurements, ...signupDraft.measurements },
+      styleTags: nextStyleTags.length ? nextStyleTags : prev.styleTags,
+      updatedAt: formatDate(new Date()),
+    }));
+    setFundings((prev) =>
+      prev.map((item) => {
+        if (!selectedStyleIds.includes(item.clothing_id)) return item;
+        if (item.liked) return item;
+        return { ...item, liked: true, likes: item.likes + 1 };
+      })
+    );
+    setOnboardingOpen(false);
+    setActiveTab("discover");
+  };
+
   useEffect(() => {
     document.body.classList.toggle("dark", darkMode);
   }, [darkMode]);
+
+  useEffect(() => {
+    document.body.classList.toggle("intro-open", introOpen);
+    return () => {
+      document.body.classList.remove("intro-open");
+    };
+  }, [introOpen]);
 
   useEffect(() => {
     if (!introOpen) return;
@@ -721,6 +838,249 @@ function App() {
     });
   };
 
+  const requiredStyleCount = 3;
+  const canProceedProfile =
+    signupDraft.handle.trim().length > 0 && signupDraft.name.trim().length > 0;
+  const canFinishOnboarding =
+    googleConnected &&
+    canProceedProfile &&
+    selectedStyleIds.length >= requiredStyleCount;
+
+  if (onboardingOpen) {
+    return (
+      <div className="onboarding-page">
+        <video
+          className="onboarding-video"
+          src="/background.mp4"
+          autoPlay
+          muted
+          loop
+          playsInline
+        />
+        <div className="onboarding-overlay" />
+        <div className="onboarding-shell">
+          <header className="onboarding-header">
+            <div>
+              <span className="onboarding-step">
+                Step {onboardingStep + 1} / 3
+              </span>
+              <h2>당신의 스타일 여정을 시작해요.</h2>
+              <p>순서대로 입력하고 다음으로 넘어가세요.</p>
+            </div>
+          </header>
+
+          <div className="onboarding-body">
+            {onboardingStep === 0 && (
+              <section className="onboarding-section is-visible">
+                <div className="onboarding-section-inner compact">
+                  <div className="onboarding-panel google-card">
+                    <h3>Google 로그인</h3>
+                    <p>
+                      계정을 연결하면 저장된 취향과 추천이 즉시 동기화됩니다.
+                    </p>
+                    <div className="google-row">
+                      <button
+                        type="button"
+                        className="primary"
+                        onClick={() => {
+                          setGoogleConnected(true);
+                          setOnboardingStep(1);
+                        }}
+                      >
+                        Google로 계속
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {onboardingStep === 1 && (
+              <section className="onboarding-section is-visible">
+                <div className="onboarding-section-inner">
+                  <span className="onboarding-step">Step 2</span>
+                  <div className="onboarding-panel">
+                    <h3>기본 정보</h3>
+                    <div className="onboarding-grid">
+                      <div className="profile-photo-upload">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleProfilePhotoChange}
+                        />
+                        <div className="profile-icon">
+                          {signupDraft.base_photo_url ? (
+                            <img src={signupDraft.base_photo_url} alt="Profile" />
+                          ) : (
+                            <div className="avatar-placeholder">👤</div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="name-fields">
+                        <label className="onboarding-field">
+                          아이디
+                          <input
+                            value={signupDraft.handle}
+                            onChange={(event) =>
+                              updateSignupField("handle", event.target.value)
+                            }
+                            placeholder="@your.id"
+                          />
+                        </label>
+                        <label className="onboarding-field">
+                          실명
+                          <input
+                            value={signupDraft.name}
+                            onChange={(event) =>
+                              updateSignupField("name", event.target.value)
+                            }
+                            placeholder="홍길동"
+                          />
+                        </label>
+                      </div>
+                    </div>
+                    <div className="onboarding-divider" />
+                    <div className="measurements-head">
+                      <h4>신체 수치</h4>
+                      <div className="measurements-tabs">
+                        <button
+                          type="button"
+                          className={
+                            measurementMode === "ai"
+                              ? "tab-btn active"
+                              : "tab-btn"
+                          }
+                          onClick={() => setMeasurementMode("ai")}
+                        >
+                          사진 측정
+                        </button>
+                        <button
+                          type="button"
+                          className={
+                            measurementMode === "manual"
+                              ? "tab-btn active"
+                              : "tab-btn"
+                          }
+                          onClick={() => setMeasurementMode("manual")}
+                        >
+                          직접 입력
+                        </button>
+                      </div>
+                    </div>
+                    <div className="measurement-container">
+                      {measurementMode === "ai" ? (
+                        <div className="ai-measure-panel">
+                          <div className="ai-upload">
+                            <div className="ai-upload-text">
+                              <strong>전신 사진 업로드</strong>
+                              <span>
+                                정면 전신 사진 1장을 업로드하면 AI가 자동으로
+                                치수를 계산합니다.
+                              </span>
+                            </div>
+                            <label className="ai-upload-btn">
+                              사진
+                              <input type="file" accept="image/*" />
+                            </label>
+                          </div>
+                          <div className="ai-hint">
+                            밝은 배경에서 정면 자세로 촬영된 이미지를 권장합니다.
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="onboarding-measurements">
+                          {signupMeasurementFields.map((field) => (
+                            <label key={field.key} className="onboarding-field">
+                              {field.label}
+                              <input
+                                type="number"
+                                value={signupDraft.measurements[field.key]}
+                                onChange={(event) =>
+                                  updateSignupMeasurement(
+                                    field.key,
+                                    event.target.value
+                                  )
+                                }
+                              />
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="onboarding-submit">
+                      <button
+                        type="button"
+                        className="primary"
+                        disabled={!canProceedProfile}
+                        onClick={() => setOnboardingStep(2)}
+                      >
+                        다음
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {onboardingStep === 2 && (
+              <section className="onboarding-section is-visible">
+                <div className="onboarding-section-inner">
+                  <span className="onboarding-step">Step 3</span>
+                  <div className="onboarding-panel">
+                    <div className="style-pick-header">
+                      <h4>취향에 맞는 아이템을 골라주세요.</h4>
+                      <span>
+                        선택 {selectedStyleIds.length}/{requiredStyleCount}
+                      </span>
+                    </div>
+                    <div className="style-pick-grid">
+                      {onboardingStyleItems.map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          className={`style-pick-card ${
+                            selectedStyleIds.includes(item.id)
+                              ? "selected"
+                              : ""
+                          }`}
+                          onClick={() => toggleStyleSelection(item.id)}
+                        >
+                          <img src={item.design_img_url} alt={item.name} />
+                          <div className="style-pick-meta">
+                            <strong>{item.name}</strong>
+                            <span>
+                              {item.style} · {item.category}
+                            </span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                    {!canFinishOnboarding && (
+                      <p className="onboarding-hint">
+                        최소 {requiredStyleCount}개를 선택하면 가입이
+                        완료됩니다.
+                      </p>
+                    )}
+                    <div className="onboarding-submit">
+                      <button
+                        type="button"
+                        className="primary"
+                        disabled={!canFinishOnboarding}
+                        onClick={finalizeOnboarding}
+                      >
+                        가입 완료
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className={`app ${sidebarOpen ? "" : "sidebar-collapsed"} ${
@@ -779,7 +1139,7 @@ function App() {
                 <button
                   type="button"
                   className="intro-btn intro-btn-ghost"
-                  onClick={() => setIntroOpen(false)}
+                  onClick={startOnboarding}
                 >
                   시작하기
                 </button>
