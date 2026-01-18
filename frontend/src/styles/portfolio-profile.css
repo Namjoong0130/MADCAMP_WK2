@@ -5,6 +5,40 @@
   margin-bottom: 34px;
 }
 
+.portfolio-brands-layout {
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 0.8fr);
+  column-gap: 48px;
+  row-gap: 16px;
+  align-items: stretch;
+}
+
+.portfolio-brands-panel {
+  grid-row: span 2;
+}
+
+.follow-cta {
+  min-height: 120px;
+  display: grid;
+  align-content: center;
+}
+
+.portfolio-side {
+  display: grid;
+  gap: 16px;
+}
+
+.portfolio-side .panel:last-child {
+  flex: 1 1 auto;
+}
+
+.portfolio-brands-layout > .portfolio-side {
+  align-self: stretch;
+}
+
+.portfolio-brands-layout > .portfolio-side .panel {
+  height: auto;
+}
+
 .portfolio-grid.single {
   grid-template-columns: 1fr;
 }
@@ -15,6 +49,14 @@
   align-items: flex-start;
   gap: 24px;
   margin-bottom: 0;
+}
+
+.panel-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
 }
 
 .portfolio-tabs {
@@ -61,12 +103,30 @@
   background: #000000;
   height: 100%;
   transition: width 0.4s ease;
+  transform-origin: left;
+  animation: portfolio-fill 0.6s ease;
+}
+
+@keyframes portfolio-fill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes follow-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
 }
 
 .brand-list {
   display: flex;
   flex-direction: column;
   gap: 18px;
+  margin-top: 16px;
 }
 
 .brand-card {
@@ -83,7 +143,8 @@
   border-radius: 12px;
   padding: 10px;
   font-size: 12px;
-  min-height: 72px;
+  height: 72px;
+  resize: none;
 }
 
 .investment-list {
@@ -103,6 +164,34 @@
   font-size: 13px;
 }
 
+.investment-media {
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  width: 84px;
+  height: 84px;
+}
+
+.investment-brand,
+.investment-item {
+  border: none;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--font-body);
+  display: block;
+}
+
+.investment-brand {
+  font-weight: 600;
+}
+
+.investment-item {
+  margin-top: 4px;
+}
+
 .investment-card img {
   width: 84px;
   height: 84px;
@@ -112,6 +201,18 @@
 
 .investment-card p {
   margin: 4px 0 0;
+}
+
+.investment-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.investment-price {
+  font-size: 16px;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .investment-card .status,
@@ -169,6 +270,36 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.profile-coin {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: #ffffff;
+  font-size: 12px;
+  color: #111111;
+  cursor: pointer;
+}
+
+.profile-coin-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: #111111;
+  color: #ffffff;
+  display: grid;
+  place-items: center;
+}
+
+.profile-coin-icon svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+  color: #ffffff;
 }
 
 .profile-account-bar {
@@ -269,7 +400,7 @@
   padding: 14px;
   display: grid;
   gap: 10px;
-  margin-top: 16px;
+  margin-top: 8px;
   color: #111111;
   background: #ffffff;
 }
@@ -291,8 +422,8 @@
 }
 
 .follow-chart-scroll {
-  overflow-x: auto;
-  padding-bottom: 8px;
+  overflow: hidden;
+  padding-bottom: 0;
 }
 
 .follow-chart-canvas {
@@ -305,15 +436,24 @@
   display: block;
 }
 
+.follow-chart-line {
+  stroke-dasharray: 420;
+  stroke-dashoffset: 420;
+  animation: follow-draw 0.7s ease forwards;
+}
+
 .follow-chart-x {
   position: relative;
   height: 20px;
   margin-top: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .follow-chart-x span {
-  position: absolute;
-  transform: translateX(-50%);
+  position: static;
+  transform: none;
   font-size: 10px;
   color: var(--muted);
   white-space: nowrap;
@@ -328,6 +468,21 @@
 
 .follow-actions {
   margin-top: 14px;
+}
+
+.follow-cta {
+  display: grid;
+  gap: 8px;
+}
+
+.follow-cta h3 {
+  margin: 0;
+}
+
+.follow-cta p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
 }
 
 .follow-list {
@@ -443,7 +598,8 @@
 }
 
 .brand-hero-info textarea {
-  resize: vertical;
+  height: 84px;
+  resize: none;
 }
 .brand-hero {
   display: grid;
@@ -562,4 +718,3 @@
     transform: scale(1);
   }
 }
-

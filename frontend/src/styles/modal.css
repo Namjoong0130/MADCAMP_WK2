@@ -15,58 +15,84 @@
   border-radius: 20px;
   max-width: 1200px; /* 아까 넓힌 크기 유지 */
   width: 95%;
-  padding: 44px; /* 내부 여백 */
-  
+  padding: 48px; /* 내부 여백 */
+
   position: relative;
   display: flex;
   flex-direction: column;
 
   /* ✨ 치트키: 이 한 줄이면 무조건 화면 정중앙으로 붕 뜹니다! */
-  margin: auto; 
+  margin: auto;
 
   /* 높이 설정 정리 (화면의 85%만큼만 커지게) */
-  height: 82vh; 
+  height: 82vh;
   max-height: 90vh; /* 화면이 작아도 90%는 넘지 않게 안전장치 */
 
   overflow: hidden;
-  box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
 }
+
+
+
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 32px;
+  margin-bottom: 40px;
 }
+/* modal.css */
+
+/* modal.css */
+
 .modal-body {
-  display: grid;
-  /* ✨ 핵심 1: 비율을 1:1로 고정해서 내용 양과 상관없이 위치 딱 맞춤 */
-  grid-template-columns: 1fr 1fr; 
-  gap: 40px; /* 사진과 글 사이 간격을 더 시원하게 (28px -> 40px) */
-  
+  /* [수정] Grid를 Flex로 변경 */
+  display: flex;
+
+  /* [핵심] 이걸 넣어야 내용물이 위쪽으로 딱 붙고, 밑으로 안 늘어납니다! */
+  align-items: flex-start;
+
+  gap: 50px;
   margin-top: 20px;
-  flex: 1;
-  min-height: 0;
+
+  /* 전체 높이는 유지 (스크롤 때문) */
   height: 100%;
-  overflow: hidden; /* 레이아웃 깨짐 방지 */
+  min-height: 0;
+  overflow: hidden;
 }
 
+/* modal.css */
+
+/* modal.css */
+
 .detail-media {
+  /* [수정] flex로 너비 45% 고정 */
+  flex: 0 0 45%;
+  width: 45%;
+
+  /* [핵심] height: 100% 삭제하고 비율로 설정 */
+  /* height: 100%;  <-- 이거 절대 넣으면 안 돼요! (삭제됨) */
+  /* max-height: 520px; <-- 이것도 삭제하세요. 비율이 알아서 조절합니다. */
+
+  aspect-ratio: 4 / 5; /* 4:5 비율 유지 */
+
   position: relative;
-  height: 100%;
-  max-height: 520px;
-  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
   background: #f7f7f7;
-  padding: 24px 16px 36px;
+  border-radius: 8px;
+  overflow: hidden;
+  padding: 0;
+  margin-bottom: 0;
 }
 
-.modal-body img {
-  width: 100%;
-  border-radius: 20px;
-  height: 100%;
-  object-fit: contain;
+/* 박스 안의 이미지 크기 잡아주기 */
+.detail-media img {
+  width: 85%;
+  height: 85%;
+  object-fit: contain; /* 비율 유지하며 박스 안에 쏙 들어감 */
+  border-radius: 0; /* 필요하면 조정 */
 }
 
 .detail-media-btn {
@@ -129,8 +155,9 @@
 }
 
 .detail-scroll {
+  flex: 1;
+
   height: 100%;
-  min-height: 0;
   overflow-y: auto;
   padding-right: 10px;
   padding-bottom: 40px;
@@ -150,6 +177,59 @@
   background: none;
   font-size: 24px;
   cursor: pointer;
+}
+
+.ai-design-modal {
+  max-width: 1120px;
+  width: 92%;
+  padding: 28px;
+}
+
+.ai-design-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.ai-design-header h3 {
+  margin: 0;
+}
+
+.ai-design-actions {
+  display: inline-flex;
+  gap: 10px;
+}
+
+.ai-design-frame {
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 24px;
+  background: #ffffff;
+}
+
+.ai-design-stack .modal-header {
+  margin-bottom: 24px;
+}
+
+.ai-design-input,
+.ai-design-textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 12px;
+  font-family: var(--font-body);
+}
+
+.ai-design-input.price {
+  max-width: 140px;
+}
+
+.ai-design-textarea {
+  min-height: 96px;
+  resize: vertical;
 }
 
 .pill-group {
@@ -243,7 +323,6 @@
   line-height: 1.7;
 }
 
-
 .detail-title-row {
   display: flex;
   align-items: center;
@@ -257,13 +336,19 @@
   gap: 6px;
 }
 
+.detail-fund-btn {
+  align-self: flex-end;
+  margin-left: auto;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+}
+
 .price-row > div {
   display: flex;
   align-items: center;
   gap: 6px;
 }
-
-
 
 .price-like-row {
   justify-content: flex-end;
@@ -389,6 +474,17 @@
   background: #000000;
   border-radius: 999px;
   transition: width 0.4s ease;
+  transform-origin: left;
+  animation: progress-fill 0.6s ease;
+}
+
+@keyframes progress-fill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
 }
 
 .story-percent {
@@ -433,12 +529,14 @@
 }
 
 .comment.compact.reply::before {
-  content: "→";
+  content: "";
   position: absolute;
-  left: -18px;
-  top: 14px;
-  color: #c2c2c2;
-  font-size: 12px;
+  left: -20px;
+  top: 12px;
+  width: 16px;
+  height: 16px;
+  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23bdbdbd' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M3 7c0 7 7 7 7 7h11'/><path d='M13 7l-3 7 3 7'/></svg>") no-repeat center;
+  background-size: 16px 16px;
 }
 
 .comment-rating {
@@ -487,6 +585,9 @@
   position: absolute;
   top: 8px;
   right: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .comment-menu-btn {
@@ -635,4 +736,3 @@
   background: #111111;
   color: #ffffff;
 }
-

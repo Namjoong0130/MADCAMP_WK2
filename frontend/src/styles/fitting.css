@@ -21,8 +21,14 @@
   border-radius: 20px;
   overflow: hidden;
   border: 1px solid var(--border);
-  background: #000000;
+  background: #f5f5f5;
   min-height: 420px;
+}
+
+.fitting-preview canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
 }
 
 .fitting-preview > img {
@@ -75,10 +81,17 @@
   gap: 18px;
 }
 
+.layer-panel {
+  min-height: 300px;
+}
+
 .layer-list {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding-right: 6px;
 }
 
 .layer-item {
@@ -219,4 +232,3 @@
   object-fit: cover;
   border-radius: 16px;
 }
-

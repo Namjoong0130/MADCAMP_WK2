@@ -1,10 +1,14 @@
-﻿import { useEffect, useMemo, useState } from "react";
+﻿import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Route, Routes } from "react-router-dom";
 import "./App.css";
+import MyFitting from "./pages/MyFitting";
+import { Canvas } from "@react-three/fiber";
+import { Center, Environment, OrbitControls } from "@react-three/drei";
+import Tshirt from "./Tshirt";
 import {
   initialClothing,
   initialFunding,
   initialComments,
-  mannequins,
   initialInvestments,
   initialBrands,
   userBase,
@@ -27,6 +31,7 @@ import {
   Filter,
   User,
   Pencil,
+  Eraser,
 } from "lucide-react";
 
 function App() {
@@ -46,16 +51,14 @@ function App() {
   const [darkMode, setDarkMode] = useState(false);
   const [prompt, setPrompt] = useState("");
   const [fabric, setFabric] = useState({ stretch: 5, weight: 5, stiffness: 5 });
-  const [selectedMannequin, setSelectedMannequin] = useState(mannequins[1].id);
+  const [aiFileName, setAiFileName] = useState(null);
   const [brand, setBrand] = useState({
     name: "Motif Studio",
     clothes_count: 7,
     is_public: false,
   });
   const [generatedDesigns, setGeneratedDesigns] = useState([]);
-  const [studioNotice, setStudioNotice] = useState("");
-  const [fittingLayers, setFittingLayers] = useState([1, 2]);
-  const [pixelRatio, setPixelRatio] = useState(1);
+  const [fittingLayers, setFittingLayers] = useState([]);
   const [focusClothingId, setFocusClothingId] = useState(null);
   const [isComposing, setIsComposing] = useState(false);
   const [userProfile, setUserProfile] = useState(userBase);
@@ -72,6 +75,32 @@ function App() {
   const [isProfileEditing, setIsProfileEditing] = useState(false);
   const [brandEditing, setBrandEditing] = useState(false);
   const [portfolioListOpen, setPortfolioListOpen] = useState(null);
+  const [brandFundingOpen, setBrandFundingOpen] = useState(false);
+  const [authModal, setAuthModal] = useState({ open: false, mode: null });
+  const [cancelFundingModal, setCancelFundingModal] = useState({
+    open: false,
+    investmentId: null,
+  });
+  const [aiDesignModal, setAiDesignModal] = useState({
+    open: false,
+    design: null,
+  });
+  const [designCoins, setDesignCoins] = useState(6);
+  const [designCoinModal, setDesignCoinModal] = useState(false);
+  const [designCoinAlertOpen, setDesignCoinAlertOpen] = useState(false);
+  const [alreadyFundedAlertOpen, setAlreadyFundedAlertOpen] = useState(false);
+  const [aiDesignEditMode, setAiDesignEditMode] = useState(false);
+  const [aiDesignDraft, setAiDesignDraft] = useState({
+    name: "",
+    price: 0,
+    category: "",
+    style: "",
+    gender: "",
+    description: "",
+    story: "",
+  });
+  const [loginModalOpen, setLoginModalOpen] = useState(false);
+  const [loginDraft, setLoginDraft] = useState({ handle: "", password: "" });
   const [myBrandDetails, setMyBrandDetails] = useState({
     brand: brand.name.toUpperCase(),
     handle: "@motif.studio",
@@ -79,14 +108,29 @@ function App() {
     location: "Seoul",
     logoUrl: "/logo.png",
   });
-  const [introOpen, setIntroOpen] = useState(true);
+  const [introOpen, setIntroOpen] = useState(() => {
+    try {
+      return window.localStorage.getItem("modifLoggedIn") !== "true";
+    } catch {
+      return true;
+    }
+  });
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState(0);
-  const [googleConnected, setGoogleConnected] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    try {
+      return window.localStorage.getItem("modifLoggedIn") === "true";
+    } catch {
+      return false;
+    }
+  });
+  const [pendingTab, setPendingTab] = useState(null);
   const [measurementMode, setMeasurementMode] = useState("manual");
   const [signupDraft, setSignupDraft] = useState(() => ({
     handle: userBase.handle,
     name: userBase.name,
+    password: "",
+    passwordConfirm: "",
     base_photo_url: userBase.base_photo_url,
     measurements: { ...userBase.measurements },
   }));
@@ -115,6 +159,17 @@ function App() {
   const [commentMenuId, setCommentMenuId] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [designCategory, setDesignCategory] = useState("상의");
+  const [designLength, setDesignLength] = useState("민소매");
+  const [designGender, setDesignGender] = useState("Unisex");
+  const [designTool, setDesignTool] = useState("brush");
+  const [designColor, setDesignColor] = useState("#111111");
+  const [designSize, setDesignSize] = useState(6);
+  const [showClearBubble, setShowClearBubble] = useState(false);
+  const [isGalleryOpen, setIsGalleryOpen] = useState(false);
+  const [tempDesigns, setTempDesigns] = useState([]);
+  const designCanvasRef = useRef(null);
+  const canvasPopupRef = useRef(null);
+  const drawMetaRef = useRef({ moved: false });
 
   const fundingsFeed = useMemo(() => {
     return [...fundings]
@@ -124,7 +179,7 @@ function App() {
 
   const likedClothingIds = useMemo(
     () => fundings.filter((item) => item.liked).map((item) => item.clothing_id),
-    [fundings]
+    [fundings],
   );
 
   const closetItems = useMemo(() => {
@@ -146,32 +201,25 @@ function App() {
     }, {});
   }, [brandProfiles]);
 
-  const followerSeries = useMemo(
-    () => [
-      { date: "2024-01", value: 42 },
-      { date: "2024-02", value: 58 },
-      { date: "2024-03", value: 67 },
-      { date: "2024-04", value: 84 },
-      { date: "2024-05", value: 96 },
-      { date: "2024-06", value: 112 },
-      { date: "2024-07", value: 138 },
-      { date: "2024-08", value: 165 },
-      { date: "2024-09", value: 192 },
-      { date: "2024-10", value: 214 },
-    ],
-    []
-  );
+  const followerSeries = useMemo(() => {
+    const values = [176, 182, 188, 195, 201, 208, 214];
+    return values.map((value, index) => {
+      const date = new Date();
+      date.setDate(date.getDate() - (values.length - 1 - index));
+      const label = `${String(date.getMonth() + 1).padStart(2, "0")}-${String(
+        date.getDate(),
+      ).padStart(2, "0")}`;
+      return { date: label, value };
+    });
+  }, []);
   const followerValues = useMemo(
     () => followerSeries.map((item) => item.value),
-    [followerSeries]
+    [followerSeries],
   );
-  const followerChartWidth = useMemo(
-    () => Math.max(360, (followerSeries.length - 1) * 90),
-    [followerSeries.length]
-  );
+  const followerChartWidth = useMemo(() => 360, []);
   const followerChartStep = useMemo(
     () => followerChartWidth / Math.max(1, followerSeries.length - 1),
-    [followerChartWidth, followerSeries.length]
+    [followerChartWidth, followerSeries.length],
   );
   const followerChartPoints = useMemo(() => {
     const height = 120;
@@ -191,6 +239,16 @@ function App() {
     const mid = Math.round((max + min) / 2);
     return [max, mid, min];
   }, [followerValues]);
+
+  const designLengthOptions = useMemo(
+    () => ({
+      상의: ["민소매", "숏", "미디엄", "롱"],
+      하의: ["숏", "하프", "롱"],
+      아우터: ["크롭", "숏", "하프", "롱"],
+      원피스: ["미니", "미디엄", "롱"],
+    }),
+    [],
+  );
 
   const currentFollowerCount =
     followerSeries[followerSeries.length - 1]?.value || 0;
@@ -216,7 +274,7 @@ function App() {
       brandProfiles.find(
         (profile) =>
           profile.handle === selectedBrandKey ||
-          profile.brand === selectedBrandKey
+          profile.brand === selectedBrandKey,
       ) || null
     );
   }, [
@@ -285,7 +343,7 @@ function App() {
       Dress: "Dress",
       Concept: "Tops",
     }),
-    []
+    [],
   );
 
   const categories = useMemo(() => {
@@ -301,7 +359,7 @@ function App() {
 
   const mainCategories = useMemo(
     () => ["All", "Tops", "Outer", "Bottoms", "Dress"],
-    []
+    [],
   );
   const mainCategoryLabels = useMemo(
     () => ({
@@ -311,7 +369,7 @@ function App() {
       Bottoms: "하의",
       Dress: "원피스",
     }),
-    []
+    [],
   );
   const signupMeasurementFields = useMemo(
     () => [
@@ -326,7 +384,7 @@ function App() {
       { label: "다리길이", key: "legLength" },
       { label: "발사이즈", key: "shoeSize" },
     ],
-    []
+    [],
   );
 
   const subCategories = useMemo(() => {
@@ -389,6 +447,9 @@ function App() {
   }, [clothing]);
 
   const generateDesign = () => {
+    if (designCoins <= 0) {
+      return;
+    }
     const trimmed = prompt.trim();
     const nextId = Math.max(...clothing.map((item) => item.id), 0) + 1;
     const nextImage = `/image${
@@ -404,52 +465,89 @@ function App() {
       price: 169000,
       size_specs: { shoulder: 44, chest: 98, waist: 82 },
       design_prompt: trimmed || "미니멀 테일러링 실루엣",
+      description:
+        trimmed ||
+        "AI가 생성한 컨셉을 기반으로 실루엣과 소재 밸런스를 설계했습니다.",
+      story:
+        "AI가 트렌드 데이터를 분석해 감각적인 컬렉션 스토리를 구성했습니다. 디자이너가 세부 디테일을 다듬을 수 있도록 여지를 남겨두었습니다.",
     };
 
     setClothing((prev) => [...prev, newDesign]);
     setGeneratedDesigns((prev) => [newDesign, ...prev]);
     setBrand((prev) => ({ ...prev, clothes_count: prev.clothes_count + 1 }));
     setPrompt("");
-    setStudioNotice("AI 디자인이 생성되었습니다. 소재 값을 조정해보세요.");
+    setDesignCoins((prev) => Math.max(0, prev - 1));
+    setDetailTab("overview");
+    setAiDesignDraft({
+      name: newDesign.name,
+      price: newDesign.price,
+      category: newDesign.category,
+      style: newDesign.style,
+      gender: newDesign.gender,
+      description: newDesign.description || "",
+      story: newDesign.story || "",
+    });
+    setAiDesignEditMode(false);
+    setAiDesignModal({ open: true, design: newDesign });
   };
 
-  const handleLaunch = () => {
-    if (brand.is_public) {
-      setStudioNotice("이미 런칭된 브랜드입니다.");
+  const handleAiDesignEditToggle = () => {
+    if (!aiDesignModal.design) return;
+    if (aiDesignEditMode) {
+      const nextDesign = {
+        ...aiDesignModal.design,
+        name: aiDesignDraft.name.trim() || aiDesignModal.design.name,
+        price: Number(aiDesignDraft.price) || 0,
+        category:
+          aiDesignDraft.category.trim() || aiDesignModal.design.category,
+        style: aiDesignDraft.style.trim() || aiDesignModal.design.style,
+        gender: aiDesignDraft.gender.trim() || aiDesignModal.design.gender,
+        description:
+          aiDesignDraft.description.trim() ||
+          aiDesignModal.design.description,
+        story: aiDesignDraft.story.trim() || aiDesignModal.design.story,
+      };
+      setAiDesignModal((prev) => ({ ...prev, design: nextDesign }));
+      setClothing((prev) =>
+        prev.map((item) =>
+          item.id === nextDesign.id ? { ...item, ...nextDesign } : item,
+        ),
+      );
+      setGeneratedDesigns((prev) =>
+        prev.map((item) =>
+          item.id === nextDesign.id ? { ...item, ...nextDesign } : item,
+        ),
+      );
+      setAiDesignEditMode(false);
       return;
     }
-    if (brand.clothes_count < 10) {
-      setStudioNotice("브랜드 런칭은 최소 10개의 디자인이 필요합니다.");
-      return;
-    }
-
-    const latestDesign = generatedDesigns[0] || clothing[0];
-    const newFunding = {
-      id: Math.max(...fundings.map((item) => item.id), 0) + 1,
-      clothing_id: latestDesign.id,
-      brand: brand.name.toUpperCase(),
-      status: "FUNDING",
-      goal_amount: 6000000,
-      current_amount: 150000,
-      created_at: formatDate(new Date()),
-    };
-
-    setFundings((prev) => [newFunding, ...prev]);
-    setBrand((prev) => ({ ...prev, is_public: true }));
-    setStudioNotice("Discover 탭으로 전송되었습니다.");
+    setAiDesignDraft({
+      name: aiDesignModal.design.name || "",
+      price: aiDesignModal.design.price || 0,
+      category: aiDesignModal.design.category || "",
+      style: aiDesignModal.design.style || "",
+      gender: aiDesignModal.design.gender || "",
+      description: aiDesignModal.design.description || "",
+      story: aiDesignModal.design.story || "",
+    });
+    setAiDesignEditMode(true);
   };
 
   const handleTryOn = (clothingId) => {
     setActiveTab("fitting");
     setFocusClothingId(clothingId);
     setFittingLayers((prev) =>
-      prev.includes(clothingId) ? prev : [...prev, clothingId]
+      prev.includes(clothingId) ? prev : [...prev, clothingId],
     );
     setIsComposing(true);
     window.setTimeout(() => setIsComposing(false), 1200);
   };
 
   const handleLike = (fundingId) => {
+    if (!isLoggedIn) {
+      openAuthModal("login-required");
+      return;
+    }
     setFundings((prev) =>
       prev.map((item) => {
         if (item.id !== fundingId) return item;
@@ -464,7 +562,7 @@ function App() {
           return { ...current, funding: nextItem };
         });
         return nextItem;
-      })
+      }),
     );
   };
 
@@ -536,10 +634,16 @@ function App() {
   const updateNote = (brandId, value) => {
     setBrands((prev) =>
       prev.map((item) =>
-        item.id === brandId ? { ...item, production_note: value } : item
-      )
+        item.id === brandId ? { ...item, production_note: value } : item,
+      ),
     );
   };
+
+  const designCoinPackages = [
+    { id: "starter", label: "Starter 5", amount: 5, price: 1900 },
+    { id: "plus", label: "Plus 15", amount: 15, price: 4900 },
+    { id: "pro", label: "Pro 30", amount: 30, price: 8900 },
+  ];
 
   const submitComment = () => {
     const trimmed = commentDraft.text.trim();
@@ -549,8 +653,8 @@ function App() {
         prev.map((item) =>
           item.id === editingCommentId
             ? { ...item, rating: commentDraft.rating, text: trimmed }
-            : item
-        )
+            : item,
+        ),
       );
     } else {
       const nextId = Math.max(0, ...comments.map((item) => item.id)) + 1;
@@ -576,12 +680,41 @@ function App() {
     ? clamp(
         Math.round(
           (detailItem.funding.current_amount / detailItem.funding.goal_amount) *
-            100
+            100,
         ),
         0,
-        100
+        100,
       )
     : 0;
+
+  const handleFundNow = () => {
+    if (!detailItem?.clothing?.id || !detailItem?.funding?.brand) return;
+    const alreadyFunded = investments.some(
+      (item) =>
+        item.brand === detailItem.funding.brand &&
+        item.itemName === detailItem.clothing.name,
+    );
+    if (alreadyFunded) {
+      setAlreadyFundedAlertOpen(true);
+      setActiveTab("portfolio");
+      setPortfolioTab("investor");
+      return;
+    }
+    const nextId = Math.max(0, ...investments.map((item) => item.id)) + 1;
+    const eta = formatDate(new Date(Date.now() + 1000 * 60 * 60 * 24 * 30));
+    const nextItem = {
+      id: nextId,
+      brand: detailItem.funding.brand,
+      itemName: detailItem.clothing.name,
+      image: detailItem.clothing.design_img_url,
+      amount: detailItem.clothing.price || 0,
+      status: "Funding",
+      eta,
+    };
+    setInvestments((prev) => [nextItem, ...prev]);
+    setActiveTab("portfolio");
+    setPortfolioTab("investor");
+  };
 
   const myBrandProfile = useMemo(
     () => ({
@@ -593,7 +726,7 @@ function App() {
       bio: myBrandDetails.bio,
       location: myBrandDetails.location,
     }),
-    [currentFollowerCount, followingCount, myBrandDetails]
+    [currentFollowerCount, followingCount, myBrandDetails],
   );
 
   const followerProfiles = useMemo(
@@ -609,15 +742,15 @@ function App() {
       { handle: "@flow.archive", name: "Flow Archive" },
       { handle: "@quiet.room", name: "Quiet Room" },
     ],
-    []
+    [],
   );
 
   const followingProfiles = useMemo(
     () =>
       brandProfiles.filter((profile) =>
-        followedBrands.includes(profile.handle)
+        followedBrands.includes(profile.handle),
       ),
-    [brandProfiles, followedBrands]
+    [brandProfiles, followedBrands],
   );
 
   const brandFeed = useMemo(() => {
@@ -635,29 +768,625 @@ function App() {
     const canvas = event.currentTarget;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    ctx.lineWidth = 3;
+    drawMetaRef.current.moved = false;
+    ctx.lineWidth = designSize;
     ctx.lineCap = "round";
-    ctx.strokeStyle = "#111111";
+    if (designTool === "eraser") {
+      ctx.globalCompositeOperation = "destination-out";
+      ctx.strokeStyle = "rgba(0, 0, 0, 1)";
+    } else {
+      ctx.globalCompositeOperation = "source-over";
+      ctx.strokeStyle = designColor;
+    }
     const rect = canvas.getBoundingClientRect();
-    const startX = event.clientX - rect.left;
-    const startY = event.clientY - rect.top;
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const startX = (event.clientX - rect.left) * scaleX;
+    const startY = (event.clientY - rect.top) * scaleY;
+    drawMetaRef.current.startX = startX;
+    drawMetaRef.current.startY = startY;
     ctx.beginPath();
     ctx.moveTo(startX, startY);
 
     const draw = (moveEvent) => {
-      const x = moveEvent.clientX - rect.left;
-      const y = moveEvent.clientY - rect.top;
+      drawMetaRef.current.moved = true;
+      const x = (moveEvent.clientX - rect.left) * scaleX;
+      const y = (moveEvent.clientY - rect.top) * scaleY;
+      const dx = x - drawMetaRef.current.startX;
+      const dy = y - drawMetaRef.current.startY;
+      if (Math.hypot(dx, dy) < 3) {
+        return;
+      }
       ctx.lineTo(x, y);
       ctx.stroke();
     };
 
     const stop = () => {
+      ctx.globalCompositeOperation = "source-over";
       window.removeEventListener("mousemove", draw);
       window.removeEventListener("mouseup", stop);
+      if (!drawMetaRef.current.moved) {
+        openCanvasZoom();
+      }
     };
 
     window.addEventListener("mousemove", draw);
     window.addEventListener("mouseup", stop);
+  };
+
+  const openCanvasZoom = () => {
+    if (canvasPopupRef.current && !canvasPopupRef.current.closed) {
+      canvasPopupRef.current.focus();
+      return;
+    }
+    const popup = window.open("", "modif-canvas", "width=1280,height=900");
+    if (!popup) return;
+    canvasPopupRef.current = popup;
+    const source = designCanvasRef.current;
+    const dataUrl = source ? source.toDataURL("image/png") : "";
+    const payload = {
+      dataUrl,
+      color: designColor,
+      size: designSize,
+      tool: designTool,
+    };
+    const html = `<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>Design Canvas</title>
+  <style>
+    :root { color-scheme: light; }
+    body { margin: 0; font-family: "Pretendard", Arial, sans-serif; background: #f4f4f4; }
+    .page { display: grid; gap: 18px; padding: 28px; }
+    .header { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; }
+    .header h1 { margin: 0; font-size: 22px; }
+    .header p { margin: 6px 0 0; font-size: 12px; color: #666; }
+    .actions { display: flex; gap: 8px; }
+    .btn { border: 1px solid #111; background: #111; color: #fff; border-radius: 999px; padding: 6px 12px; font-size: 12px; cursor: pointer; }
+    .btn.secondary { background: #fff; color: #111; }
+    .panel { background: #fff; border: 1px solid #e5e5e5; border-radius: 16px; padding: 16px; display: grid; gap: 16px; }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; position: relative; }
+    .tool-sub { position: absolute; top: 36px; left: 50%; transform: translateX(-50%); display: none; z-index: 5; }
+    .tool-sub.is-visible { display: block; }
+    .tool-sub .bubble { position: relative; display: inline-flex; align-items: center; white-space: nowrap; }
+    .tool-sub .bubble::before { content: ""; position: absolute; top: -6px; left: 50%; width: 10px; height: 10px; background: #fff; border-left: 1px solid #e5e5e5; border-top: 1px solid #e5e5e5; transform: translateX(-50%) rotate(45deg); }
+    .clear-btn { border: 1px solid #e5e5e5; background: #fff; color: #111; border-radius: 999px; padding: 4px 10px; font-size: 11px; cursor: pointer; box-shadow: 0 8px 16px rgba(0,0,0,0.08); }
+    .tool-group { display: inline-flex; gap: 8px; align-items: center; }
+    .tool-anchor { position: relative; display: inline-flex; }
+    .tool-group.end { margin-left: auto; }
+    .tool-btn { border: 1px solid #e5e5e5; background: #fff; color: #111; border-radius: 999px; width: 32px; height: 32px; display: grid; place-items: center; cursor: pointer; }
+    .tool-btn.active { border-color: #111; background: #111; color: #fff; }
+    .tool-btn:disabled { color: #b5b5b5; border-color: #e2e2e2; cursor: default; }
+    .tool-btn svg { width: 16px; height: 16px; }
+    .color-picker { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: #666; }
+    .color-picker input { width: 28px; height: 28px; border-radius: 8px; border: 1px solid #e5e5e5; padding: 0; background: transparent; cursor: pointer; }
+    .size-control { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: #666; }
+    .size-control input { width: 160px; accent-color: #111; }
+    canvas { width: 100%; height: 72vh; max-height: 720px; border-radius: 16px; border: 1px solid #e5e5e5; background: #fff; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="header">
+      <div>
+        <h1>디자인 캔버스</h1>
+        <p>드로잉 후 저장하면 워크벤치로 돌아갑니다.</p>
+      </div>
+      <div class="actions">
+        <button class="btn secondary" id="cancelBtn">돌아가기</button>
+        <button class="btn" id="saveBtn">저장</button>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="toolbar">
+        <div class="tool-group">
+          <button class="tool-btn" id="brushBtn" title="Brush" aria-label="Brush">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/>
+              <path d="m15 5 4 4"/>
+            </svg>
+          </button>
+          <div class="tool-anchor">
+            <button class="tool-btn" id="eraserBtn" title="Eraser" aria-label="Eraser">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 21H8a2 2 0 0 1-1.42-.587l-3.994-3.999a2 2 0 0 1 0-2.828l10-10a2 2 0 0 1 2.829 0l5.999 6a2 2 0 0 1 0 2.828L12.834 21"/>
+                <path d="m5.082 11.09 8.828 8.828"/>
+              </svg>
+            </button>
+            <div class="tool-sub" id="clearWrap">
+              <div class="bubble">
+                <button class="clear-btn" id="clearBtn">모두 지우기</button>
+              </div>
+            </div>
+          </div>
+          <button class="tool-btn" id="selectBtn" title="Select" aria-label="Select">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="4" y="4" width="16" height="16" rx="2" stroke-dasharray="3 3"/>
+            </svg>
+          </button>
+          <button class="tool-btn" id="fillBtn" title="Fill" aria-label="Fill">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M7 11l6-6 5 5-6 6-5-5z"/>
+              <path d="M4 20h12"/>
+              <path d="M18 14l2 2"/>
+            </svg>
+          </button>
+        </div>
+        <label class="color-picker">색상 <input type="color" id="colorInput" /></label>
+        <label class="size-control">굵기 <input type="range" min="2" max="14" id="sizeInput" /></label>
+        <div class="tool-group end">
+          <button class="tool-btn" id="undoBtn" aria-label="되돌리기" title="되돌리기">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M7 8l-4 4 4 4"/>
+              <path d="M3 12h10a6 6 0 1 1 0 12"/>
+            </svg>
+          </button>
+          <button class="tool-btn" id="redoBtn" aria-label="되돌리기 취소" title="되돌리기 취소">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17 8l4 4-4 4"/>
+              <path d="M21 12H11a6 6 0 1 0 0 12"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <canvas id="canvas" width="1100" height="720"></canvas>
+    </div>
+  </div>
+  <script>
+    const state = ${JSON.stringify(payload)};
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    const brushBtn = document.getElementById("brushBtn");
+    const eraserBtn = document.getElementById("eraserBtn");
+    const selectBtn = document.getElementById("selectBtn");
+    const fillBtn = document.getElementById("fillBtn");
+    const colorInput = document.getElementById("colorInput");
+    const sizeInput = document.getElementById("sizeInput");
+    const saveBtn = document.getElementById("saveBtn");
+    const cancelBtn = document.getElementById("cancelBtn");
+    const undoBtn = document.getElementById("undoBtn");
+    const redoBtn = document.getElementById("redoBtn");
+    const clearBtn = document.getElementById("clearBtn");
+    const clearWrap = document.getElementById("clearWrap");
+
+    let tool = state.tool || "brush";
+    let color = state.color || "#111111";
+    let size = state.size || 6;
+    let clearVisible = false;
+    let selection = {
+      active: false,
+      selecting: false,
+      dragging: false,
+      startX: 0,
+      startY: 0,
+      x: 0,
+      y: 0,
+      w: 0,
+      h: 0,
+      offsetX: 0,
+      offsetY: 0,
+      canvas: null,
+    };
+    const baseCanvas = document.createElement("canvas");
+    baseCanvas.width = canvas.width;
+    baseCanvas.height = canvas.height;
+    const baseCtx = baseCanvas.getContext("2d");
+    const history = [];
+    const redoHistory = [];
+    const maxHistory = 30;
+    const updateUndoRedoUI = () => {
+      undoBtn.disabled = history.length <= 1;
+      redoBtn.disabled = redoHistory.length === 0;
+    };
+    const seedHistory = () => {
+      history.length = 0;
+      redoHistory.length = 0;
+      const snapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      history.push(snapshot);
+      updateUndoRedoUI();
+    };
+
+    const applyToolUI = () => {
+      brushBtn.classList.toggle("active", tool === "brush");
+      eraserBtn.classList.toggle("active", tool === "eraser");
+      selectBtn.classList.toggle("active", tool === "select");
+      fillBtn.classList.toggle("active", tool === "fill");
+      colorInput.value = color;
+      sizeInput.value = size;
+      canvas.style.cursor =
+        tool === "select" || tool === "fill" ? "crosshair" : "crosshair";
+      clearWrap.classList.toggle("is-visible", tool === "eraser" && clearVisible);
+      if (tool !== "select" && selection.active) {
+        commitSelection();
+      }
+    };
+
+    const drawImage = (dataUrl) => {
+      if (!dataUrl) return;
+      const img = new Image();
+      img.onload = () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        baseCtx.clearRect(0, 0, canvas.width, canvas.height);
+        baseCtx.drawImage(canvas, 0, 0);
+        seedHistory();
+      };
+      img.src = dataUrl;
+    };
+
+    let drawing = false;
+
+    const getCanvasPoint = (event) => {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      return {
+        x: (event.clientX - rect.left) * scaleX,
+        y: (event.clientY - rect.top) * scaleY,
+      };
+    };
+
+    const clampValue = (value, min, max) => Math.max(min, Math.min(value, max));
+
+    const renderSelection = (showBorder = true) => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(baseCanvas, 0, 0);
+      if (selection.canvas) {
+        ctx.drawImage(selection.canvas, selection.x, selection.y);
+      }
+      if (showBorder) {
+        ctx.save();
+        ctx.setLineDash([6, 4]);
+        ctx.strokeStyle = "#111";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(selection.x, selection.y, selection.w, selection.h);
+        ctx.restore();
+      }
+    };
+
+    const commitSelection = () => {
+      if (!selection.active || !selection.canvas) return;
+      baseCtx.drawImage(selection.canvas, selection.x, selection.y);
+      selection.active = false;
+      selection.canvas = null;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(baseCanvas, 0, 0);
+    };
+
+    const startSelection = (point) => {
+      pushHistory();
+      selection.selecting = true;
+      selection.startX = point.x;
+      selection.startY = point.y;
+      selection.w = 0;
+      selection.h = 0;
+      baseCtx.clearRect(0, 0, canvas.width, canvas.height);
+      baseCtx.drawImage(canvas, 0, 0);
+    };
+
+    const finalizeSelection = (point) => {
+      selection.selecting = false;
+      const rawW = point.x - selection.startX;
+      const rawH = point.y - selection.startY;
+      const x = rawW < 0 ? point.x : selection.startX;
+      const y = rawH < 0 ? point.y : selection.startY;
+      const w = Math.abs(rawW);
+      const h = Math.abs(rawH);
+      if (w < 6 || h < 6) {
+        selection.active = false;
+        selection.canvas = null;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(baseCanvas, 0, 0);
+        return;
+      }
+      selection.active = true;
+      selection.x = clampValue(x, 0, canvas.width);
+      selection.y = clampValue(y, 0, canvas.height);
+      selection.w = clampValue(w, 0, canvas.width - selection.x);
+      selection.h = clampValue(h, 0, canvas.height - selection.y);
+      const selCanvas = document.createElement("canvas");
+      selCanvas.width = selection.w;
+      selCanvas.height = selection.h;
+      const selCtx = selCanvas.getContext("2d");
+      const imgData = baseCtx.getImageData(
+        selection.x,
+        selection.y,
+        selection.w,
+        selection.h,
+      );
+      selCtx.putImageData(imgData, 0, 0);
+      selection.canvas = selCanvas;
+      baseCtx.clearRect(selection.x, selection.y, selection.w, selection.h);
+      renderSelection();
+    };
+
+    const isInsideSelection = (point) =>
+      selection.active &&
+      point.x >= selection.x &&
+      point.x <= selection.x + selection.w &&
+      point.y >= selection.y &&
+      point.y <= selection.y + selection.h;
+
+    const handleSelectionStart = (event) => {
+      const point = getCanvasPoint(event);
+      if (selection.active && isInsideSelection(point)) {
+        pushHistory();
+        selection.dragging = true;
+        selection.offsetX = point.x - selection.x;
+        selection.offsetY = point.y - selection.y;
+        return;
+      }
+      if (selection.active) {
+        commitSelection();
+      }
+      startSelection(point);
+    };
+
+    const handleSelectionMove = (event) => {
+      const point = getCanvasPoint(event);
+      if (selection.dragging) {
+        selection.x = clampValue(point.x - selection.offsetX, 0, canvas.width - selection.w);
+        selection.y = clampValue(point.y - selection.offsetY, 0, canvas.height - selection.h);
+        renderSelection();
+        return;
+      }
+      if (!selection.selecting) return;
+      selection.w = point.x - selection.startX;
+      selection.h = point.y - selection.startY;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(baseCanvas, 0, 0);
+      ctx.save();
+      ctx.setLineDash([6, 4]);
+      ctx.strokeStyle = "#111";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(selection.startX, selection.startY, selection.w, selection.h);
+      ctx.restore();
+    };
+
+    const handleSelectionEnd = (event) => {
+      if (selection.dragging) {
+        selection.dragging = false;
+        renderSelection();
+        return;
+      }
+      if (!selection.selecting) return;
+      const point = getCanvasPoint(event);
+      finalizeSelection(point);
+    };
+
+    const hexToRgba = (hex) => {
+      const value = hex.replace("#", "");
+      const num = parseInt(value.length === 3 ? value.split("").map((c) => c + c).join("") : value, 16);
+      return [num >> 16, (num >> 8) & 255, num & 255, 255];
+    };
+
+    const colorsMatch = (data, index, target) =>
+      data[index] === target[0] &&
+      data[index + 1] === target[1] &&
+      data[index + 2] === target[2] &&
+      data[index + 3] === target[3];
+
+    const fillAtPoint = (event) => {
+      pushHistory();
+      const point = getCanvasPoint(event);
+      const x = Math.floor(point.x);
+      const y = Math.floor(point.y);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+      const targetIndex = (y * canvas.width + x) * 4;
+      const targetColor = [
+        data[targetIndex],
+        data[targetIndex + 1],
+        data[targetIndex + 2],
+        data[targetIndex + 3],
+      ];
+      const fillColor = hexToRgba(color);
+      if (colorsMatch(data, targetIndex, fillColor)) return;
+      const stack = [[x, y]];
+      while (stack.length) {
+        const [cx, cy] = stack.pop();
+        if (cx < 0 || cy < 0 || cx >= canvas.width || cy >= canvas.height) continue;
+        const idx = (cy * canvas.width + cx) * 4;
+        if (!colorsMatch(data, idx, targetColor)) continue;
+        data[idx] = fillColor[0];
+        data[idx + 1] = fillColor[1];
+        data[idx + 2] = fillColor[2];
+        data[idx + 3] = fillColor[3];
+        stack.push([cx + 1, cy]);
+        stack.push([cx - 1, cy]);
+        stack.push([cx, cy + 1]);
+        stack.push([cx, cy - 1]);
+      }
+      ctx.putImageData(imageData, 0, 0);
+      if (selection.active) {
+        selection.active = false;
+        selection.canvas = null;
+      }
+      baseCtx.clearRect(0, 0, canvas.width, canvas.height);
+      baseCtx.drawImage(canvas, 0, 0);
+    };
+
+    const startDraw = (event) => {
+      if (tool === "select") {
+        handleSelectionStart(event);
+        return;
+      }
+      if (tool === "fill") {
+        if (selection.active) {
+          commitSelection();
+        }
+        fillAtPoint(event);
+        return;
+      }
+      drawing = true;
+      pushHistory();
+      const point = getCanvasPoint(event);
+      const x = point.x;
+      const y = point.y;
+      ctx.lineCap = "round";
+      ctx.lineWidth = size;
+      if (tool === "eraser") {
+        ctx.globalCompositeOperation = "destination-out";
+        ctx.strokeStyle = "rgba(0,0,0,1)";
+      } else {
+        ctx.globalCompositeOperation = "source-over";
+        ctx.strokeStyle = color;
+      }
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+    };
+
+    const moveDraw = (event) => {
+      if (tool === "select") {
+        handleSelectionMove(event);
+        return;
+      }
+      if (!drawing) return;
+      const point = getCanvasPoint(event);
+      const x = point.x;
+      const y = point.y;
+      ctx.lineTo(x, y);
+      ctx.stroke();
+    };
+
+    const stopDraw = (event) => {
+      if (tool === "select") {
+        handleSelectionEnd(event);
+        return;
+      }
+      drawing = false;
+      ctx.globalCompositeOperation = "source-over";
+    };
+
+    canvas.addEventListener("mousedown", startDraw);
+    canvas.addEventListener("mousemove", moveDraw);
+    window.addEventListener("mouseup", stopDraw);
+
+    brushBtn.addEventListener("click", () => {
+      tool = "brush";
+      clearVisible = false;
+      applyToolUI();
+    });
+    eraserBtn.addEventListener("click", () => {
+      if (tool === "eraser") {
+        clearVisible = !clearVisible;
+      } else {
+        tool = "eraser";
+        clearVisible = false;
+      }
+      applyToolUI();
+    });
+    selectBtn.addEventListener("click", () => { tool = "select"; applyToolUI(); });
+    fillBtn.addEventListener("click", () => {
+      tool = "fill";
+      clearVisible = false;
+      applyToolUI();
+    });
+    colorInput.addEventListener("input", (e) => { color = e.target.value; });
+    sizeInput.addEventListener("input", (e) => { size = Number(e.target.value); applyToolUI(); });
+    undoBtn.addEventListener("click", () => {
+      if (history.length <= 1) return;
+      selection.active = false;
+      selection.canvas = null;
+      const snapshot = history.pop();
+      const current = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      redoHistory.push(current);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.putImageData(snapshot, 0, 0);
+      baseCtx.clearRect(0, 0, canvas.width, canvas.height);
+      baseCtx.putImageData(snapshot, 0, 0);
+      updateUndoRedoUI();
+    });
+    redoBtn.addEventListener("click", () => {
+      if (!redoHistory.length) return;
+      selection.active = false;
+      selection.canvas = null;
+      const current = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      history.push(current);
+      const snapshot = redoHistory.pop();
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.putImageData(snapshot, 0, 0);
+      baseCtx.clearRect(0, 0, canvas.width, canvas.height);
+      baseCtx.putImageData(snapshot, 0, 0);
+      updateUndoRedoUI();
+    });
+    clearBtn.addEventListener("click", () => {
+      selection.active = false;
+      selection.canvas = null;
+      pushHistory();
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      baseCtx.clearRect(0, 0, canvas.width, canvas.height);
+      updateUndoRedoUI();
+    });
+
+    saveBtn.addEventListener("click", () => {
+      const dataUrl = canvas.toDataURL("image/png");
+      window.opener && window.opener.postMessage({ type: "modif-canvas-save", dataUrl }, "*");
+      window.close();
+    });
+
+    cancelBtn.addEventListener("click", () => {
+      window.opener && window.opener.postMessage({ type: "modif-canvas-cancel" }, "*");
+      window.close();
+    });
+
+    window.addEventListener("beforeunload", () => {
+      window.opener && window.opener.postMessage({ type: "modif-canvas-close" }, "*");
+    });
+
+    drawImage(state.dataUrl);
+    applyToolUI();
+    updateUndoRedoUI();
+
+    function pushHistory() {
+      const snapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      history.push(snapshot);
+      redoHistory.length = 0;
+      if (history.length > maxHistory) {
+        history.shift();
+      }
+      updateUndoRedoUI();
+    }
+  </script>
+</body>
+</html>`;
+    popup.document.open();
+    popup.document.write(html);
+    popup.document.close();
+  };
+
+  const saveTempDesign = () => {
+    const canvas = designCanvasRef.current;
+    if (!canvas) return;
+    const dataUrl = canvas.toDataURL("image/png");
+    const nextId = `temp-${Date.now()}`;
+    setTempDesigns((prev) => [
+      {
+        id: nextId,
+        name: "임시 스케치",
+        design_prompt: prompt.trim() || "임시 스케치",
+        design_img_url: dataUrl,
+        isTemp: true,
+      },
+      ...prev,
+    ]);
+  };
+
+  const removeDesign = (designId, isTemp) => {
+    if (isTemp) {
+      setTempDesigns((prev) => prev.filter((item) => item.id !== designId));
+      return;
+    }
+    setGeneratedDesigns((prev) => prev.filter((item) => item.id !== designId));
+  };
+
+  const clearDesignCanvas = () => {
+    const canvas = designCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
   };
 
   const resetFilters = () => {
@@ -672,11 +1401,12 @@ function App() {
     setSignupDraft({
       handle: userProfile.handle,
       name: userProfile.name,
+      password: "",
+      passwordConfirm: "",
       base_photo_url: userProfile.base_photo_url,
       measurements: { ...userProfile.measurements },
     });
     setSelectedStyleIds([]);
-    setGoogleConnected(false);
     setOnboardingStep(0);
     setMeasurementMode("manual");
   };
@@ -685,6 +1415,63 @@ function App() {
     setIntroOpen(false);
     resetOnboarding();
     setOnboardingOpen(true);
+  };
+
+  const openLoginFlow = () => {
+    setIntroOpen(false);
+    setLoginModalOpen(true);
+  };
+
+  const openAuthModal = (mode) => {
+    setAuthModal({ open: true, mode });
+  };
+
+  const closeAuthModal = () => {
+    setAuthModal({ open: false, mode: null });
+  };
+
+  const closeLoginModal = () => {
+    setLoginModalOpen(false);
+  };
+
+  const closeCancelFundingModal = () => {
+    setCancelFundingModal({ open: false, investmentId: null });
+  };
+
+  const submitLogin = () => {
+    if (!loginDraft.handle.trim() || !loginDraft.password.trim()) return;
+    setIsLoggedIn(true);
+    setLoginModalOpen(false);
+    setActiveTab(pendingTab || "discover");
+    setPendingTab(null);
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setActiveTab("discover");
+    setDetailItem(null);
+    setNotificationOpen(false);
+    setSearchOpen(false);
+    setPortfolioListOpen(null);
+    setSelectedBrandKey(null);
+    setPendingTab(null);
+    setLoginDraft({ handle: "", password: "" });
+    setFundings((prev) =>
+      prev.map((item) =>
+        item.liked
+          ? { ...item, liked: false, likes: Math.max(0, item.likes - 1) }
+          : item,
+      ),
+    );
+  };
+
+  const handleRestrictedNav = (nextTab) => {
+    if (isLoggedIn) {
+      setActiveTab(nextTab);
+      return;
+    }
+    setPendingTab(nextTab);
+    openAuthModal("login-required");
   };
 
   const updateSignupField = (key, value) => {
@@ -711,17 +1498,15 @@ function App() {
     setSelectedStyleIds((prev) =>
       prev.includes(clothingId)
         ? prev.filter((id) => id !== clothingId)
-        : [...prev, clothingId]
+        : [...prev, clothingId],
     );
   };
 
   const finalizeOnboarding = () => {
     const nextStyleTags = Array.from(
       new Set(
-        selectedStyleIds
-          .map((id) => clothingMap[id]?.style)
-          .filter(Boolean)
-      )
+        selectedStyleIds.map((id) => clothingMap[id]?.style).filter(Boolean),
+      ),
     );
     setUserProfile((prev) => ({
       ...prev,
@@ -737,15 +1522,43 @@ function App() {
         if (!selectedStyleIds.includes(item.clothing_id)) return item;
         if (item.liked) return item;
         return { ...item, liked: true, likes: item.likes + 1 };
-      })
+      }),
     );
+    setIsLoggedIn(true);
     setOnboardingOpen(false);
-    setActiveTab("discover");
+    setActiveTab(pendingTab || "discover");
+    setPendingTab(null);
   };
 
   useEffect(() => {
     document.body.classList.toggle("dark", darkMode);
   }, [darkMode]);
+
+  useEffect(() => {
+    window.localStorage.setItem("modifLoggedIn", isLoggedIn ? "true" : "false");
+  }, [isLoggedIn]);
+
+  useEffect(() => {
+    const handleMessage = (event) => {
+      const payload = event?.data;
+      if (!payload || typeof payload !== "object") return;
+      if (payload.type !== "modif-canvas-save") return;
+      if (!payload.dataUrl) return;
+      const target = designCanvasRef.current;
+      if (!target) return;
+      const ctx = target.getContext("2d");
+      if (!ctx) return;
+      const image = new Image();
+      image.onload = () => {
+        ctx.clearRect(0, 0, target.width, target.height);
+        ctx.drawImage(image, 0, 0, target.width, target.height);
+      };
+      image.src = payload.dataUrl;
+    };
+
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, []);
 
   useEffect(() => {
     document.body.classList.toggle("intro-open", introOpen);
@@ -756,7 +1569,9 @@ function App() {
 
   useEffect(() => {
     if (!introOpen) return;
-    const sections = document.querySelectorAll(".intro-section, .intro-actions");
+    const sections = document.querySelectorAll(
+      ".intro-section, .intro-actions",
+    );
     if (!sections.length) return;
 
     const observer = new IntersectionObserver(
@@ -767,7 +1582,7 @@ function App() {
           }
         });
       },
-      { threshold: 0.55 }
+      { threshold: 0.55 },
     );
 
     sections.forEach((section) => observer.observe(section));
@@ -807,7 +1622,7 @@ function App() {
     }
     if (notice.target.type === "brand") {
       const profile = brandProfiles.find(
-        (item) => item.handle === notice.target.handle
+        (item) => item.handle === notice.target.handle,
       );
       if (profile) {
         openBrandProfile(profile);
@@ -826,11 +1641,11 @@ function App() {
                 ...profile,
                 followerCount: Math.max(
                   0,
-                  profile.followerCount + (isFollowed ? -1 : 1)
+                  profile.followerCount + (isFollowed ? -1 : 1),
                 ),
               }
-            : profile
-        )
+            : profile,
+        ),
       );
       return isFollowed
         ? prev.filter((item) => item !== handle)
@@ -839,16 +1654,46 @@ function App() {
   };
 
   const requiredStyleCount = 3;
+  const passwordReady =
+    signupDraft.password.trim().length > 0 &&
+    signupDraft.passwordConfirm.trim().length > 0 &&
+    signupDraft.password === signupDraft.passwordConfirm;
+  const showPasswordHint =
+    signupDraft.passwordConfirm.trim().length > 0 && !passwordReady;
   const canProceedProfile =
-    signupDraft.handle.trim().length > 0 && signupDraft.name.trim().length > 0;
+    signupDraft.handle.trim().length > 0 &&
+    signupDraft.name.trim().length > 0 &&
+    passwordReady;
   const canFinishOnboarding =
-    googleConnected &&
-    canProceedProfile &&
-    selectedStyleIds.length >= requiredStyleCount;
+    canProceedProfile && selectedStyleIds.length >= requiredStyleCount;
 
   if (onboardingOpen) {
     return (
       <div className="onboarding-page">
+        <div className="onboarding-actions">
+          <button
+            type="button"
+            className="onboarding-back"
+            onClick={() => {
+              setOnboardingOpen(false);
+              setIntroOpen(true);
+              resetOnboarding();
+            }}
+          >
+            돌아가기
+          </button>
+          <button
+            type="button"
+            className="onboarding-login"
+            onClick={() => {
+              setOnboardingOpen(false);
+              setIntroOpen(false);
+              openAuthModal("login-required");
+            }}
+          >
+            로그인
+          </button>
+        </div>
         <video
           className="onboarding-video"
           src="/background.mp4"
@@ -862,7 +1707,7 @@ function App() {
           <header className="onboarding-header">
             <div>
               <span className="onboarding-step">
-                Step {onboardingStep + 1} / 3
+                Step {onboardingStep + 1} / 2
               </span>
               <h2>당신의 스타일 여정을 시작해요.</h2>
               <p>순서대로 입력하고 다음으로 넘어가세요.</p>
@@ -873,32 +1718,7 @@ function App() {
             {onboardingStep === 0 && (
               <section className="onboarding-section is-visible">
                 <div className="onboarding-section-inner compact">
-                  <div className="onboarding-panel google-card">
-                    <h3>Google 로그인</h3>
-                    <p>
-                      계정을 연결하면 저장된 취향과 추천이 즉시 동기화됩니다.
-                    </p>
-                    <div className="google-row">
-                      <button
-                        type="button"
-                        className="primary"
-                        onClick={() => {
-                          setGoogleConnected(true);
-                          setOnboardingStep(1);
-                        }}
-                      >
-                        Google로 계속
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </section>
-            )}
-
-            {onboardingStep === 1 && (
-              <section className="onboarding-section is-visible">
-                <div className="onboarding-section-inner">
-                  <span className="onboarding-step">Step 2</span>
+                  <span className="onboarding-step">Step 1</span>
                   <div className="onboarding-panel">
                     <h3>기본 정보</h3>
                     <div className="onboarding-grid">
@@ -908,11 +1728,37 @@ function App() {
                           accept="image/*"
                           onChange={handleProfilePhotoChange}
                         />
-                        <div className="profile-icon">
-                          {signupDraft.base_photo_url ? (
-                            <img src={signupDraft.base_photo_url} alt="Profile" />
-                          ) : (
-                            <div className="avatar-placeholder">👤</div>
+                        {signupDraft.base_photo_url && (
+                          <button
+                            type="button"
+                            className="profile-remove"
+                            aria-label="Remove profile photo"
+                            onClick={() =>
+                              setSignupDraft((prev) => ({
+                                ...prev,
+                                base_photo_url: null,
+                              }))
+                            }
+                          >
+                            ×
+                          </button>
+                        )}
+                        <div
+                          className={`profile-icon ${
+                            signupDraft.base_photo_url ? "has-photo" : ""
+                          }`}
+                        >
+                          {/* 1. 항상 'profile' 글자를 배경에 깔아둡니다 */}
+                          <span className="profile-text">profile</span>
+
+                          {/* 2. 이미지가 있으면 그 위에 덮어씌웁니다 */}
+                          {signupDraft.base_photo_url && (
+                            <img
+                              src={signupDraft.base_photo_url}
+                              alt="Profile"
+                              /* ✨ 핵심: 이미지가 깨지면(에러나면) 스스로를 숨겨서 뒤에 있는 글자가 보이게 함 */
+                              onError={(e) => (e.target.style.display = "none")}
+                            />
                           )}
                         </div>
                       </div>
@@ -937,8 +1783,40 @@ function App() {
                             placeholder="홍길동"
                           />
                         </label>
+                        <label className="onboarding-field">
+                          비밀번호
+                          <input
+                            type="password"
+                            value={signupDraft.password}
+                            onChange={(event) =>
+                              updateSignupField("password", event.target.value)
+                            }
+                            placeholder="비밀번호 입력"
+                          />
+                        </label>
+                        <label className="onboarding-field">
+                          비밀번호 확인
+                          <input
+                            type="password"
+                            value={signupDraft.passwordConfirm}
+                            onChange={(event) =>
+                              updateSignupField(
+                                "passwordConfirm",
+                                event.target.value,
+                              )
+                            }
+                            placeholder="비밀번호 재입력"
+                          />
+                        </label>
                       </div>
                     </div>
+                    <p
+                      className={`onboarding-hint ${
+                        showPasswordHint ? "is-visible" : "is-hidden"
+                      }`}
+                    >
+                      비밀번호가 일치하지 않습니다.
+                    </p>
                     <div className="onboarding-divider" />
                     <div className="measurements-head">
                       <h4>신체 수치</h4>
@@ -974,17 +1852,62 @@ function App() {
                             <div className="ai-upload-text">
                               <strong>전신 사진 업로드</strong>
                               <span>
-                                정면 전신 사진 1장을 업로드하면 AI가 자동으로
-                                치수를 계산합니다.
+                                {aiFileName ? (
+                                  <span className="ai-file-name">
+                                    {aiFileName}
+                                    <button
+                                      type="button"
+                                      className="ai-file-remove"
+                                      aria-label="Remove uploaded photo"
+                                      onClick={() => setAiFileName(null)}
+                                    >
+                                      ?
+                                    </button>
+                                  </span>
+                                ) : (
+                                  "?? ?? ?? 1?? ??? AI? ?? ??? ???."
+                                )}
                               </span>
                             </div>
                             <label className="ai-upload-btn">
-                              사진
-                              <input type="file" accept="image/*" />
+                              <svg
+                                className="ai-upload-icon"
+                                viewBox="0 0 24 24"
+                                aria-hidden="true"
+                              >
+                                <path
+                                  d="M4 7h3l2-2h6l2 2h3v12H4z"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="1.6"
+                                  strokeLinejoin="round"
+                                />
+                                <circle
+                                  cx="12"
+                                  cy="13"
+                                  r="3.5"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="1.6"
+                                />
+                              </svg>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => {
+                                  const file = e.target.files[0];
+                                  if (file) {
+                                    setAiFileName(file.name); // ✨ 선택된 파일 이름 저장
+                                    // (필요하다면 여기에 이미지 처리 로직 추가)
+                                  }
+                                }}
+                              />
                             </label>
                           </div>
+                          {/* .ai-hint div는 base.css에서 숨겼으므로 코드는 그대로 둬도 안 보입니다 */}
                           <div className="ai-hint">
-                            밝은 배경에서 정면 자세로 촬영된 이미지를 권장합니다.
+                            밝은 배경에서 정면 자세로 촬영된 이미지를
+                            권장합니다.
                           </div>
                         </div>
                       ) : (
@@ -998,7 +1921,7 @@ function App() {
                                 onChange={(event) =>
                                   updateSignupMeasurement(
                                     field.key,
-                                    event.target.value
+                                    event.target.value,
                                   )
                                 }
                               />
@@ -1012,7 +1935,7 @@ function App() {
                         type="button"
                         className="primary"
                         disabled={!canProceedProfile}
-                        onClick={() => setOnboardingStep(2)}
+                        onClick={() => setOnboardingStep(1)}
                       >
                         다음
                       </button>
@@ -1022,16 +1945,18 @@ function App() {
               </section>
             )}
 
-            {onboardingStep === 2 && (
+            {onboardingStep === 1 && (
               <section className="onboarding-section is-visible">
-                <div className="onboarding-section-inner">
-                  <span className="onboarding-step">Step 3</span>
+                <div className="onboarding-section-inner compact">
+                  <span className="onboarding-step">Step 2</span>
                   <div className="onboarding-panel">
-                    <div className="style-pick-header">
-                      <h4>취향에 맞는 아이템을 골라주세요.</h4>
-                      <span>
-                        선택 {selectedStyleIds.length}/{requiredStyleCount}
-                      </span>
+                    <div className="style-pick-title-row">
+                      <h3>취향 선택</h3>
+                      <div className="style-pick-title-meta">
+                        <span>
+                          선택 {selectedStyleIds.length}/{requiredStyleCount}
+                        </span>
+                      </div>
                     </div>
                     <div className="style-pick-grid">
                       {onboardingStyleItems.map((item) => (
@@ -1039,34 +1964,35 @@ function App() {
                           key={item.id}
                           type="button"
                           className={`style-pick-card ${
-                            selectedStyleIds.includes(item.id)
-                              ? "selected"
-                              : ""
+                            selectedStyleIds.includes(item.id) ? "selected" : ""
                           }`}
                           onClick={() => toggleStyleSelection(item.id)}
                         >
-                          <img src={item.design_img_url} alt={item.name} />
-                          <div className="style-pick-meta">
-                            <strong>{item.name}</strong>
-                            <span>
-                              {item.style} · {item.category}
-                            </span>
+                          <div className="style-pick-media">
+                            <img src={item.design_img_url} alt={item.name} />
+                            <span
+                              className="style-pick-check"
+                              aria-hidden="true"
+                            />
                           </div>
                         </button>
                       ))}
                     </div>
-                    {!canFinishOnboarding && (
-                      <p className="onboarding-hint">
-                        최소 {requiredStyleCount}개를 선택하면 가입이
-                        완료됩니다.
-                      </p>
-                    )}
                     <div className="onboarding-submit">
+                      {!canFinishOnboarding && (
+                        <p className="onboarding-hint is-visible">
+                          최소 {requiredStyleCount}개 이상 선택해야합니다.
+                        </p>
+                      )}
                       <button
                         type="button"
                         className="primary"
-                        disabled={!canFinishOnboarding}
-                        onClick={finalizeOnboarding}
+                        aria-disabled={!canFinishOnboarding}
+                        onClick={() => {
+                          if (canFinishOnboarding) {
+                            finalizeOnboarding();
+                          }
+                        }}
                       >
                         가입 완료
                       </button>
@@ -1081,7 +2007,7 @@ function App() {
     );
   }
 
-  return (
+  const appContent = (
     <div
       className={`app ${sidebarOpen ? "" : "sidebar-collapsed"} ${
         darkMode ? "dark" : ""
@@ -1101,7 +2027,7 @@ function App() {
             <div className="intro-fade" />
             <div className="intro-title-block">
               <span className="intro-title-main">Modif</span>
-              <span className="intro-title-sub">Modify Your Mode</span>
+              <span className="intro-title-sub">Mode + if</span>
             </div>
           </section>
           <section className="intro-content">
@@ -1109,29 +2035,35 @@ function App() {
               <div className="intro-sections">
                 <article className="intro-section" style={{ "--delay": "0ms" }}>
                   <span className="intro-keyword">Create</span>
-                  <h3 className="intro-heading">상상, 현실의 패턴이 되다.</h3>
+                  <h3 className="intro-heading">상상이 디자인이 되는 순간</h3>
                   <p className="intro-desc">
-                    AI 스튜디오에서 단 한 줄의 텍스트로
+                    텍스트 한 줄로 아이디어를 시각화하고,
                     <br />
-                    당신의 상상을 구체적인 실루엣으로 그려냅니다.
+                    누구나 디자이너가 되는 경험을 제공합니다.
                   </p>
                 </article>
-                <article className="intro-section" style={{ "--delay": "180ms" }}>
+                <article
+                  className="intro-section"
+                  style={{ "--delay": "180ms" }}
+                >
                   <span className="intro-keyword">Invest</span>
-                  <h3 className="intro-heading">당신의 안목, 자산이 되다.</h3>
+                  <h3 className="intro-heading">나의 안목이 자산이 되다</h3>
                   <p className="intro-desc">
-                    전 세계 창작자들의 가치를 가장 먼저 발견하고,
+                    가능성 있는 브랜드를 가장 먼저 발견하고,
                     <br />
-                    미래의 유니콘 브랜드에 투자하세요.
+                    단순 소비를 넘어 성장에 투자하세요.
                   </p>
                 </article>
-                <article className="intro-section" style={{ "--delay": "360ms" }}>
+                <article
+                  className="intro-section"
+                  style={{ "--delay": "360ms" }}
+                >
                   <span className="intro-keyword">Fit</span>
-                  <h3 className="intro-heading">입지 않아도, 완벽하게.</h3>
+                  <h3 className="intro-heading">미리 입어보는 가상 피팅</h3>
                   <p className="intro-desc">
-                    내 체형 데이터로 경험하는 0.1mm의 디테일.
+                    옷을 직접 레이어링 해보며
                     <br />
-                    가상 피팅의 새로운 기준입니다.
+                    나에게 꼭 맞는 핏과 스타일을 미리 경험해 보세요.
                   </p>
                 </article>
               </div>
@@ -1209,7 +2141,11 @@ function App() {
             <button
               key={item.key}
               className={`nav-item ${activeTab === item.key ? "active" : ""}`}
-              onClick={() => setActiveTab(item.key)}
+              onClick={() =>
+                item.key === "discover"
+                  ? setActiveTab(item.key)
+                  : handleRestrictedNav(item.key)
+              }
               type="button"
             >
               <span className="nav-icon">{item.icon}</span>
@@ -1302,13 +2238,36 @@ function App() {
             )}
           </div>
           <div className="top-actions">
+            {isLoggedIn ? (
+              <button
+                type="button"
+                className="top-user-login"
+                onClick={() => openAuthModal("logout-confirm")}
+              >
+                로그아웃
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="top-user-login"
+                onClick={openLoginFlow}
+              >
+                로그인
+              </button>
+            )}
             <div className="notif-wrap">
               <button
                 className="icon-btn"
                 type="button"
                 aria-label="Notifications"
                 aria-expanded={notificationOpen}
-                onClick={() => setNotificationOpen((prev) => !prev)}
+                onClick={() => {
+                  if (isLoggedIn) {
+                    setNotificationOpen((prev) => !prev);
+                  } else {
+                    openAuthModal("login-required");
+                  }
+                }}
               >
                 {notifications.length > 0 && (
                   <span className="notif-dot" aria-hidden="true" />
@@ -1322,7 +2281,7 @@ function App() {
                 <div className="notif-panel" role="menu">
                   <div className="notif-header">
                     <div className="notif-title">
-                      <strong>Notifications</strong>
+                      <strong>알림</strong>
                       <span>{notifications.length} new</span>
                     </div>
                   </div>
@@ -1352,12 +2311,14 @@ function App() {
                                 prev.map((notice) =>
                                   notice.id === item.id
                                     ? { ...notice, removing: true }
-                                    : notice
-                                )
+                                    : notice,
+                                ),
                               );
                               window.setTimeout(() => {
                                 setNotifications((prev) =>
-                                  prev.filter((notice) => notice.id !== item.id)
+                                  prev.filter(
+                                    (notice) => notice.id !== item.id,
+                                  ),
                                 );
                               }, 220);
                             }}
@@ -1376,8 +2337,12 @@ function App() {
               type="button"
               aria-label="Profile"
               onClick={() => {
-                setActiveTab("profile");
-                setDetailItem(null);
+                if (isLoggedIn) {
+                  setActiveTab("profile");
+                  setDetailItem(null);
+                } else {
+                  openAuthModal("login-required");
+                }
               }}
             >
               <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -1392,7 +2357,7 @@ function App() {
           <section className="content">
             <div className="page-title">
               <h1>Discover</h1>
-              <p>Find your next signature look</p>
+              <p>취향을 넘어선 새로운 브랜드의 발견</p>
             </div>
 
             <div className="tag-row">
@@ -1491,22 +2456,27 @@ function App() {
                 {filterOpen && (
                   <div className="filter-panel">
                     <label className="filter-field">
-                      Gender
+                      성별
                       <select
                         value={selectedGender}
                         onChange={(event) =>
                           setSelectedGender(event.target.value)
                         }
                       >
-                        {["All", "Mens", "Womens", "Unisex"].map((option) => (
-                          <option key={option} value={option}>
-                            {option}
+                        {[
+                          { value: "All", label: "전체" },
+                          { value: "Mens", label: "??" },
+                          { value: "Womens", label: "??" },
+                          { value: "Unisex", label: "??" },
+                        ].map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
                           </option>
                         ))}
                       </select>
                     </label>
                     <label className="filter-field">
-                      Style
+                      스타일
                       <select
                         value={selectedStyle}
                         onChange={(event) =>
@@ -1514,15 +2484,15 @@ function App() {
                         }
                       >
                         {[
-                          "All",
-                          "Minimal",
-                          "Street",
-                          "Classic",
-                          "Sport",
-                          "Romantic",
+                          { value: "All", label: "전체" },
+                          { value: "Minimal", label: "미니멀" },
+                          { value: "Street", label: "스트릿" },
+                          { value: "Classic", label: "클래식" },
+                          { value: "Sport", label: "스포티" },
+                          { value: "Romantic", label: "로맨틱" },
                         ].map((option) => (
-                          <option key={option} value={option}>
-                            {option}
+                          <option key={option.value} value={option.value}>
+                            {option.label}
                           </option>
                         ))}
                       </select>
@@ -1545,7 +2515,7 @@ function App() {
                 const progress = clamp(
                   Math.round((item.current_amount / item.goal_amount) * 100),
                   0,
-                  100
+                  100,
                 );
 
                 return (
@@ -1554,12 +2524,18 @@ function App() {
                     key={item.id}
                     style={{ animationDelay: `${index * 70}ms` }}
                   >
-                    <button
-                      type="button"
+                    <div
                       className="card-media"
+                      role="button"
+                      tabIndex={0}
                       onClick={() => {
-                        setDetailItem({ funding: item, clothing: cloth });
-                        setDetailTab("overview");
+                        openClothingDetail(cloth.id);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          openClothingDetail(cloth.id);
+                        }
                       }}
                     >
                       <img src={cloth?.design_img_url} alt={cloth?.name} />
@@ -1577,14 +2553,14 @@ function App() {
                         </button>
                       </div>
                       <div className="card-overlay" aria-hidden="true"></div>
-                    </button>
+                    </div>
                     <div className="card-body">
                       <div className="card-title">
                         <div className="card-title-row">
                           <h3>{item.brand}</h3>
                           <span className="price-inline">
                             {currency.format(
-                              clothingMap[item.clothing_id]?.price || 0
+                              clothingMap[item.clothing_id]?.price || 0,
                             )}
                           </span>
                         </div>
@@ -1623,7 +2599,9 @@ function App() {
                 <div className="modal-content">
                   <button
                     className="close"
-                    onClick={() => setDetailItem(null)}
+                    onClick={() => {
+                      setDetailItem(null);
+                    }}
                     type="button"
                   >
                     ×
@@ -1682,10 +2660,17 @@ function App() {
                                 <span className="price-label">Price</span>
                                 <strong className="price-strong">
                                   {currency.format(
-                                    detailItem.clothing?.price || 0
+                                    detailItem.clothing?.price || 0,
                                   )}
                                 </strong>
                               </div>
+                              <button
+                                type="button"
+                                className="primary detail-fund-btn"
+                                onClick={handleFundNow}
+                              >
+                                펀딩하기
+                              </button>
                               <div className="price-like-row">
                                 <button
                                   type="button"
@@ -1704,8 +2689,8 @@ function App() {
                             </div>
                             <h4>옷 세부내용</h4>
                             <p>
-                              {detailItem.clothing?.name}은(는) 절제된 실루엣과
-                              깔끔한 마감으로 일상과 포멀 모두에 어울립니다.
+                              {detailItem.clothing?.description ||
+                                `${detailItem.clothing?.name}은(는) 절제된 실루엣과 깔끔한 마감으로 일상과 포멀 모두에 어울립니다.`}
                             </p>
                             <div className="spec-grid">
                               <div>
@@ -1728,7 +2713,7 @@ function App() {
                             <div className="spec-bar">
                               {[
                                 { label: "신축성", value: fabric.stretch },
-                                { label: "무게감", value: fabric.weight },
+                                { label: "두께감", value: fabric.weight },
                                 { label: "탄탄함", value: fabric.stiffness },
                               ].map((item) => (
                                 <div className="spec-bar-row" key={item.label}>
@@ -1751,11 +2736,8 @@ function App() {
                           <div className="detail-block">
                             <h4>브랜드 스토리</h4>
                             <p>
-                              {detailItem.funding.brand}는 장인 정신과 데이터
-                              기반 디자인을 결합해 지속 가능한 컬렉션을
-                              선보입니다. 이번 라인업은 도시적인 실루엣과 실용적
-                              디테일을 강조하며, 고객 피드백을 빠르게 반영하는
-                              것을 목표로 합니다.
+                              {detailItem.clothing?.story ||
+                                `${detailItem.funding.brand}는 장인 정신과 데이터 기반 디자인을 결합해 지속 가능한 컬렉션을 선보입니다. 이번 라인업은 도시적인 실루엣과 실용적 디테일을 강조하며, 고객 피드백을 빠르게 반영하는 것을 목표로 합니다.`}
                             </p>
                             <div className="story-meta">
                               <div className="story-row">
@@ -1763,11 +2745,11 @@ function App() {
                                 <strong>
                                   목표{" "}
                                   {currency.format(
-                                    detailItem.funding.goal_amount
+                                    detailItem.funding.goal_amount,
                                   )}{" "}
                                   · 현재{" "}
                                   {currency.format(
-                                    detailItem.funding.current_amount
+                                    detailItem.funding.current_amount,
                                   )}
                                 </strong>
                                 <div className="story-bar">
@@ -1790,7 +2772,7 @@ function App() {
                               {comments.filter(
                                 (comment) =>
                                   comment.clothing_id ===
-                                  detailItem.clothing?.id
+                                  detailItem.clothing?.id,
                               ).length === 0 ? (
                                 <div className="comment-empty">
                                   첫 피드백을 등록해보세요
@@ -1800,7 +2782,7 @@ function App() {
                                   .filter(
                                     (comment) =>
                                       comment.clothing_id ===
-                                      detailItem.clothing?.id
+                                      detailItem.clothing?.id,
                                   )
                                   .map((comment) => (
                                     <div
@@ -1824,7 +2806,7 @@ function App() {
                                             >
                                               ★
                                             </span>
-                                          )
+                                          ),
                                         )}
                                       </div>
                                       <div className="comment-body">
@@ -1838,15 +2820,15 @@ function App() {
                                                 </span>
                                               )}
                                           </div>
-                                          <span className="comment-time">
-                                            {formatRelative(
-                                              comment.created_at || new Date()
-                                            )}
-                                          </span>
                                         </div>
                                         <span>{comment.text}</span>
                                       </div>
                                       <div className="comment-menu">
+                                        <span className="comment-time">
+                                          {formatRelative(
+                                            comment.created_at || new Date(),
+                                          )}
+                                        </span>
                                         <button
                                           type="button"
                                           className="comment-menu-btn"
@@ -1855,11 +2837,11 @@ function App() {
                                             setCommentMenuId((prev) =>
                                               prev === comment.id
                                                 ? null
-                                                : comment.id
+                                                : comment.id,
                                             )
                                           }
                                         >
-                                          ⋮
+                                          ...
                                         </button>
                                         {commentMenuId === comment.id && (
                                           <div className="comment-menu-pop">
@@ -1882,8 +2864,8 @@ function App() {
                                                 setComments((prev) =>
                                                   prev.filter(
                                                     (item) =>
-                                                      item.id !== comment.id
-                                                  )
+                                                      item.id !== comment.id,
+                                                  ),
                                                 );
                                                 setCommentMenuId(null);
                                               }}
@@ -1965,156 +2947,276 @@ function App() {
 
         {activeTab === "studio" && (
           <section className="content">
-            <div className="page-title">
-              <h1>Studio</h1>
-              <p>창작자의 작업실 - AI 디자인과 피팅 엔진을 생성합니다.</p>
+            <div className="page-title page-title-row">
+              <div>
+                <h1>Studio</h1>
+                <p>상상이 현실이 되는 크리에이티브 공간</p>
+              </div>
+              <div className="page-title-actions">
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => setIsGalleryOpen(true)}
+                >
+                  저장된 디자인
+                </button>
+              </div>
             </div>
 
-            <div className="studio-grid">
-              <div className="panel">
-                <h3>AI 디자인 생성</h3>
-                <label className="field">
-                  Design Prompt
-                  <textarea
-                    value={prompt}
-                    onChange={(event) => setPrompt(event.target.value)}
-                    placeholder="미니멀한 오버사이즈 코트, 대칭적인 라펠과 깊은 블랙 톤"
-                  />
-                </label>
-                <button
-                  className="primary"
-                  type="button"
-                  onClick={generateDesign}
-                >
-                  Magic Generate
-                </button>
-
-                <div className="subsection">
-                  <h4>Fabric Properties</h4>
-                  {["stretch", "weight", "stiffness"].map((key) => (
-                    <label key={key} className="slider">
-                      <span>{key}</span>
-                      <input
-                        type="range"
-                        min="1"
-                        max="10"
-                        value={fabric[key]}
-                        onChange={(event) =>
-                          setFabric((prev) => ({
-                            ...prev,
-                            [key]: Number(event.target.value),
-                          }))
-                        }
-                      />
-                      <span>{fabric[key]}/10</span>
-                    </label>
-                  ))}
-                </div>
-
-                <div className="subsection">
-                  <h4>마네킹 프리셋 테스트</h4>
-                  <div className="pill-group">
-                    {mannequins.map((mannequin) => (
-                      <button
-                        key={mannequin.id}
-                        type="button"
-                        className={`pill ${
-                          selectedMannequin === mannequin.id ? "active" : ""
-                        }`}
-                        onClick={() => setSelectedMannequin(mannequin.id)}
-                      >
-                        {mannequin.label}
-                      </button>
-                    ))}
+            <div className="studio-layout">
+              <div className="panel studio-workbench">
+                <div className="studio-workbench-header">
+                  <div>
+                    <h3>디자인 워크벤치</h3>
+                    <p className="studio-sub">
+                      스케치와 프롬프트를 함께 사용해 AI 디자인을 생성합니다.
+                    </p>
                   </div>
-                  <div className="mannequin-card">
-                    <div className="mannequin-avatar" />
-                    <div>
-                      <strong>
-                        {
-                          mannequins.find(
-                            (item) => item.id === selectedMannequin
-                          )?.label
-                        }
-                      </strong>
-                      <p>
-                        {
-                          mannequins.find(
-                            (item) => item.id === selectedMannequin
-                          )?.desc
-                        }
-                      </p>
-                      <p>Layer Order: Base → Mid → Outer</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="subsection">
-                  <h4>디자인 모드</h4>
-                  <div className="design-panel">
-                    <div className="design-tabs">
-                      {["상의", "하의", "아우터", "원피스"].map((category) => (
-                        <button
-                          key={category}
-                          type="button"
-                          className={`pill ${
-                            designCategory === category ? "active" : ""
-                          }`}
-                          onClick={() => setDesignCategory(category)}
+                  <div className="studio-workbench-actions">
+                    <button
+                      type="button"
+                      className="design-coin"
+                      onClick={() => setDesignCoinModal(true)}
+                    >
+                      <span className="design-coin-icon" aria-hidden="true">
+                        <svg
+                          className="design-coin-brush"
+                          viewBox="0 0 24 24"
+                          aria-hidden="true"
                         >
-                          {category}
+                          <path
+                            d="M4 20c2.2 0 4-1.8 4-4 0-1.1.9-2 2-2h4"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                          <path
+                            d="M12 4l8 8-6 6-8-8z"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                          <path
+                            d="M10 6l8 8"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                          />
+                        </svg>
+                      </span>
+                      <span className="design-coin-count">{designCoins}</span>
+                    </button>
+                    <button
+                      className="primary"
+                      type="button"
+                      onClick={generateDesign}
+                      disabled={designCoins <= 0}
+                    >
+                      디자인 생성
+                    </button>
+                  </div>
+                </div>
+                <div className="workbench-body">
+                  <div className="workbench-canvas">
+                    <div className="design-toolbar">
+                      <div className="tool-group">
+                        <button
+                          type="button"
+                          className={`tool-btn ${
+                            designTool === "brush" ? "active" : ""
+                          }`}
+                          onClick={() => {
+                            setDesignTool("brush");
+                            setShowClearBubble(false);
+                          }}
+                          aria-label="Brush"
+                          title="Brush"
+                        >
+                          <Pencil size={16} strokeWidth={1.6} />
                         </button>
-                      ))}
+                        <div className="tool-anchor">
+                          <button
+                            type="button"
+                            className={`tool-btn ${
+                              designTool === "eraser" ? "active" : ""
+                            }`}
+                            onClick={() => {
+                              if (designTool === "eraser") {
+                                setShowClearBubble((prev) => !prev);
+                              } else {
+                                setDesignTool("eraser");
+                                setShowClearBubble(false);
+                              }
+                            }}
+                            aria-label="Eraser"
+                            title="Eraser"
+                          >
+                            <Eraser size={16} strokeWidth={1.6} />
+                          </button>
+                          <div
+                            className={`tool-sub ${
+                              designTool === "eraser" && showClearBubble
+                                ? "is-visible"
+                                : ""
+                            }`}
+                          >
+                            <div className="bubble">
+                              <button
+                                type="button"
+                                className="clear-btn"
+                                onClick={clearDesignCanvas}
+                              >
+                                모두 지우기
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <label className="color-picker">
+                        색상
+                        <input
+                          type="color"
+                          value={designColor}
+                          onChange={(event) =>
+                            setDesignColor(event.target.value)
+                          }
+                          aria-label="Brush color"
+                        />
+                      </label>
+                      <label className="size-control">
+                        굵기
+                        <input
+                          type="range"
+                          min="2"
+                          max="14"
+                          value={designSize}
+                          onChange={(event) =>
+                            setDesignSize(Number(event.target.value))
+                          }
+                        />
+                      </label>
+                      <button
+                        className="secondary temp-save-btn"
+                        type="button"
+                        onClick={saveTempDesign}
+                      >
+                        임시 저장
+                      </button>
                     </div>
                     <div className="design-canvas-wrap">
                       <canvas
+                        ref={designCanvasRef}
                         className="design-canvas"
-                        width="520"
-                        height="380"
+                        style={{ cursor: "crosshair" }}
+                        width="720"
+                        height="420"
                         onMouseDown={handleCanvasDraw}
                         aria-label="Design canvas"
                       />
                       <p className="design-hint">
-                        {designCategory} 실루엣을 드로잉하세요.
+                        {designCategory} 실루엣을 드로잉하세요. 클릭하면 전체
+                        화면으로 이동합니다.
                       </p>
                     </div>
                   </div>
-                </div>
-
-                <div className="subsection">
-                  <h4>브랜드 런칭</h4>
-                  <p>
-                    현재 디자인 수: <strong>{brand.clothes_count} / 10</strong>
-                  </p>
-                  <button
-                    className="secondary"
-                    type="button"
-                    onClick={handleLaunch}
-                  >
-                    Discover로 전송
-                  </button>
-                  {studioNotice && <p className="notice">{studioNotice}</p>}
-                </div>
-              </div>
-
-              <div className="panel">
-                <h3>Generated Gallery</h3>
-                <div className="gallery-grid">
-                  {generatedDesigns.length === 0 && (
-                    <p className="empty">아직 생성된 디자인이 없습니다.</p>
-                  )}
-                  {generatedDesigns.map((item, index) => (
-                    <div
-                      key={item.id}
-                      className="gallery-card"
-                      style={{ animationDelay: `${index * 60}ms` }}
-                    >
-                      <img src={item.design_img_url} alt={item.name} />
-                      <div>
-                        <strong>{item.name}</strong>
-                        <span>{item.design_prompt}</span>
-                      </div>
+                  <div className="workbench-prompt">
+                    <div className="design-selects">
+                      <label className="field">
+                        ??
+                        <select
+                          value={designGender}
+                          onChange={(event) =>
+                            setDesignGender(event.target.value)
+                          }
+                        >
+                          {[
+                            { value: "Mens", label: "??" },
+                            { value: "Womens", label: "??" },
+                            { value: "Unisex", label: "??" },
+                          ].map((item) => (
+                            <option key={item.value} value={item.value}>
+                              {item.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="field">
+                        옷 종류
+                        <select
+                          value={designCategory}
+                          onChange={(event) => {
+                            const nextCategory = event.target.value;
+                            setDesignCategory(nextCategory);
+                            const nextOptions =
+                              designLengthOptions[nextCategory] || [];
+                            if (
+                              nextOptions.length &&
+                              !nextOptions.includes(designLength)
+                            ) {
+                              setDesignLength(nextOptions[0]);
+                            }
+                          }}
+                        >
+                          {["상의", "하의", "아우터", "원피스"].map((item) => (
+                            <option key={item} value={item}>
+                              {item}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="field">
+                        기장
+                        <select
+                          value={designLength}
+                          onChange={(event) =>
+                            setDesignLength(event.target.value)
+                          }
+                        >
+                          {(designLengthOptions[designCategory] || []).map(
+                            (item) => (
+                              <option key={item} value={item}>
+                                {item}
+                              </option>
+                            ),
+                          )}
+                        </select>
+                      </label>
                     </div>
-                  ))}
+                    <div className="subsection">
+                      <h4>원단 특성</h4>
+                      {["신축성", "두께감", "탄탄함"].map((key) => (
+                        <label key={key} className="slider">
+                          <span>{key}</span>
+                          <input
+                            type="range"
+                            min="1"
+                            max="10"
+                            value={fabric[key]}
+                            onChange={(event) =>
+                              setFabric((prev) => ({
+                                ...prev,
+                                [key]: Number(event.target.value),
+                              }))
+                            }
+                          />
+                          <span>{fabric[key]}/10</span>
+                        </label>
+                      ))}
+                    </div>
+                    <label className="field">
+                      Design Prompt
+                      <textarea
+                        value={prompt}
+                        onChange={(event) => setPrompt(event.target.value)}
+                        placeholder="미니멀한 오버사이즈 코트, 대칭적인 라펠과 깊은 블랙 톤"
+                      />
+                    </label>
+                  </div>
                 </div>
               </div>
             </div>
@@ -2126,9 +3228,7 @@ function App() {
             <div className="page-title page-title-row">
               <div>
                 <h1>My Fitting</h1>
-                <p>
-                  나만의 가상 드레스룸 - 레이어링과 AI 매칭을 동시에 확인합니다.
-                </p>
+                <p>데이터로 완성하는 나만의 가상 드레스룸</p>
               </div>
               <div className="page-title-actions">
                 <button
@@ -2143,24 +3243,22 @@ function App() {
 
             <div className="fitting-layout">
               <div className="fitting-preview">
-                <img src={userProfile.base_photo_url} alt="base" />
-                <div
-                  className="layer-stack"
-                  style={{ transform: `scale(${pixelRatio})` }}
-                >
-                  {fittingLayers.map((id) => (
-                    <img
-                      key={id}
-                      src={clothingMap[id]?.design_img_url}
-                      alt="layer"
-                    />
-                  ))}
-                </div>
+                <Canvas camera={{ position: [0, 0, 1.5], fov: 45 }}>
+                  <ambientLight intensity={0.6} />
+                  <directionalLight position={[2, 2, 2]} intensity={0.8} />
+                  <OrbitControls enablePan={false} />
+                  <Suspense fallback={null}>
+                    <Environment preset="city" />
+                    <Center>
+                      <Tshirt />
+                    </Center>
+                  </Suspense>
+                </Canvas>
                 {isComposing && <div className="compose">AI 합성 중...</div>}
               </div>
 
               <div className="fitting-panel">
-                <div className="panel-block">
+                <div className="panel-block layer-panel">
                   <h3>레이어링 피팅</h3>
                   <div className="layer-list">
                     {fittingLayers.map((id, index) => (
@@ -2201,24 +3299,6 @@ function App() {
                   </div>
                   <p>{fitAnalysis.message}</p>
                 </div>
-
-                <div className="panel-block">
-                  <h3>대표 사진 스케일</h3>
-                  <label className="slider">
-                    <span>pixelRatio</span>
-                    <input
-                      type="range"
-                      min="0.8"
-                      max="1.2"
-                      step="0.02"
-                      value={pixelRatio}
-                      onChange={(event) =>
-                        setPixelRatio(Number(event.target.value))
-                      }
-                    />
-                    <span>{pixelRatio.toFixed(2)}</span>
-                  </label>
-                </div>
               </div>
             </div>
 
@@ -2248,8 +3328,8 @@ function App() {
                                   liked: false,
                                   likes: Math.max(0, funding.likes - 1),
                                 }
-                              : funding
-                          )
+                              : funding,
+                          ),
                         );
                       }}
                     >
@@ -2259,13 +3339,7 @@ function App() {
                       type="button"
                       className="closet-link"
                       onClick={() => {
-                        const funding = fundings.find(
-                          (entry) => entry.clothing_id === item.id
-                        );
-                        if (!funding) return;
-                        setActiveTab("discover");
-                        setDetailItem({ funding, clothing: item });
-                        setDetailTab("overview");
+                        openClothingDetail(item.id);
                       }}
                     >
                       <img src={item.design_img_url} alt={item.name} />
@@ -2279,7 +3353,7 @@ function App() {
                       onClick={() => {
                         setFocusClothingId(item.id);
                         setFittingLayers((prev) =>
-                          prev.includes(item.id) ? prev : [...prev, item.id]
+                          prev.includes(item.id) ? prev : [...prev, item.id],
                         );
                       }}
                     >
@@ -2328,7 +3402,7 @@ function App() {
             <div className="portfolio-head">
               <div className="page-title">
                 <h1>Portfolio</h1>
-                <p>나의 패션 자산 대시보드 - 투자와 창작 기록을 관리합니다.</p>
+                <p>안목이 자산이 되는 패션 투자 대시보드</p>
               </div>
               <div className="portfolio-tabs">
                 <button
@@ -2353,9 +3427,20 @@ function App() {
             </div>
 
             {portfolioTab === "investee" && (
-              <div className="portfolio-grid">
-                <div className="panel">
-                  <h3>My Brands</h3>
+              <div className="portfolio-grid portfolio-brands-layout">
+                <div className="panel my-brands-panel">
+                  <div className="panel-title-row">
+                    <h3>My Brands</h3>
+                    {brands.length > 2 && (
+                      <button
+                        type="button"
+                        className="ghost"
+                        onClick={() => setBrandFundingOpen(true)}
+                      >
+                        더보기
+                      </button>
+                    )}
+                  </div>
                   <div className="chart">
                     {brands.map((item) => (
                       <div key={item.id} className="chart-row">
@@ -2368,7 +3453,7 @@ function App() {
                     ))}
                   </div>
                   <div className="brand-list">
-                    {brands.map((item) => (
+                    {brands.slice(0, 2).map((item) => (
                       <div key={item.id} className="brand-card">
                         <div>
                           <strong>{item.brand}</strong>
@@ -2388,74 +3473,9 @@ function App() {
                   </div>
                 </div>
 
-                <div className="panel">
-                  <h3>Followers & Following</h3>
-                  <div className="follow-stats">
-                    <button
-                      type="button"
-                      className="follow-stat-btn"
-                      onClick={() => setPortfolioListOpen("followers")}
-                    >
-                      <strong>{currentFollowerCount}</strong>
-                      <span>Followers</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="follow-stat-btn"
-                      onClick={() => setPortfolioListOpen("following")}
-                    >
-                      <strong>{followingCount}</strong>
-                      <span>Following</span>
-                    </button>
-                  </div>
-                  <div className="follow-chart">
-                    <div className="follow-chart-grid">
-                      <div className="follow-chart-y">
-                        {followerTicks.map((tick) => (
-                          <span key={tick}>{tick}</span>
-                        ))}
-                      </div>
-                      <div className="follow-chart-scroll">
-                        <div
-                          className="follow-chart-canvas"
-                          style={{ width: `${followerChartWidth}px` }}
-                        >
-                          <svg
-                            viewBox={`0 0 ${followerChartWidth} 120`}
-                            aria-hidden="true"
-                          >
-                            <polyline
-                              points={followerChartPoints}
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-                          </svg>
-                          <div className="follow-chart-x">
-                            {followerSeries.map((item, index) => (
-                              <span
-                                key={item.date}
-                                style={{
-                                  left: `${index * followerChartStep}px`,
-                                }}
-                              >
-                                {item.date}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="follow-chart-meta">
-                      <span>최근 증가</span>
-                      <strong>
-                        +{currentFollowerCount - followerSeries[0].value}
-                      </strong>
-                    </div>
-                  </div>
-                  <div className="follow-actions">
+                <div className="portfolio-side">
+                  <div className="panel follow-cta">
+                    <h3>Brand Page</h3>
                     <button
                       type="button"
                       className="secondary"
@@ -2463,6 +3483,75 @@ function App() {
                     >
                       내 브랜드 페이지
                     </button>
+                  </div>
+                  <div className="panel">
+                    <h3>Followers & Following</h3>
+                    <div className="follow-stats">
+                      <button
+                        type="button"
+                        className="follow-stat-btn"
+                        onClick={() => setPortfolioListOpen("followers")}
+                      >
+                        <strong>{currentFollowerCount}</strong>
+                        <span>Followers</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="follow-stat-btn"
+                        onClick={() => setPortfolioListOpen("following")}
+                      >
+                        <strong>{followingCount}</strong>
+                        <span>Following</span>
+                      </button>
+                    </div>
+                    <div className="follow-chart">
+                      <div className="follow-chart-grid">
+                        <div className="follow-chart-y">
+                          {followerTicks.map((tick) => (
+                            <span key={tick}>{tick}</span>
+                          ))}
+                        </div>
+                        <div className="follow-chart-scroll">
+                          <div
+                            className="follow-chart-canvas"
+                            style={{ width: `${followerChartWidth}px` }}
+                          >
+                            <svg
+                              viewBox={`0 0 ${followerChartWidth} 120`}
+                              aria-hidden="true"
+                            >
+                              <polyline
+                                points={followerChartPoints}
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                className="follow-chart-line"
+                              />
+                            </svg>
+                            <div className="follow-chart-x">
+                              {followerSeries.map((item, index) => (
+                                <span
+                                  key={item.date}
+                                  style={{
+                                    left: `${index * followerChartStep}px`,
+                                  }}
+                                >
+                                  {item.date}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="follow-chart-meta">
+                        <span>최근 증가</span>
+                        <strong>
+                          +{currentFollowerCount - followerSeries[0].value}
+                        </strong>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2476,29 +3565,72 @@ function App() {
                     {investments.length === 0 ? (
                       <p className="empty">펀딩한 내역이 없습니다.</p>
                     ) : (
-                      investments.map((item) => (
-                        <div key={item.id} className="investment-card">
-                          <img src={item.image} alt={item.itemName} />
-                          <div>
-                            <strong>{item.brand}</strong>
-                            <p>{item.itemName}</p>
-                            <p>\{currency.format(item.amount)}</p>
-                            <span className="status">{item.status}</span>
-                            <span className="eta">예상 배송: {item.eta}</span>
+                      investments.map((item) => {
+                        const matchedClothing = clothing.find(
+                          (cloth) =>
+                            cloth.name?.toLowerCase() ===
+                            item.itemName.toLowerCase(),
+                        );
+                        const matchedBrand =
+                          brandProfileMap[item.brand.toLowerCase()] || null;
+
+                        return (
+                          <div key={item.id} className="investment-card">
+                            <button
+                              type="button"
+                              className="investment-media"
+                              onClick={() => {
+                                if (!matchedClothing) return;
+                                openClothingDetail(matchedClothing.id);
+                              }}
+                            >
+                              <img src={item.image} alt={item.itemName} />
+                            </button>
+                            <div>
+                              <button
+                                type="button"
+                                className="investment-brand"
+                                onClick={() => {
+                                  if (!matchedBrand) return;
+                                  openBrandProfile(matchedBrand);
+                                  setActiveTab("portfolio");
+                                }}
+                              >
+                                {item.brand}
+                              </button>
+                              <button
+                                type="button"
+                                className="investment-item"
+                                onClick={() => {
+                                  if (!matchedClothing) return;
+                                  openClothingDetail(matchedClothing.id);
+                                }}
+                              >
+                                {item.itemName}
+                              </button>
+                              <span className="status">{item.status}</span>
+                              <span className="eta">예상 배송: {item.eta}</span>
+                            </div>
+                            <div className="investment-actions">
+                              <strong className="investment-price">
+                                ₩{currency.format(item.amount)}
+                              </strong>
+                              <button
+                                type="button"
+                                className="ghost"
+                                onClick={() =>
+                                  setCancelFundingModal({
+                                    open: true,
+                                    investmentId: item.id,
+                                  })
+                                }
+                              >
+                                펀딩 취소
+                              </button>
+                            </div>
                           </div>
-                          <button
-                            type="button"
-                            className="ghost"
-                            onClick={() =>
-                              setInvestments((prev) =>
-                                prev.filter((entry) => entry.id !== item.id)
-                              )
-                            }
-                          >
-                            펀딩 취소
-                          </button>
-                        </div>
-                      ))
+                        );
+                      })
                     )}
                   </div>
                 </div>
@@ -2753,6 +3885,40 @@ function App() {
                   <div className="profile-actions">
                     <button
                       type="button"
+                      className="profile-coin"
+                      onClick={() => setDesignCoinModal(true)}
+                    >
+                      <span className="profile-coin-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24">
+                          <path
+                            d="M4 20c2.2 0 4-1.8 4-4 0-1.1.9-2 2-2h4"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                          <path
+                            d="M12 4l8 8-6 6-8-8z"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                          <path
+                            d="M10 6l8 8"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                          />
+                        </svg>
+                      </span>
+                      <span>{designCoins}</span>
+                    </button>
+                    <button
+                      type="button"
                       className="secondary"
                       onClick={() => setIsProfileEditing((prev) => !prev)}
                     >
@@ -2813,7 +3979,7 @@ function App() {
                           event.target.value
                             .split(",")
                             .map((item) => item.trim())
-                            .filter(Boolean)
+                            .filter(Boolean),
                         )
                       }
                     />
@@ -2850,21 +4016,584 @@ function App() {
                 <div className="meta">
                   <span>Updated: {userProfile.updatedAt}</span>
                 </div>
-
-                <div className="profile-account-bar">
-                  <button type="button" className="ghost">
-                    구글 계정 변경
-                  </button>
-                  <button type="button" className="ghost">
-                    로그아웃
-                  </button>
-                </div>
               </div>
             </div>
           </section>
         )}
       </main>
+      {authModal.open && (
+        <div className="auth-modal" role="dialog" aria-modal="true">
+          <div className="auth-modal-content">
+            <button
+              type="button"
+              className="auth-modal-close"
+              aria-label="Close"
+              onClick={closeAuthModal}
+            >
+              ×
+            </button>
+            <h3>
+              {authModal.mode === "logout-confirm"
+                ? "로그아웃하시겠어요?"
+                : "로그인이 필요합니다"}
+            </h3>
+            {authModal.mode === "logout-confirm" && (
+              <p>로그아웃 시 일부 기능 이용이 제한됩니다.</p>
+            )}
+            {authModal.mode === "login-required" && (
+              <p>로그인 후 이용할 수 있는 기능입니다.</p>
+            )}
+            <div className="auth-modal-actions">
+              {authModal.mode === "logout-confirm" && (
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={closeAuthModal}
+                >
+                  취소
+                </button>
+              )}
+              {authModal.mode === "login-required" && (
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => {
+                    closeAuthModal();
+                    startOnboarding();
+                  }}
+                >
+                  회원가입
+                </button>
+              )}
+              <button
+                type="button"
+                className="primary"
+                onClick={() => {
+                  if (authModal.mode === "logout-confirm") {
+                    handleLogout();
+                    closeAuthModal();
+                    return;
+                  }
+                  closeAuthModal();
+                  openLoginFlow();
+                }}
+              >
+                {authModal.mode === "logout-confirm" ? "로그아웃" : "로그인"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {loginModalOpen && (
+        <div className="auth-modal" role="dialog" aria-modal="true">
+          <div className="auth-modal-content">
+            <button
+              type="button"
+              className="auth-modal-close"
+              aria-label="Close"
+              onClick={closeLoginModal}
+            >
+              ×
+            </button>
+            <h3>로그인</h3>
+            <div className="auth-modal-form">
+              <label>
+                아이디
+                <input
+                  value={loginDraft.handle}
+                  onChange={(event) =>
+                    setLoginDraft((prev) => ({
+                      ...prev,
+                      handle: event.target.value,
+                    }))
+                  }
+                  placeholder="@your.id"
+                />
+              </label>
+              <label>
+                비밀번호
+                <input
+                  type="password"
+                  value={loginDraft.password}
+                  onChange={(event) =>
+                    setLoginDraft((prev) => ({
+                      ...prev,
+                      password: event.target.value,
+                    }))
+                  }
+                  placeholder="비밀번호 입력"
+                />
+              </label>
+            </div>
+            <div className="auth-modal-actions">
+              <button
+                type="button"
+                className="secondary"
+                onClick={startOnboarding}
+              >
+                회원가입
+              </button>
+              <button type="button" className="primary" onClick={submitLogin}>
+                로그인
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {isGalleryOpen && (
+        <div
+          className="studio-gallery-modal"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setIsGalleryOpen(false)}
+        >
+          <div
+            className="studio-gallery-content"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="auth-modal-close"
+              aria-label="Close"
+              onClick={() => setIsGalleryOpen(false)}
+            >
+              ×
+            </button>
+            <div className="studio-gallery-header">
+              <h3>Generated Gallery</h3>
+              <span className="studio-gallery-count">
+                현재 디자인 수: {generatedDesigns.length + tempDesigns.length} /
+                10
+              </span>
+            </div>
+            <div className="gallery-grid">
+              {generatedDesigns.length + tempDesigns.length === 0 && (
+                <p className="empty">아직 생성된 디자인이 없습니다.</p>
+              )}
+              {[...tempDesigns, ...generatedDesigns]
+                .slice(0, 10)
+                .map((item, index) => (
+                  <div
+                    key={item.id}
+                    className="gallery-card"
+                    style={{ animationDelay: `${index * 60}ms` }}
+                  >
+                    <img src={item.design_img_url} alt={item.name} />
+                    <div>
+                      <strong>{item.name}</strong>
+                      <span>{item.design_prompt}</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="ghost"
+                      onClick={() => removeDesign(item.id, item.isTemp)}
+                    >
+                      삭제
+                    </button>
+                  </div>
+                ))}
+            </div>
+          </div>
+        </div>
+      )}
+      {brandFundingOpen && (
+        <div className="auth-modal" role="dialog" aria-modal="true">
+          <div className="auth-modal-content brand-funding-modal">
+            <button
+              type="button"
+              className="auth-modal-close"
+              aria-label="Close"
+              onClick={() => setBrandFundingOpen(false)}
+            >
+              ×
+            </button>
+            <h3>펀딩 현황</h3>
+            <div className="brand-list">
+              {brands.map((item) => (
+                <div key={item.id} className="brand-card">
+                  <div>
+                    <strong>{item.brand}</strong>
+                    <p>
+                      참여 {item.participantCount}명 · ₩
+                      {currency.format(item.currentCoin)}
+                    </p>
+                  </div>
+                  <textarea
+                    value={item.production_note}
+                    onChange={(event) =>
+                      updateNote(item.id, event.target.value)
+                    }
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="auth-modal-actions">
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => setBrandFundingOpen(false)}
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {cancelFundingModal.open && (
+        <div className="auth-modal" role="dialog" aria-modal="true">
+          <div className="auth-modal-content">
+            <button
+              type="button"
+              className="auth-modal-close"
+              aria-label="Close"
+              onClick={closeCancelFundingModal}
+            >
+              ×
+            </button>
+            <h3>펀딩을 취소할까요?</h3>
+            <p>취소 시 이 작업은 되돌릴 수 없습니다.</p>
+            <div className="auth-modal-actions">
+              <button
+                type="button"
+                className="secondary"
+                onClick={closeCancelFundingModal}
+              >
+                돌아가기
+              </button>
+              <button
+                type="button"
+                className="primary"
+                onClick={() => {
+                  setInvestments((prev) =>
+                    prev.filter(
+                      (entry) => entry.id !== cancelFundingModal.investmentId,
+                    ),
+                  );
+                  closeCancelFundingModal();
+                }}
+              >
+                펀딩 취소
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {aiDesignModal.open && aiDesignModal.design && (
+        <div className="auth-modal" role="dialog" aria-modal="true">
+          <div className="auth-modal-content ai-design-modal">
+            <button
+              type="button"
+              className="auth-modal-close"
+              aria-label="Close"
+              onClick={() => {
+                setAiDesignModal({ open: false, design: null });
+                setAiDesignEditMode(false);
+              }}
+            >
+              ×
+            </button>
+            <div className="ai-design-header">
+              <h3>AI Design</h3>
+              <div className="ai-design-actions">
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={handleAiDesignEditToggle}
+                >
+                  {aiDesignEditMode ? "저장" : "수정"}
+                </button>
+                <button type="button" className="primary">
+                  업로드
+                </button>
+              </div>
+            </div>
+            <div className="ai-design-frame">
+              <div className="modal-stack ai-design-stack">
+                <div className="modal-header">
+                  <div>
+                    <h2>{brand.name}</h2>
+                    {aiDesignEditMode ? (
+                      <input
+                        className="ai-design-input"
+                        value={aiDesignDraft.name}
+                        onChange={(event) =>
+                          setAiDesignDraft((prev) => ({
+                            ...prev,
+                            name: event.target.value,
+                          }))
+                        }
+                        aria-label="Design name"
+                      />
+                    ) : (
+                      <p>{aiDesignModal.design.name}</p>
+                    )}
+                  </div>
+                  <div className="pill-group">
+                    {["overview", "story", "feedback"].map((tab) => (
+                      <button
+                        key={tab}
+                        type="button"
+                        className={`pill ${detailTab === tab ? "active" : ""}`}
+                        onClick={() => setDetailTab(tab)}
+                      >
+                        {tab === "overview" && "Overview"}
+                        {tab === "story" && "Story"}
+                        {tab === "feedback" && "Feedback"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="modal-body">
+                  <div className="detail-media">
+                    <img
+                      src={aiDesignModal.design.design_img_url}
+                      alt={aiDesignModal.design.name}
+                    />
+                  </div>
+                  <div className="detail-scroll">
+                    {detailTab === "overview" && (
+                      <div className="detail-block">
+                        <div className="price-row">
+                          <div className="price-main">
+                            <span className="price-label">Price</span>
+                            {aiDesignEditMode ? (
+                              <input
+                                className="ai-design-input price"
+                                type="number"
+                                min="0"
+                                value={aiDesignDraft.price}
+                                onChange={(event) =>
+                                  setAiDesignDraft((prev) => ({
+                                    ...prev,
+                                    price: event.target.value,
+                                  }))
+                                }
+                                aria-label="Design price"
+                              />
+                            ) : (
+                              <strong className="price-strong">
+                                {currency.format(
+                                  aiDesignModal.design.price || 0,
+                                )}
+                              </strong>
+                            )}
+                          </div>
+                        </div>
+                        <h4>옷 세부내용</h4>
+                        {aiDesignEditMode ? (
+                          <textarea
+                            className="ai-design-textarea"
+                            value={aiDesignDraft.description}
+                            onChange={(event) =>
+                              setAiDesignDraft((prev) => ({
+                                ...prev,
+                                description: event.target.value,
+                              }))
+                            }
+                          />
+                        ) : (
+                          <p>
+                            {aiDesignModal.design.description ||
+                              "AI가 생성한 컨셉을 기반으로 실루엣과 소재 밸런스를 설계했습니다."}
+                          </p>
+                        )}
+                        <div className="spec-grid">
+                          <div>
+                            <span>카테고리</span>
+                            {aiDesignEditMode ? (
+                              <input
+                                className="ai-design-input"
+                                value={aiDesignDraft.category}
+                                onChange={(event) =>
+                                  setAiDesignDraft((prev) => ({
+                                    ...prev,
+                                    category: event.target.value,
+                                  }))
+                                }
+                                aria-label="Design category"
+                              />
+                            ) : (
+                              <strong>{aiDesignModal.design.category}</strong>
+                            )}
+                          </div>
+                          <div>
+                            <span>스타일</span>
+                            {aiDesignEditMode ? (
+                              <input
+                                className="ai-design-input"
+                                value={aiDesignDraft.style}
+                                onChange={(event) =>
+                                  setAiDesignDraft((prev) => ({
+                                    ...prev,
+                                    style: event.target.value,
+                                  }))
+                                }
+                                aria-label="Design style"
+                              />
+                            ) : (
+                              <strong>{aiDesignModal.design.style}</strong>
+                            )}
+                          </div>
+                          <div>
+                            <span>성별</span>
+                            {aiDesignEditMode ? (
+                              <input
+                                className="ai-design-input"
+                                value={aiDesignDraft.gender}
+                                onChange={(event) =>
+                                  setAiDesignDraft((prev) => ({
+                                    ...prev,
+                                    gender: event.target.value,
+                                  }))
+                                }
+                                aria-label="Design gender"
+                              />
+                            ) : (
+                              <strong>{aiDesignModal.design.gender}</strong>
+                            )}
+                          </div>
+                          <div>
+                            <span>사이즈</span>
+                            <strong>XS - XL</strong>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {detailTab === "story" && (
+                      <div className="detail-block">
+                        <h4>브랜드 스토리</h4>
+                        {aiDesignEditMode ? (
+                          <textarea
+                            className="ai-design-textarea"
+                            value={aiDesignDraft.story}
+                            onChange={(event) =>
+                              setAiDesignDraft((prev) => ({
+                                ...prev,
+                                story: event.target.value,
+                              }))
+                            }
+                          />
+                        ) : (
+                          <p>
+                            {aiDesignModal.design.story ||
+                              "AI가 트렌드 데이터를 분석해 감각적인 컬렉션 스토리를 구성했습니다. 디자이너가 세부 디테일을 다듬을 수 있도록 여지를 남겨두었습니다."}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    {detailTab === "feedback" && (
+                      <div className="detail-block">
+                        <h4>소셜 피드백</h4>
+                        <p className="comment-empty">
+                          아직 생성된 피드백이 없습니다.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {designCoinModal && (
+        <div className="auth-modal" role="dialog" aria-modal="true">
+          <div className="auth-modal-content design-coin-modal">
+            <button
+              type="button"
+              className="auth-modal-close"
+              aria-label="Close"
+              onClick={() => setDesignCoinModal(false)}
+            >
+              ×
+            </button>
+            <h3>디자인 토큰 구매</h3>
+            <p>디자인 생성에 필요한 토큰을 충전하세요.</p>
+            <div className="design-coin-balance">
+              보유 토큰 <strong>{designCoins}</strong>
+            </div>
+            <div className="design-coin-grid">
+              {designCoinPackages.map((pack) => (
+                <div key={pack.id} className="design-coin-card">
+                  <div>
+                    <strong>{pack.label}</strong>
+                    <span>{pack.amount} 토큰</span>
+                  </div>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => {
+                      setDesignCoins((prev) => prev + pack.amount);
+                      setDesignCoinAlertOpen(true);
+                    }}
+                  >
+                    {currency.format(pack.price)} 구입
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+      {designCoinAlertOpen && (
+        <div className="auth-modal" role="dialog" aria-modal="true">
+          <div className="auth-modal-content design-coin-modal">
+            <button
+              type="button"
+              className="auth-modal-close"
+              aria-label="Close"
+              onClick={() => setDesignCoinAlertOpen(false)}
+            >
+              ×
+            </button>
+            <h3>토큰이 구매되었습니다.</h3>
+            <p>디자인 토큰이 충전되었습니다.</p>
+            <div className="auth-modal-actions">
+              <button
+                type="button"
+                className="primary"
+                onClick={() => setDesignCoinAlertOpen(false)}
+              >
+                확인
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {alreadyFundedAlertOpen && (
+        <div className="auth-modal" role="dialog" aria-modal="true">
+          <div className="auth-modal-content design-coin-modal">
+            <button
+              type="button"
+              className="auth-modal-close"
+              aria-label="Close"
+              onClick={() => setAlreadyFundedAlertOpen(false)}
+            >
+              ×
+            </button>
+            <h3>이미 펀딩한 옷입니다.</h3>
+            <p>해당 아이템은 이미 포트폴리오에 추가되어 있습니다.</p>
+            <div className="auth-modal-actions">
+              <button
+                type="button"
+                className="primary"
+                onClick={() => setAlreadyFundedAlertOpen(false)}
+              >
+                확인
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+  );
+
+  return (
+    <Routes>
+      <Route path="/" element={appContent} />
+      <Route path="/fitting" element={<MyFitting />} />
+      <Route path="/*" element={appContent} />
+    </Routes>
   );
 }
 

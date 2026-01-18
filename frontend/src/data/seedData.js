@@ -172,7 +172,7 @@ export const brandProfiles = [
     handle: "@skyline.designer",
     followerCount: 1284,
     followingCount: 214,
-    bio: "도시적인 니트웨어와 깔끔한 실루엣을 연구합니다.",
+    bio: "City balance and clean silhouettes.",
     location: "Seoul",
   },
   {
@@ -181,7 +181,7 @@ export const brandProfiles = [
     handle: "@rose.form",
     followerCount: 986,
     followingCount: 180,
-    bio: "로맨틱한 테일러링과 부드러운 소재감에 집중합니다.",
+    bio: "Romantic tailoring with soft materials.",
     location: "Busan",
   },
   {
@@ -190,7 +190,7 @@ export const brandProfiles = [
     handle: "@chestnut.lab",
     followerCount: 760,
     followingCount: 132,
-    bio: "클래식과 실험을 균형 있게 풀어내는 실험실.",
+    bio: "Classic structure with subtle experiments.",
     location: "Tokyo",
   },
   {
@@ -199,7 +199,7 @@ export const brandProfiles = [
     handle: "@oat.edition",
     followerCount: 612,
     followingCount: 96,
-    bio: "미니멀한 데일리 웨어를 중심으로 컬렉션을 만듭니다.",
+    bio: "Minimal, daily-ready silhouettes.",
     location: "Seoul",
   },
   {
@@ -208,7 +208,7 @@ export const brandProfiles = [
     handle: "@midnight.lab",
     followerCount: 1540,
     followingCount: 305,
-    bio: "스트리트와 아카이브의 경계를 탐색합니다.",
+    bio: "Exploring the edge of street and archive.",
     location: "New York",
   },
   {
@@ -217,7 +217,7 @@ export const brandProfiles = [
     handle: "@cloud.line",
     followerCount: 1320,
     followingCount: 220,
-    bio: "편안한 실루엣과 소재 실험을 지속합니다.",
+    bio: "Comfort-focused fits and material tests.",
     location: "London",
   },
   {
@@ -226,7 +226,7 @@ export const brandProfiles = [
     handle: "@ink.atelier",
     followerCount: 884,
     followingCount: 141,
-    bio: "드레스와 섬세한 디테일의 조합을 추구합니다.",
+    bio: "Atelier balance with refined detail.",
     location: "Paris",
   },
 ];
@@ -237,7 +237,7 @@ export const initialComments = [
     clothing_id: 2,
     user: "tester.one",
     rating: 5,
-    text: "??? ??????. ?? ????.",
+    text: "Great fit and solid details.",
     created_at: "2026-02-03",
     parent_id: null,
     is_creator: false,
@@ -247,7 +247,7 @@ export const initialComments = [
     clothing_id: 2,
     user: "creator.test",
     rating: 5,
-    text: "??? ?????. ?? ?????.",
+    text: "Thanks for the feedback. We will improve.",
     created_at: "2026-02-03",
     parent_id: 1,
     is_creator: true,
@@ -257,7 +257,7 @@ export const initialComments = [
     clothing_id: 3,
     user: "tester.two",
     rating: 4,
-    text: "?? ??? ?? ???? ?????.",
+    text: "Nice color and sturdy fabric.",
     created_at: "2026-02-02",
     parent_id: null,
     is_creator: false,
@@ -267,7 +267,7 @@ export const initialComments = [
     clothing_id: 3,
     user: "creator.test",
     rating: 5,
-    text: "?? ???? ???????.",
+    text: "Appreciate the note. Thank you.",
     created_at: "2026-02-02",
     parent_id: 3,
     is_creator: true,
@@ -275,9 +275,9 @@ export const initialComments = [
 ];
 
 export const mannequins = [
-  { id: "slim", label: "Slim", desc: "? ???, ?? ??" },
-  { id: "athletic", label: "Athletic", desc: "?? ?? ??" },
-  { id: "plus", label: "Plus-size", desc: "??? ??" },
+  { id: "slim", label: "Slim", desc: "Slim silhouette, light fit" },
+  { id: "athletic", label: "Athletic", desc: "Athletic frame, structured fit" },
+  { id: "plus", label: "Plus-size", desc: "Relaxed fit, stable silhouette" },
 ];
 
 export const initialInvestments = [
@@ -287,7 +287,7 @@ export const initialInvestments = [
     itemName: "Cloud Belt Coat",
     image: "/image6.png",
     amount: 150000,
-    status: "?? - ?? ?",
+    status: "Funding",
     eta: "2026-02-20",
   },
   {
@@ -296,7 +296,7 @@ export const initialInvestments = [
     itemName: "Sky Knit Pullover",
     image: "/image1.jpeg",
     amount: 90000,
-    status: "?? ??",
+    status: "In progress",
     eta: "2026-02-10",
   },
   {
@@ -305,7 +305,7 @@ export const initialInvestments = [
     itemName: "Chestnut Blazer",
     image: "/image3.jpeg",
     amount: 240000,
-    status: "?? ??",
+    status: "In progress",
     eta: "2026-01-05",
   },
 ];

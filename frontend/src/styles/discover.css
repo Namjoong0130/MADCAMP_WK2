@@ -136,13 +136,14 @@
   border: 1px solid var(--border);
   background: #ffffff;
   color: #111111;
-  padding: 10px 36px;
+  padding: 6px 10px 6px 15px;
   border-radius: 999px;
-  font-size: 13px;
+  font-size: 12px;
   cursor: pointer;
   position: relative;
-  padding-right: 30px;
+  padding-right: 16px;
   text-align: center;
+  
 }
 
 .tag.active {
@@ -160,8 +161,8 @@
 
 .tag-clear {
   position: absolute;
-  top: 5px;
-  right: 13px;
+  top: 3px;
+  right: 6px;
   border: none;
   background: transparent;
   color: inherit;
@@ -435,7 +436,7 @@ button.primary,
 button.secondary,
 button.ghost {
   border-radius: 999px;
-  padding: 12px 18px;
+  padding: 7px 14px;
   font-size: 13px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -463,8 +464,13 @@ button.primary:hover {
   transform: translateY(-1px);
 }
 
+button.primary[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
 button.secondary:hover,
 button.ghost:hover {
   background: #f4f4f4;
 }
-
