@@ -17,7 +17,65 @@ const authController = require('../controllers/authController');
 // ../를 통해 상위 폴더의 controllers 폴더 안에 있는 파일을 불러와 
 // authController라는 이름으로 연결한 것입니다.
 
+/**
+ * @swagger
+ * /api/auth/signup:
+ *   post:
+ *     summary: Register a new user
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *               - userName
+ *               - height
+ *               - weight
+ *             properties:
+ *               email:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *               userName:
+ *                 type: string
+ *               height:
+ *                 type: number
+ *               weight:
+ *                 type: number
+ *     responses:
+ *       201:
+ *         description: User created (returns token)
+ */
 router.post('/signup', authController.signup);
+
+/**
+ * @swagger
+ * /api/auth/login:
+ *   post:
+ *     summary: Login user
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *             properties:
+ *               email:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Login successful (returns token)
+ */
 router.post('/login', authController.login);
 
 module.exports = router;
