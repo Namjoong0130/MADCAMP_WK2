@@ -7,6 +7,7 @@ const cors = require('cors'); //프런트엔드 통신
 const dotenv = require('dotenv'); //.env 접근
 const routes = require('./routes'); // index.js를 자동으로 찾음 (./routes -> 그 안의 index.js)
 const { errorMiddleware } = require('./middlewares/errorMiddleware');
+const path = require('path');
 
 dotenv.config(); //.env 접근
 
@@ -18,6 +19,7 @@ app.use(express.json()); // JSON 형태의 요청 본문 해석
 app.use(express.urlencoded({ extended: true })); //주소창 데이터 번역
 
 // --- 라우터 연결 ---
+app.use('/images', express.static(path.join(__dirname, '../public/images'))); // Serve images folder statically
 app.use('/api', routes); //주소창에 /api로 시작하는 모든 요청은 routes/index.js 설계도에 따라 처리해라
 
 // --- 에러 처리 미들웨어 (가장 마지막에 위치) ---

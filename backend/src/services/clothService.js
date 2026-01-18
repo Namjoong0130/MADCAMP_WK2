@@ -215,3 +215,38 @@ exports.listDesignHistory = async (userId) => {
     orderBy: { created_at: 'desc' },
   });
 };
+
+exports.generateDesignImage = async (userId, clothId, prompt) => {
+  const cloth = await prisma.cloth.findUnique({
+    where: { clothing_id: clothId },
+    include: { brand: true },
+  });
+  if (!cloth || cloth.deleted_at) throw createError(404, '의류를 찾을 수 없습니다.');
+  if (cloth.brand?.owner_id !== userId) throw createError(403, '권한이 없습니다.');
+
+  // Call AI Service (Now returns { all, front, back })
+  const images = await require('./aiService').generateDesignImage(clothId, prompt);
+
+  // Update Cloth with Front/Back
+  await prisma.cloth.update({
+    where: { clothing_id: clothId },
+    data: {
+      final_result_front_url: images.front,
+      final_result_back_url: images.back,
+      thumbnail_url: images.front
+    }
+  });
+
+  // Save as DesignAttempt
+  const attempt = await prisma.designAttempt.create({
+    data: {
+      clothing_id: clothId,
+      input_images: [],
+      design_prompt: prompt,
+      ai_result_url: images.all, // Store the combined one here
+    }
+  });
+
+  // Return combined info
+  return { ...attempt, front: images.front, back: images.back };
+};

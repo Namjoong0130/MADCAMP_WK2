@@ -48,6 +48,19 @@ exports.listFittingAlbum = async (req, res, next) => {
   try {
     const album = await fittingService.listFittingAlbum(req.user.userId);
     return success(res, album);
+    return success(res, album);
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.generateFitting = async (req, res, next) => {
+  try {
+    const result = await fittingService.generateFittingImage(
+      req.user.userId,
+      Number(req.params.fittingId)
+    );
+    return success(res, result, 'AI 피팅이 시작되었습니다.');
   } catch (error) {
     next(error);
   }

@@ -1,5 +1,5 @@
 const clothService = require('../services/clothService');
-const { created, success } = require('../utils/responseHandler');
+const { created, success, createError } = require('../utils/responseHandler');
 
 exports.listCloths = async (req, res, next) => {
   try {
@@ -70,6 +70,23 @@ exports.listDesignHistory = async (req, res, next) => {
   try {
     const history = await clothService.listDesignHistory(req.user.userId);
     return success(res, history);
+    return success(res, history);
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.generateDesign = async (req, res, next) => {
+  try {
+    const { prompt } = req.body;
+    if (!prompt) throw createError(400, 'Prompt is required');
+
+    const attempt = await clothService.generateDesignImage(
+      req.user.userId,
+      Number(req.params.clothId),
+      prompt
+    );
+    return created(res, attempt, '디자인이 생성되었습니다.');
   } catch (error) {
     next(error);
   }

@@ -26,16 +26,16 @@ exports.register = async (email, password, userName, height, weight) => {
       userName: userName,
       height: parseFloat(height), // 문자열로 올 수 있으므로 숫자로 변환
       weight: parseFloat(weight),
-      
+
       // 스키마에 @default가 있다면 아래는 생략 가능하지만, 
       // 초기 가입 이벤트를 하고 싶다면 명시적으로 적어줄 수 있습니다.
-      coins: 100000,   // 가입 축하금 1000코인 지급!
-      tokens: 10,     // 무료 디자인 시도권 5회 지급!
-      
+      coins: 100000,   // 가입 축하금 100000코인 지급!
+      tokens: 10,     // 무료 디자인 시도권 10회 지급!
+
       // 리스트(Array) 타입은 빈 배열로 초기화해주는 것이 안전합니다.
-      styleTags: [], 
+      styleTags: [],
     }
-});
+  });
   await notificationService.createNotification({
     userId: user.user_id,
     title: '가입 축하',

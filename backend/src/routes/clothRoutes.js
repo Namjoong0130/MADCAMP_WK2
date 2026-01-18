@@ -10,5 +10,6 @@ router.post('/', authMiddleware, clothController.createCloth);
 router.patch('/:clothId/physics', authMiddleware, clothController.updateClothPhysics);
 router.get('/:clothId/attempts', authMiddleware, clothController.listDesignAttempts);
 router.post('/:clothId/attempts', authMiddleware, clothController.createDesignAttempt);
+router.post('/:clothId/generate', authMiddleware, clothController.generateDesign); // Added
 
 module.exports = router;
