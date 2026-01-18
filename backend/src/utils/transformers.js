@@ -87,7 +87,7 @@ const buildHandle = (name) => {
 const toFrontendCloth = (cloth) => ({
   id: cloth.clothing_id,
   name: cloth.clothing_name,
-  category: fromDbCategory(cloth.category),
+  category: cloth.sub_category || fromDbCategory(cloth.category),
   gender: fromDbGender(cloth.gender),
   style: cloth.style,
   price: cloth.price,

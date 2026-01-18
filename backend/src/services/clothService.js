@@ -17,6 +17,7 @@ const normalizeClothPayload = (payload) => {
   return {
     clothing_name: payload.clothing_name || payload.name,
     category,
+    sub_category: payload.sub_category || payload.category,
     gender,
     style: payload.style || null,
     price: toNumber(payload.price, 'price') ?? 0,

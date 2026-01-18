@@ -127,6 +127,7 @@ model Cloth {
   brand_id              Int
   clothing_name         String
   category              Category
+  sub_category          String?
   description           String?         @db.Text
   note                  String?         @db.Text
   material              String?

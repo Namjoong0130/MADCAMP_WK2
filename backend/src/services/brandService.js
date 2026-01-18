@@ -45,8 +45,8 @@ exports.listPublicBrands = async () => {
     const progress = goalSum > 0 ? currentSum / goalSum : 0;
 
     return {
-      brand_id: brand.brand_id,
-      brand_name: brand.brand_name,
+      id: brand.brand_id,
+      brand: brand.brand_name,
       brand_logo: brand.brand_logo,
       is_public: brand.is_public,
       progress,
