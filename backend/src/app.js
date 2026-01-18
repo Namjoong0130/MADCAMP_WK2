@@ -22,6 +22,10 @@ app.use(express.urlencoded({ extended: true })); //주소창 데이터 번역
 app.use('/images', express.static(path.join(__dirname, '../public/images'))); // Serve images folder statically
 app.use('/api', routes); //주소창에 /api로 시작하는 모든 요청은 routes/index.js 설계도에 따라 처리해라
 
+// Swagger Docs (Available at /api-docs)
+const { swaggerUi, specs } = require('./config/swagger');
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
+
 // --- 에러 처리 미들웨어 (가장 마지막에 위치) ---
 app.use(errorMiddleware); //앞선 단계들(로그인, 옷 등록 등)에서 에러가 발생하면, 이 미들웨어가 그 에러를 잡아내서 사용자에게 "로그인에 실패했습니다" 같은 깔끔한 응답을 보내줍니다.
 
