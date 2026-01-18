@@ -143,6 +143,7 @@ router.patch('/:clothId/physics', authMiddleware, clothController.updateClothPhy
  */
 router.get('/:clothId/attempts', authMiddleware, clothController.listDesignAttempts);
 router.post('/:clothId/attempts', authMiddleware, clothController.createDesignAttempt);
+
 /**
  * @swagger
  * /api/clothes/{clothId}/generate:
@@ -170,6 +171,7 @@ router.post('/:clothId/attempts', authMiddleware, clothController.createDesignAt
  *       200:
  *         description: AI Design Generated
  */
-router.post('/:clothId/generate', authMiddleware, clothController.generateDesign); // Added
+router.post('/:clothId/generate', authMiddleware, clothController.generateDesign);
+
 
 module.exports = router;
