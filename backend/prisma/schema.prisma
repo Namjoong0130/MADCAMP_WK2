@@ -68,6 +68,7 @@ model User {
   armLength         Float?
   legLength         Float?
   neckCircum        Float?
+  wristCircum       Float?
   footSize          Int?
 
   coins             Int           @default(0) // Cash에서 통일

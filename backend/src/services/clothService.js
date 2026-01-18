@@ -58,10 +58,20 @@ exports.listCloths = async (query = {}) => {
     ];
   }
 
+  let orderBy = { created_at: 'desc' }; // Default: Latest
+
+  if (query.sort === 'popular') {
+    orderBy = { likeCount: 'desc' };
+  } else if (query.sort === 'price') {
+    orderBy = { price: 'asc' }; // Lowest to highest
+  } else if (query.sort === 'price_desc') {
+    orderBy = { price: 'desc' };
+  }
+
   const cloths = await prisma.cloth.findMany({
     where,
     include: { brand: true, fund: true },
-    orderBy: { created_at: 'desc' },
+    orderBy,
   });
 
   return cloths.map((cloth) => ({
