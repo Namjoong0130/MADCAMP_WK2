@@ -106,6 +106,9 @@ const generateMockBuffer = (text, width = 1024, height = 1024) => {
 
 exports.generateDesignImage = async (clothId, userPrompt, attemptId, inputImages = []) => {
   // 1. Construct Prompt
+  // Explicitly map inputs if 2 are provided (checked by controller anyway)
+  const mappingText = "The input Image 1 strictly represents the FRONT view sketch. The input Image 2 strictly represents the BACK view sketch.";
+
   const finalPrompt = `A high-quality 3D product rendering showing two views of the same clothing item side-by-side on a SINGLE, CONTINUOUS, UNIFORM PURE WHITE BACKGROUND.
   
   Layout:
