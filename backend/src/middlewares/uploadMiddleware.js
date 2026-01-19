@@ -22,8 +22,8 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 },
 });
 
-// Compatible exports with previous usage
-module.exports = upload; // Export the multer instance directly as well if needed
-module.exports.upload = upload;
-module.exports.single = (name) => upload.single(name);
-module.exports.array = (name, count) => upload.array(name, count);
+module.exports = {
+  upload, // Access to raw multer instance
+  single: (name) => upload.single(name),
+  array: (name, count) => upload.array(name, count)
+};

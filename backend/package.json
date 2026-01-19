@@ -10,6 +10,7 @@
     "generate": "npx prisma generate"
   },
   "dependencies": {
+    "@fal-ai/client": "^1.8.3",
     "@prisma/client": "^6.19.2",
     "aws-sdk": "^2.1530.0",
     "axios": "^1.6.2",
