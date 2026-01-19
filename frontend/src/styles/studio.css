@@ -1,0 +1,599 @@
+.studio-layout {
+  display: grid;
+  gap: 36px;
+}
+
+.studio-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 32px;
+}
+
+.studio-workbench-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 20px;
+}
+
+.studio-workbench-actions {
+  display: inline-flex;
+
+  gap: 20px;
+
+  align-items: center;
+}
+
+.studio-workbench-actions .secondary,
+.studio-workbench-actions .primary {
+  width: fit-content; 
+  padding: 8px 14px;  
+  min-width: auto;
+  justify-content: center;
+}
+
+.design-coin {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: #ffffff;
+  font-size: 12px;
+  color: #111111;
+  cursor: pointer;
+}
+
+.design-coin-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: #111111;
+  color: #ffffff;
+  display: grid;
+  place-items: center;
+}
+
+.design-coin-brush {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
+.design-coin-count {
+  font-weight: 600;
+}
+
+.temp-save-btn {
+  padding: 6px 12px;
+  min-width: auto;
+  font-size: 12px;
+  border-radius: 999px;
+}
+
+.studio-workbench-header h3 {
+  margin: 0;
+}
+
+.studio-sub {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.studio-workbench .workbench-body {
+  display: grid;
+  
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: 38px; 
+}
+.studio-workbench .workbench-canvas {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.studio-workbench .design-canvas {
+  width: 100%;
+  height: 420px;
+  border-radius: 16px;
+}
+
+.design-canvas-area {
+  position: relative;
+  width: min(100%, 660px);
+  height: 420px;
+  align-self: flex-start;
+}
+
+.design-canvas-area .design-canvas {
+  position: relative;
+  z-index: 2;
+  background: transparent;
+}
+
+.design-canvas-frame {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 16px;
+  border: 1px dashed var(--border);
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.studio-side-toggle {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: inline-flex;
+  gap: 6px;
+  z-index: 3;
+}
+
+.studio-side-toggle button {
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.studio-side-toggle button.active {
+  background: #111111;
+  border-color: #111111;
+  color: #ffffff;
+}
+
+.studio-workbench .design-canvas {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.design-photo-preview {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 16px;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.canvas-photo-actions {
+  position: absolute;   /* 핵심 */
+  top: 2px;
+  right: 6px;          /* 👉 캔버스 오른쪽 끝 */
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 3;
+}
+
+.canvas-photo-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: #ffffff;
+  color: #111111;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  
+}
+
+.canvas-photo-btn svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
+.canvas-photo-clear {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  border: none;
+  background: transparent;
+  color: #111111;
+  font-size: 11px;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.canvas-photo-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.studio-workbench .design-canvas-wrap {
+  align-items: flex-start;
+}
+
+.design-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+  position: relative;
+}
+
+.tool-group {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.tool-anchor {
+  position: relative;
+  display: inline-flex;
+}
+
+.tool-sub {
+  position: absolute;
+  top: 36px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: none;
+  z-index: 5;
+}
+
+.tool-sub.is-visible {
+  display: block;
+}
+
+.tool-sub .bubble {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.tool-sub .bubble::before {
+  content: "";
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  background: #ffffff;
+  border-left: 1px solid var(--border);
+  border-top: 1px solid var(--border);
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.clear-btn {
+  border: 1px solid var(--border);
+  background: #ffffff;
+  color: #111111;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  cursor: pointer;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
+}
+
+.tool-btn {
+  border: 1px solid var(--border);
+  background: #ffffff;
+  color: #111111;
+  border-radius: 999px;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  font-size: 12px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+
+.tool-btn.active {
+  border-color: #111111;
+  background: #111111;
+  color: #ffffff;
+}
+
+.color-btn {
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+}
+
+.color-btn.active {
+  outline: 2px solid #111111;
+  outline-offset: 2px;
+}
+
+.size-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.size-control input {
+  width: 140px;
+  accent-color: #111111;
+}
+
+.color-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.color-picker input {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.workbench-prompt {
+  display: flex;
+  flex-direction: column;
+  gap: 38px;
+  padding: 6px 0 0 4px;
+  margin-top: 19px;
+}
+
+.panel {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.04);
+}
+
+.studio-workbench.panel {
+  padding: 26px;
+  gap: 18px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  font-size: 13px;
+  margin: 0;
+}
+
+.field textarea,
+.field input {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 14px;
+  font-size: 14px;
+  font-family: var(--font-body);
+}
+
+.field select {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-family: var(--font-body);
+  background: #ffffff;
+}
+
+.design-selects {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.subsection {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 0;
+}
+
+.subsection h4 {
+  margin: 0;
+}
+
+.slider {
+  display: grid;
+  grid-template-columns: 90px 1fr 50px;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  margin: 0;
+}
+
+.workbench-prompt .field textarea {
+  height: 120px;
+  resize: none;
+}
+
+.slider input {
+  width: 100%;
+  accent-color: #111111;
+}
+
+.mannequin-card {
+  border: 1px dashed var(--border);
+  border-radius: 20px;
+  padding: 20px;
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 20px;
+  align-items: center;
+}
+
+.mannequin-avatar {
+  width: 72px;
+  height: 120px;
+  border-radius: 40px;
+  background: linear-gradient(180deg, #f1f1f1, #dcdcdc);
+}
+
+.notice {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.gallery-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  padding: 16px;
+  position: relative;
+}
+
+.gallery-card img {
+  width: 100%;
+  height: 140px;
+  border-radius: 12px;
+  object-fit: cover;
+}
+
+.empty {
+  color: var(--muted);
+}
+
+.studio-gallery-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: grid;
+  place-items: center;
+  z-index: 60;
+  padding: 24px;
+}
+
+.studio-gallery-content {
+  max-width: 600px;
+  width: 100%;
+  max-height: 80vh;
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 24px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.24);
+  overflow: hidden;
+  height: 520px;
+}
+
+.studio-gallery-content.compact {
+  height: 320px;
+}
+
+.studio-gallery-header {
+  display: flex;
+  justify-content: flex-start;
+  align-items: baseline;
+  gap: 12px;
+  padding-right: 40px;
+}
+
+.studio-gallery-count {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.studio-gallery-content .gallery-grid {
+  overflow-y: auto;
+  padding-right: 6px;
+  min-height: 200px;
+}
+
+.studio-gallery-content .empty {
+  text-align: center;
+  padding: 24px 0;
+}
+
+.studio-canvas-page {
+  display: grid;
+  gap: 20px;
+}
+
+.studio-canvas-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+}
+
+.studio-canvas-header h1 {
+  margin: 0;
+}
+
+.studio-canvas-header p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.studio-canvas-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.studio-canvas-panel {
+  gap: 16px;
+}
+
+.studio-canvas-panel .design-canvas.zoom {
+  width: 100%;
+  height: 70vh;
+  max-height: 680px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: #ffffff;
+}
+
+@media (max-width: 1200px) {
+  .workbench-body {
+    grid-template-columns: 1fr;
+  }
+}
+
+.workbench-prompt {
+  height: 420px; 
+  justify-content: space-between; /* 내용물들을 위아래로 분산 */
+}
+
+.workbench-prompt .field:last-child {
+  flex: 1; /* 남은 공간 모두 내꺼! */
+  display: flex;
+  flex-direction: column;
+}
+
+/* 3. 실제 입력창 높이를 100%로 늘림 */
+.workbench-prompt .field textarea {
+  height: 100%; /* 부모 크기만큼 꽉 채우기 */
+  min-height: 120px; /* 너무 작아지지 않게 최소 높이 설정 */
+}

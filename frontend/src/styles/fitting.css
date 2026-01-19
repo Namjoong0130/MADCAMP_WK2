@@ -1,0 +1,332 @@
+.fitting-layout {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 48px;
+  margin-bottom: 36px;
+}
+
+.page-title.page-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.page-title-actions {
+  padding-top: 6px;
+}
+
+.fitting-preview {
+  position: relative;
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: #f5f5f5;
+  min-height: 420px;
+  height: 520px;
+}
+
+.fitting-toggle {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: inline-flex;
+  gap: 8px;
+  z-index: 3;
+}
+
+.fitting-save-btn {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  border: 1px solid #111111;
+  background: #111111;
+  color: #ffffff;
+  border-radius: 999px;
+  padding: 10px 18px;
+  font-size: 12px;
+  cursor: pointer;
+  box-shadow: 0 14px 26px rgba(0, 0, 0, 0.22);
+  z-index: 3;
+}
+
+.fitting-toggle button {
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
+}
+
+.fitting-toggle button.active {
+  background: #111111;
+  border-color: #111111;
+  color: #ffffff;
+}
+
+.fitting-preview canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+}
+
+.fitting-real {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  cursor: zoom-in;
+}
+
+.fitting-preview > img,
+.fitting-real-base {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  opacity: 0.9;
+}
+
+.layer-stack {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+
+.layer-stack img {
+  width: 60%;
+  height: 60%;
+  object-fit: contain;
+  border-radius: 24px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
+}
+
+.compose {
+  position: absolute;
+  inset: 20px;
+  border-radius: 20px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #ffffff;
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+  letter-spacing: 1px;
+}
+
+.fitting-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.panel-block {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.layer-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.layer-apply-btn {
+  border: 1px solid var(--border);
+  background: #ffffff;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.layer-panel {
+  min-height: 300px;
+}
+
+.layer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+.layer-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 14px 16px;
+  font-size: 13px;
+}
+
+.layer-item button {
+  border: none;
+  background: #f2f2f2;
+  padding: 6px 8px;
+  border-radius: 10px;
+  margin-left: 6px;
+  cursor: pointer;
+}
+
+.score {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.score strong {
+  font-size: 38px;
+  font-family: var(--font-display);
+}
+
+.closet {
+  margin-top: 40px;
+}
+
+.closet-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 28px;
+}
+
+.closet-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 22px;
+}
+
+.closet-empty {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.closet-card {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  transition: transform 0.2s ease;
+  height: 100%;
+  position: relative;
+}
+
+.closet-card.selected {
+  border-color: #000000;
+}
+
+.closet-card img {
+  width: 100%;
+  height: 160px;
+  object-fit: cover;
+  border-radius: 16px;
+}
+
+.modal-content.album-modal-content {
+  max-width: 600px;
+  width: 100%;
+  max-height: 80vh;
+  padding: 24px;
+  height: 520px;
+}
+
+.modal-content.album-modal-content.compact {
+  height: 320px;
+}
+
+.album-modal-header {
+  display: flex;
+  justify-content: flex-start;
+  align-items: baseline;      
+  gap: 12px;               
+  margin-bottom: 18px;
+  padding-right: 40px;       
+}
+
+.album-modal-header span {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.closet-card > div {
+  flex: 1;
+}
+
+.closet-card button {
+  margin-top: auto;
+}
+
+.closet-remove {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.7);
+  color: rgba(17, 17, 17, 0.65);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+}
+/* 1. 전체 컨테이너 설정 */
+.closet-link {
+  border: none;
+  background: transparent;
+  padding: 0;
+  
+  display: flex;
+  flex-direction: column;
+  /* gap을 줄여서 전체적으로 오밀조밀하게 */
+  gap: 4px; 
+  
+  text-align: left;
+  cursor: pointer;
+}
+
+/* 2. 이미지 크기 줄이기 (160px -> 110px) */
+.closet-link img {
+  width: 100%;
+  height: 110px; /* 높이를 줄여서 한눈에 들어오게 */
+  object-fit: cover;
+  border-radius: 16px;
+}
+
+/* 3. 제목 스타일 (진하게 & 줄바꿈 강제) */
+.closet-link strong, 
+.closet-link b, 
+.closet-link .title {
+  display: block; /* 이게 있어야 제목이 혼자 한 줄 차지함 */
+  font-size: 14px;
+  font-weight: 600;
+  color: #111111;
+  margin-top: 4px; /* 이미지랑 제목 사이 간격 */
+}
+
+/* 4. 날짜 스타일 (더 작게 & 간격 띄우기) */
+.closet-link span, 
+.closet-link small, 
+.closet-link .date {
+  display: block; /* 날짜를 아랫줄로 내림 */
+  
+  font-size: 10px; /* ✨ 요청한 대로 아주 작게! */
+  color: #aaaaaa;  /* 연한 회색으로 */
+  
+  margin-top: 3px; /* ✨ 제목이랑 날짜 사이 톡 띄우기 */
+}
