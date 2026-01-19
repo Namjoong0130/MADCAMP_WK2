@@ -162,14 +162,17 @@ const uploadMiddleware = require('../middlewares/uploadMiddleware');
  *             properties:
  *               prompt:
  *                 type: string
- *               image:
- *                 type: string
- *                 format: binary
+// ...
+ *               images:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
  *     responses:
  *       200:
  *         description: AI Design Generated
  */
-router.post('/:clothId/generate', authMiddleware, uploadMiddleware.single('image'), clothController.generateDesign);
+router.post('/:clothId/generate', authMiddleware, uploadMiddleware.array('images', 2), clothController.generateDesign);
 
 
 module.exports = router;

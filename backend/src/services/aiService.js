@@ -49,15 +49,26 @@ const callFalAi = async (prompt, imageUrls = []) => {
 
   try {
     // Resolve all image URLs (convert local to base64 if needed)
-    const processedImage = await resolveImageUrl(imageUrls[0]);
-    const inputImages = processedImage ? [processedImage] : [];
+    // Map usage to resolve all, handling promises
+    const imagePromises = imageUrls.map(url => resolveImageUrl(url));
+    const processedImages = (await Promise.all(imagePromises)).filter(img => img !== null);
 
-    console.log('[FAL AI Request]', { endpoint: FAL_MODEL_ENDPOINT, hasImage: inputImages.length > 0 });
+    // Fallback: If array is empty but we need input, generate blank?
+    // User requested "front and back", so if we have images, pass them all.
+    // If strict 0 images provided, generate blank (handled by controller validation actually, but for safety)
+    let finalInputImages = processedImages;
+    if (finalInputImages.length === 0) {
+      // Auto-generate blank if somehow explicit empty
+      const blank = await getBlankImageBase64();
+      finalInputImages = [blank];
+    }
+
+    console.log('[FAL AI Request]', { endpoint: FAL_MODEL_ENDPOINT, imageCount: finalInputImages.length });
 
     const result = await fal.subscribe(FAL_MODEL_ENDPOINT, {
       input: {
         prompt: prompt,
-        image_urls: inputImages // Correct field name per docs: image_urls
+        image_urls: finalInputImages // Pass full array
       },
       logs: true,
       onQueueUpdate: (update) => {
@@ -95,7 +106,10 @@ const generateMockBuffer = (text, width = 1024, height = 1024) => {
 
 exports.generateDesignImage = async (clothId, userPrompt, attemptId, inputImages = []) => {
   // 1. Construct Prompt
-  const finalPrompt = `A photorealistic 3D product rendering with a strict vertical split-screen layout. The entire left 50% frame shows the FRONT view based on the first sketch, and the entire right 50% frame shows the BACK view based on the second sketch. The center line must be clear empty space, guaranteeing absolutely no overlap. Both views must be perfectly symmetrical, aligned horizontally at the same height, and rendered at the identical scale. Render details based on user description: ${userPrompt}. Ghost mannequin style (just clothes, invisible body), neutral studio lighting, straight-on camera view at eye level, clean solid white background.`;
+  // Explicitly map inputs if 2 are provided (checked by controller anyway)
+  const mappingText = "The input Image 1 strictly represents the FRONT view sketch. The input Image 2 strictly represents the BACK view sketch.";
+
+  const finalPrompt = `A photorealistic 3D product rendering with a strict vertical split-screen layout. The entire left 50% frame shows the FRONT view based on the first sketch, and the entire right 50% frame shows the BACK view based on the second sketch. ${mappingText} The center line must be clear empty space, guaranteeing absolutely no overlap. Both views must be perfectly symmetrical, aligned horizontally at the same height, and rendered at the identical scale. Render details based on user description: ${userPrompt}. Ghost mannequin style (just clothes, invisible body), neutral studio lighting, straight-on camera view at eye level, clean solid white background.`;
 
   console.log(`[AI] Generating Design for Cloth #${clothId}, Attempt #${attemptId} with Prompt:`, finalPrompt);
 

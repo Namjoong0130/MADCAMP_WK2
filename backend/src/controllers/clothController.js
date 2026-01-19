@@ -78,18 +78,29 @@ exports.listDesignHistory = async (req, res, next) => {
 
 exports.generateDesign = async (req, res, next) => {
   try {
-    const { prompt, input_images } = req.body;
+    const { prompt } = req.body;
+    let input_images = [];
 
-    // Strict validation as requested
-    if (!prompt || !input_images || input_images.length === 0) {
-      throw createError(400, '디자인 생성을 위해서는 프롬프트와 참조 이미지(URL)가 모두 필요합니다.');
+    // Prioritize uploaded file
+    if (req.file) {
+      // With diskStorage, req.file.filename is available
+      const webPath = `/images/uploads/${req.file.filename}`;
+      input_images = [webPath];
+    } else if (req.body.input_images) {
+      // Fallback to URL string/array if provided manually
+      input_images = Array.isArray(req.body.input_images) ? req.body.input_images : [req.body.input_images];
+    }
+
+    // Strict validation
+    if (!prompt || input_images.length !== 2) {
+      throw createError(400, '디자인 생성을 위해서는 프롬프트와 참조 이미지 2장(앞면, 뒷면)이 반드시 필요합니다.');
     }
 
     const attempt = await clothService.generateDesignImage(
       req.user.userId,
       Number(req.params.clothId),
       prompt,
-      input_images // Pass images
+      input_images
     );
     return created(res, attempt, '디자인이 생성되었습니다.');
   } catch (error) {
