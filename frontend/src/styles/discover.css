@@ -334,16 +334,21 @@
   text-transform: uppercase;
 }
 
+.brand-link {
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-size: 15px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: inherit;
+  cursor: pointer;
+}
+
 .designer-handle {
   font-size: 13px;
   color: var(--muted);
   letter-spacing: 0.4px;
-}
-
-.participant {
-  font-size: 13px;
-  color: var(--muted);
-  margin-top: 6px;
 }
 
 .card-body {
@@ -357,6 +362,18 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.card-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.participant {
+  font-size: 13px;
+  color: var(--muted);
 }
 
 .card-title-row {

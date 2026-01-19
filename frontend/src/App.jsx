@@ -32,7 +32,16 @@ import {
   User,
   Pencil,
   Eraser,
+  Trash2,
 } from "lucide-react";
+
+const buildDefaultBrandDetails = (brandName) => ({
+  brand: brandName.toUpperCase(),
+  handle: "@motif.studio",
+  bio: "브랜드 소개를 추가해보세요.",
+  location: "Seoul",
+  logoUrl: "/logo.png",
+});
 
 function App() {
   const [activeTab, setActiveTab] = useState("discover");
@@ -59,8 +68,12 @@ function App() {
   });
   const [generatedDesigns, setGeneratedDesigns] = useState([]);
   const [fittingLayers, setFittingLayers] = useState([]);
+  const [fittingLayersDraft, setFittingLayersDraft] = useState([]);
   const [focusClothingId, setFocusClothingId] = useState(null);
   const [isComposing, setIsComposing] = useState(false);
+  const [fittingView, setFittingView] = useState("3d");
+  const [fittingZoom, setFittingZoom] = useState(0.9);
+  const [fittingRealBaseUrl, setFittingRealBaseUrl] = useState("/image7.png");
   const [userProfile, setUserProfile] = useState(userBase);
   const [brands, setBrands] = useState(initialBrands);
   const [notificationOpen, setNotificationOpen] = useState(false);
@@ -69,6 +82,9 @@ function App() {
   const [selectedBrandKey, setSelectedBrandKey] = useState(null);
   const [followedBrands, setFollowedBrands] = useState([]);
   const [brandProfiles, setBrandProfiles] = useState(initialBrandProfiles);
+  const [hasBrandPage, setHasBrandPage] = useState(false);
+  const [brandPageReady, setBrandPageReady] = useState(false);
+  const [brandFollowerOverride, setBrandFollowerOverride] = useState(null);
   const [fittingAlbumOpen, setFittingAlbumOpen] = useState(false);
   const [portfolioTab, setPortfolioTab] = useState("investee");
   const [investments, setInvestments] = useState(initialInvestments);
@@ -81,6 +97,18 @@ function App() {
     open: false,
     investmentId: null,
   });
+  const [brandPageRequiredOpen, setBrandPageRequiredOpen] = useState(false);
+  const [brandDeleteConfirmOpen, setBrandDeleteConfirmOpen] = useState(false);
+  const [accountDeleteConfirmOpen, setAccountDeleteConfirmOpen] =
+    useState(false);
+  const [nameModal, setNameModal] = useState({
+    open: false,
+    type: null,
+    value: "",
+    view: null,
+  });
+  const [limitAlertOpen, setLimitAlertOpen] = useState(false);
+  const [limitAlertMessage, setLimitAlertMessage] = useState("");
   const [aiDesignModal, setAiDesignModal] = useState({
     open: false,
     design: null,
@@ -88,7 +116,20 @@ function App() {
   const [designCoins, setDesignCoins] = useState(6);
   const [designCoinModal, setDesignCoinModal] = useState(false);
   const [designCoinAlertOpen, setDesignCoinAlertOpen] = useState(false);
+  const [designCoinAlertClosing, setDesignCoinAlertClosing] = useState(false);
+  const [designGenerateConfirmOpen, setDesignGenerateConfirmOpen] =
+    useState(false);
+  const [designPhoto, setDesignPhoto] = useState(null);
+  const designPhotoInputRef = useRef(null);
+  const aiPhotoInputRef = useRef(null);
+  const fittingCanvasRef = useRef(null);
   const [alreadyFundedAlertOpen, setAlreadyFundedAlertOpen] = useState(false);
+  const [fundingAlertOpen, setFundingAlertOpen] = useState(false);
+  const [fundingCancelAlertOpen, setFundingCancelAlertOpen] = useState(false);
+  const [fundingConfirmOpen, setFundingConfirmOpen] = useState(false);
+  const [fundingAlertClosing, setFundingAlertClosing] = useState(false);
+  const [fundingCancelClosing, setFundingCancelClosing] = useState(false);
+  const [alreadyFundedClosing, setAlreadyFundedClosing] = useState(false);
   const [aiDesignEditMode, setAiDesignEditMode] = useState(false);
   const [aiDesignDraft, setAiDesignDraft] = useState({
     name: "",
@@ -101,13 +142,9 @@ function App() {
   });
   const [loginModalOpen, setLoginModalOpen] = useState(false);
   const [loginDraft, setLoginDraft] = useState({ handle: "", password: "" });
-  const [myBrandDetails, setMyBrandDetails] = useState({
-    brand: brand.name.toUpperCase(),
-    handle: "@motif.studio",
-    bio: "브랜드 소개를 추가해보세요.",
-    location: "Seoul",
-    logoUrl: "/logo.png",
-  });
+  const [myBrandDetails, setMyBrandDetails] = useState(() =>
+    buildDefaultBrandDetails(brand.name),
+  );
   const [introOpen, setIntroOpen] = useState(() => {
     try {
       return window.localStorage.getItem("modifLoggedIn") !== "true";
@@ -131,10 +168,14 @@ function App() {
     name: userBase.name,
     password: "",
     passwordConfirm: "",
-    base_photo_url: userBase.base_photo_url,
+    base_photo_url: null,
     measurements: { ...userBase.measurements },
   }));
   const [selectedStyleIds, setSelectedStyleIds] = useState([]);
+  const [profilePasswordDraft, setProfilePasswordDraft] = useState({
+    password: "",
+    confirm: "",
+  });
   const [notifications, setNotifications] = useState([
     {
       id: 1,
@@ -165,11 +206,18 @@ function App() {
   const [designColor, setDesignColor] = useState("#111111");
   const [designSize, setDesignSize] = useState(6);
   const [showClearBubble, setShowClearBubble] = useState(false);
+  const [studioSide, setStudioSide] = useState("front");
+  const [studioSideImages, setStudioSideImages] = useState({
+    front: null,
+    back: null,
+  });
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [tempDesigns, setTempDesigns] = useState([]);
+  const [profilePhotoMode, setProfilePhotoMode] = useState("profile");
   const designCanvasRef = useRef(null);
   const canvasPopupRef = useRef(null);
   const drawMetaRef = useRef({ moved: false });
+  const [fittingHistory, setFittingHistory] = useState(initialFittingHistory);
 
   const fundingsFeed = useMemo(() => {
     return [...fundings]
@@ -212,14 +260,24 @@ function App() {
       return { date: label, value };
     });
   }, []);
+  const effectiveFollowerSeries = useMemo(
+    () =>
+      brandFollowerOverride !== null
+        ? followerSeries.map((item) => ({
+            ...item,
+            value: brandFollowerOverride,
+          }))
+        : followerSeries,
+    [brandFollowerOverride, followerSeries],
+  );
   const followerValues = useMemo(
-    () => followerSeries.map((item) => item.value),
-    [followerSeries],
+    () => effectiveFollowerSeries.map((item) => item.value),
+    [effectiveFollowerSeries],
   );
   const followerChartWidth = useMemo(() => 360, []);
   const followerChartStep = useMemo(
-    () => followerChartWidth / Math.max(1, followerSeries.length - 1),
-    [followerChartWidth, followerSeries.length],
+    () => followerChartWidth / Math.max(1, effectiveFollowerSeries.length - 1),
+    [effectiveFollowerSeries.length, followerChartWidth],
   );
   const followerChartPoints = useMemo(() => {
     const height = 120;
@@ -250,8 +308,28 @@ function App() {
     [],
   );
 
+  const formatTimestamp = (date) => {
+    const hours = String(date.getHours()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+    return `${formatDate(date)} ${hours}:${minutes}`;
+  };
+
+  const formatAlbumDate = (value) => {
+    if (!value) return "";
+    return value.includes(":") ? value : `${value} 00:00`;
+  };
+
+  const openLimitAlert = (message) => {
+    setLimitAlertMessage(message);
+    setLimitAlertOpen(true);
+    window.setTimeout(() => {
+      setLimitAlertOpen(false);
+      setLimitAlertMessage("");
+    }, 2000);
+  };
+
   const currentFollowerCount =
-    followerSeries[followerSeries.length - 1]?.value || 0;
+    effectiveFollowerSeries[effectiveFollowerSeries.length - 1]?.value || 0;
   const followingCount = followedBrands.length;
 
   const selectedBrandProfile = useMemo(() => {
@@ -458,6 +536,7 @@ function App() {
     const newDesign = {
       id: nextId,
       name: trimmed || `AI 컨셉 ${nextId}`,
+      savedAt: formatTimestamp(new Date()),
       category: "Concept",
       design_img_url: nextImage,
       gender: "Unisex",
@@ -489,6 +568,11 @@ function App() {
     });
     setAiDesignEditMode(false);
     setAiDesignModal({ open: true, design: newDesign });
+  };
+
+  const confirmGenerateDesign = () => {
+    setDesignGenerateConfirmOpen(false);
+    generateDesign();
   };
 
   const handleAiDesignEditToggle = () => {
@@ -567,11 +651,11 @@ function App() {
   };
 
   const removeLayer = (clothingId) => {
-    setFittingLayers((prev) => prev.filter((id) => id !== clothingId));
+    setFittingLayersDraft((prev) => prev.filter((id) => id !== clothingId));
   };
 
   const moveLayer = (clothingId, direction) => {
-    setFittingLayers((prev) => {
+    setFittingLayersDraft((prev) => {
       const index = prev.indexOf(clothingId);
       if (index === -1) return prev;
       const nextIndex = direction === "up" ? index - 1 : index + 1;
@@ -631,6 +715,17 @@ function App() {
     }));
   };
 
+  const handleProfilePhotoUpload = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    if (profilePhotoMode === "profile") {
+      updateProfileField("profile_photo_url", url);
+    } else {
+      updateProfileField("base_photo_url", url);
+    }
+  };
+
   const updateNote = (brandId, value) => {
     setBrands((prev) =>
       prev.map((item) =>
@@ -687,19 +782,95 @@ function App() {
       )
     : 0;
 
-  const handleFundNow = () => {
-    if (!detailItem?.clothing?.id || !detailItem?.funding?.brand) return;
-    const alreadyFunded = investments.some(
-      (item) =>
-        item.brand === detailItem.funding.brand &&
-        item.itemName === detailItem.clothing.name,
+  const detailAverageRating = useMemo(() => {
+    if (!detailItem?.clothing?.id) return "0.0";
+    const target = comments.filter(
+      (comment) => comment.clothing_id === detailItem.clothing.id,
     );
-    if (alreadyFunded) {
-      setAlreadyFundedAlertOpen(true);
-      setActiveTab("portfolio");
-      setPortfolioTab("investor");
-      return;
+    if (!target.length) return "0.0";
+    const total = target.reduce((sum, comment) => sum + comment.rating, 0);
+    return (total / target.length).toFixed(1);
+  }, [comments, detailItem]);
+
+  const detailTags = useMemo(() => {
+    if (!detailItem?.clothing) return [];
+    const categoryMap = {
+      Knit: "니트",
+      Jacket: "자켓",
+      Coat: "코트",
+      Dress: "원피스",
+      Top: "상의",
+      Bottom: "하의",
+      Shirt: "셔츠",
+    };
+    const styleMap = {
+      Minimal: "미니멀",
+      Street: "스트릿",
+      Classic: "클래식",
+      Sport: "스포티",
+      Romantic: "로맨틱",
+    };
+    const genderMap = { Mens: "남자", Womens: "여자", Unisex: "공용" };
+    const tags = [
+      categoryMap[detailItem.clothing.category] ||
+        detailItem.clothing.category,
+      styleMap[detailItem.clothing.style] || detailItem.clothing.style,
+      genderMap[detailItem.clothing.gender] || detailItem.clothing.gender,
+    ].filter(Boolean);
+    return Array.from(new Set(tags));
+  }, [detailItem]);
+
+  const handleDetailTagClick = (tag) => {
+    const categoryMap = {
+      Knit: "니트",
+      Jacket: "자켓",
+      Coat: "코트",
+      Dress: "원피스",
+      Top: "상의",
+      Bottom: "하의",
+      Shirt: "셔츠",
+    };
+    const styleMap = {
+      Minimal: "미니멀",
+      Street: "스트릿",
+      Classic: "클래식",
+      Sport: "스포티",
+      Romantic: "로맨틱",
+    };
+    const genderMap = { Mens: "남자", Womens: "여자", Unisex: "공용" };
+    const categoryLabelMap = Object.fromEntries(
+      Object.entries(categoryMap).map(([key, value]) => [value, key]),
+    );
+    const styleLabelMap = Object.fromEntries(
+      Object.entries(styleMap).map(([key, value]) => [value, key]),
+    );
+    const genderLabelMap = Object.fromEntries(
+      Object.entries(genderMap).map(([key, value]) => [value, key]),
+    );
+
+    if (categoryLabelMap[tag]) {
+      const category = categoryLabelMap[tag];
+      setSelectedMainCategory(categoryToMain[category] || "Tops");
+      setSelectedSubCategory(category);
+      setSelectedStyle("All");
+      setSelectedGender("All");
+    } else if (styleLabelMap[tag]) {
+      setSelectedStyle(styleLabelMap[tag]);
+      setSelectedMainCategory("All");
+      setSelectedSubCategory("All");
+      setSelectedGender("All");
+    } else if (genderLabelMap[tag]) {
+      setSelectedGender(genderLabelMap[tag]);
+      setSelectedMainCategory("All");
+      setSelectedSubCategory("All");
+      setSelectedStyle("All");
     }
+    setActiveTab("discover");
+    setDetailItem(null);
+  };
+
+  const finalizeFundNow = () => {
+    if (!detailItem?.clothing?.id || !detailItem?.funding?.brand) return;
     const nextId = Math.max(0, ...investments.map((item) => item.id)) + 1;
     const eta = formatDate(new Date(Date.now() + 1000 * 60 * 60 * 24 * 30));
     const nextItem = {
@@ -712,8 +883,24 @@ function App() {
       eta,
     };
     setInvestments((prev) => [nextItem, ...prev]);
+    setFundingAlertOpen(true);
+    setFundingConfirmOpen(false);
     setActiveTab("portfolio");
     setPortfolioTab("investor");
+  };
+
+  const handleFundNow = () => {
+    if (!detailItem?.clothing?.id || !detailItem?.funding?.brand) return;
+    const alreadyFunded = investments.some(
+      (item) =>
+        item.brand === detailItem.funding.brand &&
+        item.itemName === detailItem.clothing.name,
+    );
+    if (alreadyFunded) {
+      setAlreadyFundedAlertOpen(true);
+      return;
+    }
+    setFundingConfirmOpen(true);
   };
 
   const myBrandProfile = useMemo(
@@ -728,6 +915,30 @@ function App() {
     }),
     [currentFollowerCount, followingCount, myBrandDetails],
   );
+
+  const createBrandPage = () => {
+    setHasBrandPage(true);
+    setBrandPageReady(false);
+    setBrandFollowerOverride(0);
+    setSelectedBrandKey(myBrandDetails.handle);
+    setActiveTab("brand");
+    setBrandEditing(true);
+    setAiDesignModal({ open: false, design: null });
+    setAiDesignEditMode(false);
+    setBrandPageRequiredOpen(false);
+  };
+
+  const resetBrandPage = () => {
+    setHasBrandPage(false);
+    setBrandPageReady(false);
+    setBrandEditing(false);
+    setSelectedBrandKey(null);
+    setFollowedBrands([]);
+    setBrandFollowerOverride(null);
+    setMyBrandDetails(buildDefaultBrandDetails(brand.name));
+    setBrandDeleteConfirmOpen(false);
+    setActiveTab("portfolio");
+  };
 
   const followerProfiles = useMemo(
     () => [
@@ -815,13 +1026,25 @@ function App() {
   };
 
   const openCanvasZoom = () => {
+    if (designPhoto?.url) {
+      setImagePreview(designPhoto.url);
+      return;
+    }
     if (canvasPopupRef.current && !canvasPopupRef.current.closed) {
       canvasPopupRef.current.focus();
       return;
     }
-    const popup = window.open("", "modif-canvas", "width=1280,height=900");
+    const width = window.screen.availWidth || 1280;
+    const height = window.screen.availHeight || 900;
+    const popup = window.open(
+      "",
+      "modif-canvas",
+      `width=${width},height=${height},left=0,top=0`,
+    );
     if (!popup) return;
     canvasPopupRef.current = popup;
+    popup.moveTo(0, 0);
+    popup.resizeTo(width, height);
     const source = designCanvasRef.current;
     const dataUrl = source ? source.toDataURL("image/png") : "";
     const payload = {
@@ -1356,7 +1579,14 @@ function App() {
     popup.document.close();
   };
 
-  const saveTempDesign = () => {
+  const saveTempDesign = (name) => {
+    const totalDesignCount = generatedDesigns.length + tempDesigns.length;
+    if (totalDesignCount >= 10) {
+      openLimitAlert(
+        "저장된 디자인은 10장까지만 보관됩니다. 기존 디자인을 삭제한 뒤 다시 시도해주세요.",
+      );
+      return;
+    }
     const canvas = designCanvasRef.current;
     if (!canvas) return;
     const dataUrl = canvas.toDataURL("image/png");
@@ -1364,8 +1594,9 @@ function App() {
     setTempDesigns((prev) => [
       {
         id: nextId,
-        name: "임시 스케치",
-        design_prompt: prompt.trim() || "임시 스케치",
+        name: name || "임시 스케치",
+        savedAt: formatTimestamp(new Date()),
+        design_prompt: name || prompt.trim() || "임시 스케치",
         design_img_url: dataUrl,
         isTemp: true,
       },
@@ -1403,7 +1634,7 @@ function App() {
       name: userProfile.name,
       password: "",
       passwordConfirm: "",
-      base_photo_url: userProfile.base_photo_url,
+      base_photo_url: null,
       measurements: { ...userProfile.measurements },
     });
     setSelectedStyleIds([]);
@@ -1438,6 +1669,38 @@ function App() {
     setCancelFundingModal({ open: false, investmentId: null });
   };
 
+  const closeFundingAlert = () => {
+    setFundingAlertClosing(true);
+    window.setTimeout(() => {
+      setFundingAlertOpen(false);
+      setFundingAlertClosing(false);
+    }, 250);
+  };
+
+  const closeFundingCancelAlert = () => {
+    setFundingCancelClosing(true);
+    window.setTimeout(() => {
+      setFundingCancelAlertOpen(false);
+      setFundingCancelClosing(false);
+    }, 250);
+  };
+
+  const closeAlreadyFundedAlert = () => {
+    setAlreadyFundedClosing(true);
+    window.setTimeout(() => {
+      setAlreadyFundedAlertOpen(false);
+      setAlreadyFundedClosing(false);
+    }, 250);
+  };
+
+  const closeDesignCoinAlert = () => {
+    setDesignCoinAlertClosing(true);
+    window.setTimeout(() => {
+      setDesignCoinAlertOpen(false);
+      setDesignCoinAlertClosing(false);
+    }, 250);
+  };
+
   const submitLogin = () => {
     if (!loginDraft.handle.trim() || !loginDraft.password.trim()) return;
     setIsLoggedIn(true);
@@ -1465,6 +1728,25 @@ function App() {
     );
   };
 
+  const handleAccountDelete = () => {
+    handleLogout();
+    resetBrandPage();
+    setUserProfile(userBase);
+    setSignupDraft({
+      handle: userBase.handle,
+      name: userBase.name,
+      password: "",
+      passwordConfirm: "",
+      base_photo_url: null,
+      measurements: { ...userBase.measurements },
+    });
+    setSelectedStyleIds([]);
+    setMeasurementMode("manual");
+    setIntroOpen(true);
+    setOnboardingOpen(false);
+    setAccountDeleteConfirmOpen(false);
+  };
+
   const handleRestrictedNav = (nextTab) => {
     if (isLoggedIn) {
       setActiveTab(nextTab);
@@ -1486,11 +1768,144 @@ function App() {
     }));
   };
 
-  const handleProfilePhotoChange = (event) => {
+const handleProfilePhotoChange = (event) => {
+  const file = event.target.files[0];
+
+  if (file) {
+    // 1. 파일을 미리보기용 주소(URL)로 변환! (이게 빠져서 안 떴던 거야)
+    const imageUrl = URL.createObjectURL(file);
+
+    // 2. 상태 업데이트 (사진 주소 저장)
+    setSignupDraft((prev) => ({
+      ...prev,
+      base_photo_url: imageUrl,
+    }));
+  }
+};
+
+  const handleDesignPhotoChange = (event) => {
     const file = event.target.files[0];
-    if (file) {
-      const url = URL.createObjectURL(file);
-      updateSignupField("base_photo_url", url);
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    setDesignPhoto({ url, name: file.name });
+  };
+
+  const clearDesignPhoto = () => {
+    setDesignPhoto(null);
+    if (designPhotoInputRef.current) {
+      designPhotoInputRef.current.value = "";
+    }
+  };
+
+  const loadDesignToCanvas = (src) => {
+    const canvas = designCanvasRef.current;
+    if (!canvas || !src) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const image = new Image();
+    image.onload = () => {
+      const canvasWidth = canvas.width;
+      const canvasHeight = canvas.height;
+      const scale = Math.min(
+        canvasWidth / image.width,
+        canvasHeight / image.height,
+      );
+      const drawWidth = image.width * scale;
+      const drawHeight = image.height * scale;
+      const offsetX = (canvasWidth - drawWidth) / 2;
+      const offsetY = (canvasHeight - drawHeight) / 2;
+      ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+      ctx.drawImage(image, offsetX, offsetY, drawWidth, drawHeight);
+    };
+    image.src = src;
+  };
+
+  const switchStudioSide = (nextSide) => {
+    if (nextSide === studioSide) return;
+    const canvas = designCanvasRef.current;
+    if (canvas) {
+      const currentUrl = canvas.toDataURL("image/png");
+      setStudioSideImages((prev) => ({ ...prev, [studioSide]: currentUrl }));
+    }
+    const nextUrl = studioSideImages[nextSide];
+    setStudioSide(nextSide);
+    if (nextUrl) {
+      loadDesignToCanvas(nextUrl);
+    } else {
+      clearDesignCanvas();
+    }
+  };
+
+  const loadImage = (src) =>
+    new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = src;
+    });
+
+  const saveFittingSnapshot = async (name, view) => {
+    if (fittingHistory.length >= 10) {
+      openLimitAlert(
+        "피팅 앨범은 10장까지만 저장할 수 있습니다. 기존 항목을 삭제한 뒤 다시 시도해주세요.",
+      );
+      return;
+    }
+    const timestamp = formatTimestamp(new Date());
+    const targetView = view || fittingView;
+    if (targetView === "3d") {
+      if (!fittingCanvasRef.current) return;
+      const dataUrl = fittingCanvasRef.current.toDataURL("image/png");
+      setFittingHistory((prev) => [
+        {
+          id: `fit-${Date.now()}`,
+          title: name || "3D Snapshot",
+          image: dataUrl,
+          date: timestamp,
+        },
+        ...prev,
+      ]);
+      return;
+    }
+
+    try {
+      const baseImage = await loadImage("/image7.png");
+      const canvas = document.createElement("canvas");
+      canvas.width = baseImage.width;
+      canvas.height = baseImage.height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height / 2;
+      ctx.save();
+      ctx.translate(centerX, centerY);
+      ctx.scale(fittingZoom, fittingZoom);
+      ctx.translate(-centerX, -centerY);
+      ctx.drawImage(baseImage, 0, 0, canvas.width, canvas.height);
+      const layerWidth = canvas.width * 0.6;
+      const layerHeight = canvas.height * 0.6;
+      const layerX = (canvas.width - layerWidth) / 2;
+      const layerY = (canvas.height - layerHeight) / 2;
+      for (const id of fittingLayers) {
+        const src = clothingMap[id]?.design_img_url;
+        if (!src) continue;
+        const layerImage = await loadImage(src);
+        ctx.drawImage(layerImage, layerX, layerY, layerWidth, layerHeight);
+      }
+      ctx.restore();
+      const dataUrl = canvas.toDataURL("image/png");
+      setFittingHistory((prev) => [
+        {
+          id: `fit-${Date.now()}`,
+          title: name || "Real Snapshot",
+          image: dataUrl,
+          date: timestamp,
+        },
+        ...prev,
+      ]);
+    } catch {
+      // Ignore snapshot failures (missing assets, tainted canvas).
     }
   };
 
@@ -1568,6 +1983,38 @@ function App() {
   }, [introOpen]);
 
   useEffect(() => {
+    if (!fundingAlertOpen) return undefined;
+    const timer = window.setTimeout(() => {
+      closeFundingAlert();
+    }, 5000);
+    return () => window.clearTimeout(timer);
+  }, [fundingAlertOpen]);
+
+  useEffect(() => {
+    if (!fundingCancelAlertOpen) return undefined;
+    const timer = window.setTimeout(() => {
+      closeFundingCancelAlert();
+    }, 5000);
+    return () => window.clearTimeout(timer);
+  }, [fundingCancelAlertOpen]);
+
+  useEffect(() => {
+    if (!alreadyFundedAlertOpen) return undefined;
+    const timer = window.setTimeout(() => {
+      closeAlreadyFundedAlert();
+    }, 5000);
+    return () => window.clearTimeout(timer);
+  }, [alreadyFundedAlertOpen]);
+
+  useEffect(() => {
+    if (!designCoinAlertOpen) return undefined;
+    const timer = window.setTimeout(() => {
+      closeDesignCoinAlert();
+    }, 5000);
+    return () => window.clearTimeout(timer);
+  }, [designCoinAlertOpen]);
+
+  useEffect(() => {
     if (!introOpen) return;
     const sections = document.querySelectorAll(
       ".intro-section, .intro-actions",
@@ -1632,6 +2079,7 @@ function App() {
 
   const toggleFollowBrand = (handle) => {
     if (!handle) return;
+    if (handle === myBrandDetails.handle) return;
     setFollowedBrands((prev) => {
       const isFollowed = prev.includes(handle);
       setBrandProfiles((current) =>
@@ -1770,7 +2218,7 @@ function App() {
                             onChange={(event) =>
                               updateSignupField("handle", event.target.value)
                             }
-                            placeholder="@your.id"
+                            placeholder="your.id"
                           />
                         </label>
                         <label className="onboarding-field">
@@ -1859,13 +2307,18 @@ function App() {
                                       type="button"
                                       className="ai-file-remove"
                                       aria-label="Remove uploaded photo"
-                                      onClick={() => setAiFileName(null)}
+                                      onClick={() => {
+                                        setAiFileName(null);
+                                        if (aiPhotoInputRef.current) {
+                                          aiPhotoInputRef.current.value = "";
+                                        }
+                                      }}
                                     >
-                                      ?
+                                      ×
                                     </button>
                                   </span>
                                 ) : (
-                                  "?? ?? ?? 1?? ??? AI? ?? ??? ???."
+                                  "정면 전신 사진 1장을 업로드하면 AI가 자동으로 치수를 계산합니다."
                                 )}
                               </span>
                             </div>
@@ -1892,6 +2345,7 @@ function App() {
                                 />
                               </svg>
                               <input
+                                ref={aiPhotoInputRef}
                                 type="file"
                                 accept="image/*"
                                 onChange={(e) => {
@@ -2465,9 +2919,9 @@ function App() {
                       >
                         {[
                           { value: "All", label: "전체" },
-                          { value: "Mens", label: "??" },
-                          { value: "Womens", label: "??" },
-                          { value: "Unisex", label: "??" },
+                          { value: "Mens", label: "남자" },
+                          { value: "Womens", label: "여자" },
+                          { value: "Unisex", label: "공용" },
                         ].map((option) => (
                           <option key={option.value} value={option.value}>
                             {option.label}
@@ -2557,16 +3011,35 @@ function App() {
                     <div className="card-body">
                       <div className="card-title">
                         <div className="card-title-row">
-                          <h3>{item.brand}</h3>
+                          <button
+                            type="button"
+                            className="brand-link"
+                            onClick={() => {
+                              const profile =
+                                brandProfileMap[
+                                  item.designer_handle?.toLowerCase()
+                                ] || brandProfileMap[item.brand.toLowerCase()];
+                              if (profile) {
+                                openBrandProfile(profile);
+                              }
+                            }}
+                          >
+                            {item.brand}
+                          </button>
                           <span className="price-inline">
                             {currency.format(
                               clothingMap[item.clothing_id]?.price || 0,
                             )}
                           </span>
                         </div>
-                        <span className="designer-handle">
-                          {item.designer_handle}
-                        </span>
+                        <div className="card-meta-row">
+                          <span className="designer-handle">
+                            {item.designer_handle}
+                          </span>
+                          <span className="participant">
+                            {item.participant_count}명 참여
+                          </span>
+                        </div>
                       </div>
                       <div className="progress">
                         <div
@@ -2579,9 +3052,6 @@ function App() {
                           ₩{currency.format(item.current_amount)} 달성
                         </span>
                         <span>목표 ₩{currency.format(item.goal_amount)}</span>
-                      </div>
-                      <div className="participant">
-                        {item.participant_count}명 참여
                       </div>
                     </div>
                   </article>
@@ -2609,7 +3079,24 @@ function App() {
                   <div className="modal-stack">
                     <div className="modal-header">
                       <div>
-                        <h2>{detailItem.funding.brand}</h2>
+                        <button
+                          type="button"
+                          className="brand-link"
+                          onClick={() => {
+                            const profile =
+                              brandProfileMap[
+                                detailItem.funding.designer_handle?.toLowerCase()
+                              ] ||
+                              brandProfileMap[
+                                detailItem.funding.brand.toLowerCase()
+                              ];
+                            if (profile) {
+                              openBrandProfile(profile);
+                            }
+                          }}
+                        >
+                          {detailItem.funding.brand}
+                        </button>
                         <p>{detailItem.clothing?.name}</p>
                       </div>
                       <div className="pill-group">
@@ -2652,7 +3139,11 @@ function App() {
                           Fitting
                         </button>
                       </div>
-                      <div className="detail-scroll">
+                      <div
+                        className={`detail-scroll ${
+                          detailTab === "feedback" ? "detail-scroll-feedback" : ""
+                        }`}
+                      >
                         {detailTab === "overview" && (
                           <div className="detail-block">
                             <div className="price-row">
@@ -2692,6 +3183,20 @@ function App() {
                               {detailItem.clothing?.description ||
                                 `${detailItem.clothing?.name}은(는) 절제된 실루엣과 깔끔한 마감으로 일상과 포멀 모두에 어울립니다.`}
                             </p>
+                            {detailTags.length > 0 && (
+                              <div className="detail-tags">
+                                {detailTags.map((tag) => (
+                                  <button
+                                    key={tag}
+                                    type="button"
+                                    className="detail-tag"
+                                    onClick={() => handleDetailTagClick(tag)}
+                                  >
+                                    #{tag}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
                             <div className="spec-grid">
                               <div>
                                 <span>소재</span>
@@ -2766,8 +3271,14 @@ function App() {
                           </div>
                         )}
                         {detailTab === "feedback" && (
-                          <div className="detail-block">
-                            <h4>소셜 피드백</h4>
+                          <div className="detail-block feedback-block">
+                            <div className="detail-title-row">
+                              <h4>소셜 피드백</h4>
+                              <div className="rating-summary">
+                                <span className="rating-label">★</span>
+                                <strong>{detailAverageRating}</strong>
+                              </div>
+                            </div>
                             <div className="comment-list compact">
                               {comments.filter(
                                 (comment) =>
@@ -2793,6 +3304,21 @@ function App() {
                                           : ""
                                       }`}
                                     >
+                                      {comment.parent_id && (
+                                        <span className="reply-icon" aria-hidden="true">
+                                          <svg
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            strokeWidth="2"
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                          >
+                                            <path d="M9 14l-4-4 4-4" />
+                                            <path d="M5 10h8a6 6 0 0 1 6 6v1" />
+                                          </svg>
+                                        </span>
+                                      )}
                                       <div className="comment-rating">
                                         {Array.from({ length: 5 }).map(
                                           (_, index) => (
@@ -2812,7 +3338,7 @@ function App() {
                                       <div className="comment-body">
                                         <div className="comment-meta">
                                           <div className="comment-user">
-                                            <strong>@{comment.user}</strong>
+                                            <strong>{comment.user}</strong>
                                             {comment.parent_id &&
                                               comment.is_creator && (
                                                 <span className="creator-badge">
@@ -3012,9 +3538,26 @@ function App() {
                       <span className="design-coin-count">{designCoins}</span>
                     </button>
                     <button
+                      className="secondary temp-save-btn"
+                      type="button"
+                      onClick={() =>
+                        setNameModal({
+                          open: true,
+                          type: "temp-design",
+                          value: prompt.trim() || "임시 스케치",
+                          view: null,
+                        })
+                      }
+                    >
+                      임시 저장
+                    </button>
+                    <button
                       className="primary"
                       type="button"
-                      onClick={generateDesign}
+                      onClick={() => {
+                        if (designCoins <= 0) return;
+                        setDesignGenerateConfirmOpen(true);
+                      }}
                       disabled={designCoins <= 0}
                     >
                       디자인 생성
@@ -3100,24 +3643,92 @@ function App() {
                           }
                         />
                       </label>
-                      <button
-                        className="secondary temp-save-btn"
-                        type="button"
-                        onClick={saveTempDesign}
-                      >
-                        임시 저장
-                      </button>
+                      <div className="canvas-photo-actions">
+                        <button
+                          type="button"
+                          className="canvas-photo-btn"
+                          onClick={() => designPhotoInputRef.current?.click()}
+                          aria-label="Upload photo"
+                        >
+                          <svg
+                            viewBox="0 0 24 24"
+                            aria-hidden="true"
+                            focusable="false"
+                          >
+                            <path
+                              d="M7 7l1.5-2h7L17 7h2a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h2z"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.6"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                            <circle
+                              cx="12"
+                              cy="13"
+                              r="3.2"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.6"
+                            />
+                          </svg>
+                        </button>
+                        {designPhoto?.url && (
+                          <button
+                            type="button"
+                            className="canvas-photo-clear"
+                            onClick={clearDesignPhoto}
+                            aria-label="Remove photo"
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
                     </div>
                     <div className="design-canvas-wrap">
-                      <canvas
-                        ref={designCanvasRef}
-                        className="design-canvas"
-                        style={{ cursor: "crosshair" }}
-                        width="720"
-                        height="420"
-                        onMouseDown={handleCanvasDraw}
-                        aria-label="Design canvas"
-                      />
+                      <div className="design-canvas-area">
+                        <div className="design-canvas-frame">
+                          <div className="studio-side-toggle">
+                            <button
+                              type="button"
+                              className={studioSide === "front" ? "active" : ""}
+                              onClick={() => switchStudioSide("front")}
+                            >
+                              앞면
+                            </button>
+                            <button
+                              type="button"
+                              className={studioSide === "back" ? "active" : ""}
+                              onClick={() => switchStudioSide("back")}
+                            >
+                              뒷면
+                            </button>
+                          </div>
+                          {designPhoto?.url && (
+                            <img
+                              className="design-photo-preview"
+                              src={designPhoto.url}
+                              alt={designPhoto.name || "Design reference"}
+                            />
+                          )}
+                          <canvas
+                            ref={designCanvasRef}
+                            className="design-canvas"
+                            style={{ cursor: "crosshair" }}
+                            width="720"
+                            height="420"
+                            onMouseDown={handleCanvasDraw}
+                            aria-label="Design canvas"
+                          />
+                        </div>
+                        <input
+                          ref={designPhotoInputRef}
+                          type="file"
+                          accept="image/*"
+                          onChange={handleDesignPhotoChange}
+                          className="canvas-photo-input"
+                        />
+                      </div>
                       <p className="design-hint">
                         {designCategory} 실루엣을 드로잉하세요. 클릭하면 전체
                         화면으로 이동합니다.
@@ -3127,7 +3738,7 @@ function App() {
                   <div className="workbench-prompt">
                     <div className="design-selects">
                       <label className="field">
-                        ??
+                        성별
                         <select
                           value={designGender}
                           onChange={(event) =>
@@ -3135,9 +3746,9 @@ function App() {
                           }
                         >
                           {[
-                            { value: "Mens", label: "??" },
-                            { value: "Womens", label: "??" },
-                            { value: "Unisex", label: "??" },
+                            { value: "Mens", label: "남자" },
+                            { value: "Womens", label: "여자" },
+                            { value: "Unisex", label: "공용" },
                           ].map((item) => (
                             <option key={item.value} value={item.value}>
                               {item.label}
@@ -3209,7 +3820,7 @@ function App() {
                       ))}
                     </div>
                     <label className="field">
-                      Design Prompt
+                      디자인 프롬프트
                       <textarea
                         value={prompt}
                         onChange={(event) => setPrompt(event.target.value)}
@@ -3236,32 +3847,116 @@ function App() {
                   className="secondary"
                   onClick={() => setFittingAlbumOpen(true)}
                 >
-                  Fitting Album
+                  피팅 앨범
                 </button>
               </div>
             </div>
 
             <div className="fitting-layout">
               <div className="fitting-preview">
-                <Canvas camera={{ position: [0, 0, 1.5], fov: 45 }}>
-                  <ambientLight intensity={0.6} />
-                  <directionalLight position={[2, 2, 2]} intensity={0.8} />
-                  <OrbitControls enablePan={false} />
-                  <Suspense fallback={null}>
-                    <Environment preset="city" />
-                    <Center>
-                      <Tshirt />
-                    </Center>
-                  </Suspense>
-                </Canvas>
+                <div className="fitting-toggle">
+                  <button
+                    type="button"
+                    className={fittingView === "3d" ? "active" : ""}
+                    onClick={() => setFittingView("3d")}
+                  >
+                    마네킹
+                  </button>
+                  <button
+                    type="button"
+                    className={fittingView === "real" ? "active" : ""}
+                    onClick={() => setFittingView("real")}
+                  >
+                    실물
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  className="fitting-save-btn"
+                  onClick={() =>
+                    setNameModal({
+                      open: true,
+                      type: "fitting",
+                      value:
+                        fittingView === "3d" ? "3D Snapshot" : "Real Snapshot",
+                      view: fittingView,
+                    })
+                  }
+                >
+                  저장
+                </button>
+                {fittingView === "3d" ? (
+                  <Canvas
+                    camera={{ position: [0, 0, 1.5], fov: 45 }}
+                    gl={{ preserveDrawingBuffer: true }}
+                    onCreated={({ gl }) => {
+                      fittingCanvasRef.current = gl.domElement;
+                    }}
+                  >
+                    <ambientLight intensity={0.6} />
+                    <directionalLight position={[2, 2, 2]} intensity={0.8} />
+                    <OrbitControls enablePan={false} />
+                    <Suspense fallback={null}>
+                      <Environment preset="city" />
+                      <Center>
+                        <Tshirt />
+                      </Center>
+                    </Suspense>
+                  </Canvas>
+                ) : (
+                  <div
+                    className="fitting-real"
+                    onWheel={(event) => {
+                      event.preventDefault();
+                      const delta = event.deltaY > 0 ? -0.08 : 0.08;
+                      setFittingZoom((prev) => clamp(prev + delta, 0.7, 1.8));
+                    }}
+                  >
+                    <img
+                      className="fitting-real-base"
+                      src={fittingRealBaseUrl}
+                      alt="model"
+                      style={{
+                        transform: `scale(${fittingZoom})`,
+                        transformOrigin: "center",
+                      }}
+                    />
+                    {fittingLayers.length > 0 && (
+                      <div
+                        className="layer-stack"
+                        style={{
+                          transform: `scale(${fittingZoom})`,
+                          transformOrigin: "center",
+                        }}
+                      >
+                        {fittingLayers.map((id) => (
+                          <img
+                            key={id}
+                            src={clothingMap[id]?.design_img_url}
+                            alt={clothingMap[id]?.name}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
                 {isComposing && <div className="compose">AI 합성 중...</div>}
               </div>
 
               <div className="fitting-panel">
                 <div className="panel-block layer-panel">
-                  <h3>레이어링 피팅</h3>
+                  <div className="layer-panel-header">
+                    <h3>레이어링 피팅</h3>
+                    <button
+                      type="button"
+                      className="layer-apply-btn"
+                      onClick={() => setFittingLayers(fittingLayersDraft)}
+                    >
+                      Fitting
+                    </button>
+                  </div>
                   <div className="layer-list">
-                    {fittingLayers.map((id, index) => (
+                    {fittingLayersDraft.map((id, index) => (
                       <div key={id} className="layer-item">
                         <span>
                           {index + 1}. {clothingMap[id]?.name}
@@ -3285,7 +3980,7 @@ function App() {
                         </div>
                       </div>
                     ))}
-                    {fittingLayers.length === 0 && (
+                    {fittingLayersDraft.length === 0 && (
                       <p>현재 레이어가 비어 있습니다.</p>
                     )}
                   </div>
@@ -3352,7 +4047,7 @@ function App() {
                       className="secondary"
                       onClick={() => {
                         setFocusClothingId(item.id);
-                        setFittingLayers((prev) =>
+                        setFittingLayersDraft((prev) =>
                           prev.includes(item.id) ? prev : [...prev, item.id],
                         );
                       }}
@@ -3368,7 +4063,11 @@ function App() {
             </div>
             {fittingAlbumOpen && (
               <div className="modal" role="dialog" aria-modal="true">
-                <div className="modal-content album-modal-content">
+                <div
+                  className={`modal-content album-modal-content ${
+                    fittingHistory.length <= 2 ? "compact" : ""
+                  }`}
+                >
                   <button
                     className="close"
                     type="button"
@@ -3378,15 +4077,41 @@ function App() {
                   </button>
                   <div className="album-modal-header">
                     <h3>Fitting Album</h3>
-                    <span>{initialFittingHistory.length} items</span>
+                    <span>{fittingHistory.length} items</span>
                   </div>
                   <div className="album">
-                    {initialFittingHistory.map((item) => (
+                    {fittingHistory.map((item) => (
                       <div key={item.id} className="album-card">
+                        <button
+                          type="button"
+                          className="album-remove"
+                          aria-label="Remove album item"
+                          onClick={() =>
+                            setFittingHistory((prev) =>
+                              prev.filter((entry) => entry.id !== item.id),
+                            )
+                          }
+                        >
+                          ×
+                        </button>
                         <img src={item.image} alt={item.title} />
-                        <div>
-                          <strong>{item.title}</strong>
-                          <span>{item.date}</span>
+                        <div className="album-meta">
+                          <div className="album-meta-row">
+                            <strong>{item.title}</strong>
+                            <button
+                              type="button"
+                              className="album-load-btn"
+                              onClick={() => {
+                                setFittingRealBaseUrl(item.image);
+                                setFittingView("real");
+                                setFittingLayers([]);
+                                setFittingAlbumOpen(false);
+                              }}
+                            >
+                              불러오기
+                            </button>
+                          </div>
+                          <span>{formatAlbumDate(item.date)}</span>
                         </div>
                       </div>
                     ))}
@@ -3458,7 +4183,7 @@ function App() {
                         <div>
                           <strong>{item.brand}</strong>
                           <p>
-                            참여 {item.participantCount}명 · \
+                            참여 {item.participantCount}명 · ₩{" "}
                             {currency.format(item.currentCoin)}
                           </p>
                         </div>
@@ -3474,15 +4199,28 @@ function App() {
                 </div>
 
                 <div className="portfolio-side">
-                  <div className="panel follow-cta">
+                  <div className="brand-page-panel">
                     <h3>Brand Page</h3>
-                    <button
-                      type="button"
-                      className="secondary"
-                      onClick={() => openBrandProfile(myBrandProfile)}
-                    >
-                      내 브랜드 페이지
-                    </button>
+                    {hasBrandPage ? (
+                      <button
+                        type="button"
+                        className="secondary"
+                        onClick={() => openBrandProfile(myBrandProfile)}
+                      >
+                        내 브랜드 페이지
+                      </button>
+                    ) : (
+                      <>
+                        <p>브랜드 페이지를 만들어 포트폴리오를 시작하세요.</p>
+                        <button
+                          type="button"
+                          className="secondary"
+                          onClick={createBrandPage}
+                        >
+                          브랜드 페이지 만들기
+                        </button>
+                      </>
+                    )}
                   </div>
                   <div className="panel">
                     <h3>Followers & Following</h3>
@@ -3531,7 +4269,7 @@ function App() {
                               />
                             </svg>
                             <div className="follow-chart-x">
-                              {followerSeries.map((item, index) => (
+                              {effectiveFollowerSeries.map((item, index) => (
                                 <span
                                   key={item.date}
                                   style={{
@@ -3670,8 +4408,18 @@ function App() {
                               <strong>{profile.name}</strong>
                               <span>{profile.handle}</span>
                             </div>
-                            <button type="button" className="ghost">
-                              팔로우
+                            <button
+                              type="button"
+                              className={`follow-cta ${
+                                followedBrands.includes(profile.handle)
+                                  ? "is-mutual"
+                                  : ""
+                              }`}
+                              onClick={() => toggleFollowBrand(profile.handle)}
+                            >
+                              {followedBrands.includes(profile.handle)
+                                ? "맞팔로우"
+                                : "팔로우"}
                             </button>
                           </div>
                         ))
@@ -3713,21 +4461,45 @@ function App() {
                 <h1>{selectedBrandProfile.brand}</h1>
                 <p>{selectedBrandProfile.handle}</p>
               </div>
-              {selectedBrandProfile.handle === myBrandDetails.handle && (
-                <button
-                  type="button"
-                  className="brand-edit-btn"
-                  aria-label="Edit brand profile"
-                  onClick={() => {
-                    setBrandEditing((prev) => !prev);
-                    if (brandEditing) {
-                      setSelectedBrandKey(myBrandDetails.handle);
-                    }
-                  }}
-                >
-                  <Pencil size={16} strokeWidth={1.6} />
-                </button>
-              )}
+              {selectedBrandProfile.handle === myBrandDetails.handle &&
+                hasBrandPage && (
+                  <div className="brand-title-actions">
+                    <button
+                      type="button"
+                      className="brand-edit-btn"
+                      aria-label={
+                        brandEditing || !brandPageReady
+                          ? "Save brand profile"
+                          : "Edit brand profile"
+                      }
+                      onClick={() => {
+                        if (brandEditing || !brandPageReady) {
+                          setBrandEditing(false);
+                          setBrandPageReady(true);
+                          setSelectedBrandKey(myBrandDetails.handle);
+                        } else {
+                          setBrandEditing(true);
+                        }
+                      }}
+                    >
+                      {brandEditing || !brandPageReady ? (
+                        "저장"
+                      ) : (
+                        <Pencil size={16} strokeWidth={1.6} />
+                      )}
+                    </button>
+                    {brandPageReady && (
+                      <button
+                        type="button"
+                        className="brand-delete-btn"
+                        aria-label="Delete brand profile"
+                        onClick={() => setBrandDeleteConfirmOpen(true)}
+                      >
+                        <Trash2 size={16} strokeWidth={1.6} />
+                      </button>
+                    )}
+                  </div>
+                )}
             </div>
 
             <div className="brand-hero">
@@ -3736,31 +4508,50 @@ function App() {
                   {brandEditing &&
                   selectedBrandProfile.handle === myBrandDetails.handle ? (
                     <>
-                      <input
-                        value={myBrandDetails.logoUrl}
-                        onChange={(event) =>
-                          setMyBrandDetails((prev) => ({
-                            ...prev,
-                            logoUrl: event.target.value,
-                          }))
-                        }
-                        placeholder="로고 이미지 URL"
-                      />
+                      <div className="brand-logo-upload">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(event) => {
+                            const file = event.target.files[0];
+                            if (!file) return;
+                            const url = URL.createObjectURL(file);
+                            setMyBrandDetails((prev) => ({
+                              ...prev,
+                              logoUrl: url,
+                            }));
+                          }}
+                        />
+                        {myBrandDetails.logoUrl ? (
+                          <>
+                            <img
+                              src={myBrandDetails.logoUrl}
+                              alt="Brand logo"
+                            />
+                            <button
+                              type="button"
+                              className="brand-logo-remove"
+                              aria-label="Remove brand logo"
+                              onClick={() =>
+                                setMyBrandDetails((prev) => ({
+                                  ...prev,
+                                  logoUrl: "",
+                                }))
+                              }
+                            >
+                              ×
+                            </button>
+                          </>
+                        ) : (
+                          <span>로고 등록</span>
+                        )}
+                      </div>
                       <input
                         value={myBrandDetails.brand}
                         onChange={(event) =>
                           setMyBrandDetails((prev) => ({
                             ...prev,
                             brand: event.target.value,
-                          }))
-                        }
-                      />
-                      <input
-                        value={myBrandDetails.handle}
-                        onChange={(event) =>
-                          setMyBrandDetails((prev) => ({
-                            ...prev,
-                            handle: event.target.value,
                           }))
                         }
                       />
@@ -3774,16 +4565,6 @@ function App() {
                           }))
                         }
                       />
-                      <input
-                        value={myBrandDetails.location}
-                        onChange={(event) =>
-                          setMyBrandDetails((prev) => ({
-                            ...prev,
-                            location: event.target.value,
-                          }))
-                        }
-                        placeholder="지역"
-                      />
                     </>
                   ) : (
                     <>
@@ -3793,28 +4574,28 @@ function App() {
                         alt={`${selectedBrandProfile.brand} logo`}
                       />
                       <strong>{selectedBrandProfile.brand}</strong>
-                      <span>{selectedBrandProfile.handle}</span>
                       <p>{selectedBrandProfile.bio}</p>
-                      <small>{selectedBrandProfile.location}</small>
                     </>
                   )}
                 </div>
                 <div className="brand-hero-actions">
-                  <button
-                    type="button"
-                    className={
-                      followedBrands.includes(selectedBrandProfile.handle)
-                        ? "secondary"
-                        : "primary"
-                    }
-                    onClick={() =>
-                      toggleFollowBrand(selectedBrandProfile.handle)
-                    }
-                  >
-                    {followedBrands.includes(selectedBrandProfile.handle)
-                      ? "Following"
-                      : "Follow"}
-                  </button>
+                  {selectedBrandProfile.handle !== myBrandDetails.handle && (
+                    <button
+                      type="button"
+                      className={
+                        followedBrands.includes(selectedBrandProfile.handle)
+                          ? "secondary"
+                          : "primary"
+                      }
+                      onClick={() =>
+                        toggleFollowBrand(selectedBrandProfile.handle)
+                      }
+                    >
+                      {followedBrands.includes(selectedBrandProfile.handle)
+                        ? "Following"
+                        : "Follow"}
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -3822,10 +4603,6 @@ function App() {
                 <div>
                   <strong>{selectedBrandProfile.followerCount}</strong>
                   <span>Followers</span>
-                </div>
-                <div>
-                  <strong>{selectedBrandProfile.followingCount}</strong>
-                  <span>Following</span>
                 </div>
                 <div>
                   <strong>{brandFeed.length}</strong>
@@ -3836,7 +4613,7 @@ function App() {
 
             <div className="brand-feed">
               {brandFeed.length === 0 ? (
-                <p className="empty">등록된 디자인이 없습니다.</p>
+                <p className="empty empty-brand">등록된 디자인이 없습니다.</p>
               ) : (
                 brandFeed.map((entry) => (
                   <button
@@ -3872,118 +4649,211 @@ function App() {
 
             <div className="profile-center">
               <div className="panel profile-card">
-                <div className="profile-header">
-                  <img
-                    className="profile-photo"
-                    src={userProfile.base_photo_url}
-                    alt="profile"
-                  />
-                  <div>
-                    <h3>{userProfile.name}</h3>
-                    <span>{userProfile.handle}</span>
+                <div className="profile-top">
+                  <div className="profile-photo-area">
+                    <div className="profile-photo-actions">
+                      <div className="profile-photo-toggle">
+                        <button
+                          type="button"
+                          className={
+                            profilePhotoMode === "profile" ? "active" : ""
+                          }
+                          onClick={() => setProfilePhotoMode("profile")}
+                        >
+                          프로필
+                        </button>
+                        <button
+                          type="button"
+                          className={profilePhotoMode === "body" ? "active" : ""}
+                          onClick={() => setProfilePhotoMode("body")}
+                        >
+                          전신
+                        </button>
+                      </div>
+                      {isProfileEditing &&
+                        ((profilePhotoMode === "profile" &&
+                          userProfile.profile_photo_url) ||
+                          (profilePhotoMode === "body" &&
+                            userProfile.base_photo_url)) && (
+                        <button
+                          type="button"
+                          className="profile-photo-remove"
+                          aria-label="Remove photo"
+                          onClick={() => {
+                            if (profilePhotoMode === "profile") {
+                              updateProfileField("profile_photo_url", null);
+                            } else {
+                              updateProfileField("base_photo_url", null);
+                            }
+                          }}
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
+                    <div className="profile-photo-box">
+                      <label className="profile-photo-frame">
+                        {profilePhotoMode === "profile" &&
+                        userProfile.profile_photo_url ? (
+                          <img
+                            className="profile-photo"
+                            src={userProfile.profile_photo_url}
+                            alt="profile"
+                          />
+                        ) : profilePhotoMode === "body" &&
+                        userProfile.base_photo_url ? (
+                          <img
+                            className="profile-photo"
+                            src={userProfile.base_photo_url}
+                            alt="body"
+                          />
+                        ) : (
+                          <span className="profile-photo-placeholder">사진</span>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          disabled={!isProfileEditing}
+                          onClick={(event) => {
+                            event.target.value = null;
+                          }}
+                          onChange={handleProfilePhotoUpload}
+                        />
+                      </label>
+                    </div>
                   </div>
-                  <div className="profile-actions">
-                    <button
-                      type="button"
-                      className="profile-coin"
-                      onClick={() => setDesignCoinModal(true)}
-                    >
-                      <span className="profile-coin-icon" aria-hidden="true">
-                        <svg viewBox="0 0 24 24">
-                          <path
-                            d="M4 20c2.2 0 4-1.8 4-4 0-1.1.9-2 2-2h4"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
+                  <div className="profile-main">
+                    <div className="profile-main-header">
+                      <div className="profile-identity">
+                        {isProfileEditing ? (
+                          <>
+                            <input
+                              className="profile-identity-input"
+                              value={userProfile.name}
+                              onChange={(event) =>
+                                updateProfileField("name", event.target.value)
+                              }
+                              placeholder="이름"
+                            />
+                            <input
+                              className="profile-identity-input"
+                              value={userProfile.handle}
+                              onChange={(event) =>
+                                updateProfileField("handle", event.target.value)
+                              }
+                              placeholder="@handle"
+                            />
+                          </>
+                        ) : (
+                          <>
+                            <h3>{userProfile.name}</h3>
+                            <span>{userProfile.handle}</span>
+                          </>
+                        )}
+                      </div>
+                      <div className="profile-main-actions">
+                        <button
+                          type="button"
+                          className="profile-coin"
+                          onClick={() => setDesignCoinModal(true)}
+                        >
+                          <span className="profile-coin-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24">
+                              <path
+                                d="M4 20c2.2 0 4-1.8 4-4 0-1.1.9-2 2-2h4"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                              <path
+                                d="M12 4l8 8-6 6-8-8z"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                              <path
+                                d="M10 6l8 8"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                              />
+                            </svg>
+                          </span>
+                          <span>{designCoins}</span>
+                        </button>
+                        {isProfileEditing && (
+                          <button
+                            type="button"
+                            className="primary"
+                            onClick={() => {
+                              setIsProfileEditing(false);
+                              setProfilePasswordDraft({ password: "", confirm: "" });
+                            }}
+                          >
+                            저장
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="profile-fields profile-fields-compact">
+                      <label className="field">
+                        비밀번호
+                        <input
+                          type="password"
+                          value={
+                            isProfileEditing
+                              ? profilePasswordDraft.password
+                              : "••••••••"
+                          }
+                          disabled={!isProfileEditing}
+                          onChange={(event) =>
+                            setProfilePasswordDraft((prev) => ({
+                              ...prev,
+                              password: event.target.value,
+                            }))
+                          }
+                          placeholder="비밀번호 변경"
+                        />
+                      </label>
+                      {isProfileEditing && (
+                        <label className="field">
+                          비밀번호 변경 확인
+                          <input
+                            type="password"
+                            value={profilePasswordDraft.confirm}
+                            onChange={(event) =>
+                              setProfilePasswordDraft((prev) => ({
+                                ...prev,
+                                confirm: event.target.value,
+                              }))
+                            }
+                            placeholder="비밀번호 확인"
                           />
-                          <path
-                            d="M12 4l8 8-6 6-8-8z"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                          <path
-                            d="M10 6l8 8"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                          />
-                        </svg>
-                      </span>
-                      <span>{designCoins}</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="secondary"
-                      onClick={() => setIsProfileEditing((prev) => !prev)}
-                    >
-                      {isProfileEditing ? "완료" : "수정"}
-                    </button>
+                        </label>
+                      )}
+                      <label className="field">
+                        선호스타일
+                        <input
+                          value={userProfile.styleTags.join(", ")}
+                          disabled={!isProfileEditing}
+                          onChange={(event) =>
+                            updateProfileField(
+                              "styleTags",
+                              event.target.value
+                                .split(",")
+                                .map((item) => item.trim())
+                                .filter(Boolean),
+                            )
+                          }
+                        />
+                      </label>
+                    </div>
                   </div>
-                </div>
-
-                <div className="profile-fields">
-                  <label className="field">
-                    사용자 이름
-                    <input
-                      value={userProfile.name}
-                      disabled={!isProfileEditing}
-                      onChange={(event) =>
-                        updateProfileField("name", event.target.value)
-                      }
-                    />
-                  </label>
-                  <label className="field">
-                    사용자 id
-                    <input
-                      value={userProfile.handle}
-                      disabled={!isProfileEditing}
-                      onChange={(event) =>
-                        updateProfileField("handle", event.target.value)
-                      }
-                    />
-                  </label>
-                  <label className="field">
-                    피팅용 기본 전신 사진
-                    <input
-                      value={userProfile.base_photo_url}
-                      disabled={!isProfileEditing}
-                      onChange={(event) =>
-                        updateProfileField("base_photo_url", event.target.value)
-                      }
-                    />
-                  </label>
-                  <label className="field">
-                    체형 분류 라벨
-                    <input
-                      value={userProfile.bodyTypeLabel}
-                      disabled={!isProfileEditing}
-                      onChange={(event) =>
-                        updateProfileField("bodyTypeLabel", event.target.value)
-                      }
-                    />
-                  </label>
-                  <label className="field full">
-                    선호 스타일 태그 목록
-                    <input
-                      value={userProfile.styleTags.join(", ")}
-                      disabled={!isProfileEditing}
-                      onChange={(event) =>
-                        updateProfileField(
-                          "styleTags",
-                          event.target.value
-                            .split(",")
-                            .map((item) => item.trim())
-                            .filter(Boolean),
-                        )
-                      }
-                    />
-                  </label>
                 </div>
 
                 <h4>정밀 신체 수치 데이터</h4>
@@ -4015,6 +4885,23 @@ function App() {
                 </div>
                 <div className="meta">
                   <span>Updated: {userProfile.updatedAt}</span>
+                </div>
+                <div className="profile-account-bar">
+                  <button
+                    type="button"
+                    className="ghost"
+                    disabled={isProfileEditing}
+                    onClick={() => setIsProfileEditing(true)}
+                  >
+                    수정
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost"
+                    onClick={() => setAccountDeleteConfirmOpen(true)}
+                  >
+                    탈퇴
+                  </button>
                 </div>
               </div>
             </div>
@@ -4107,7 +4994,7 @@ function App() {
                       handle: event.target.value,
                     }))
                   }
-                  placeholder="@your.id"
+                  placeholder="your.id"
                 />
               </label>
               <label>
@@ -4148,7 +5035,9 @@ function App() {
           onClick={() => setIsGalleryOpen(false)}
         >
           <div
-            className="studio-gallery-content"
+            className={`studio-gallery-content ${
+              generatedDesigns.length + tempDesigns.length <= 2 ? "compact" : ""
+            }`}
             onClick={(event) => event.stopPropagation()}
           >
             <button
@@ -4178,18 +5067,35 @@ function App() {
                     className="gallery-card"
                     style={{ animationDelay: `${index * 60}ms` }}
                   >
-                    <img src={item.design_img_url} alt={item.name} />
-                    <div>
-                      <strong>{item.name}</strong>
-                      <span>{item.design_prompt}</span>
-                    </div>
                     <button
                       type="button"
-                      className="ghost"
+                      className="album-remove"
+                      aria-label="Remove design"
                       onClick={() => removeDesign(item.id, item.isTemp)}
                     >
-                      삭제
+                      ×
                     </button>
+                    <img src={item.design_img_url} alt={item.name} />
+                    <div className="album-meta">
+                      <div className="album-meta-row">
+                        <strong>{item.name}</strong>
+                        <button
+                          type="button"
+                          className="album-load-btn"
+                          onClick={() => {
+                            setStudioSideImages((prev) => ({
+                              ...prev,
+                              [studioSide]: item.design_img_url,
+                            }));
+                            loadDesignToCanvas(item.design_img_url);
+                            setIsGalleryOpen(false);
+                          }}
+                        >
+                          불러오기
+                        </button>
+                      </div>
+                      <span>{item.savedAt}</span>
+                    </div>
                   </div>
                 ))}
             </div>
@@ -4269,6 +5175,7 @@ function App() {
                       (entry) => entry.id !== cancelFundingModal.investmentId,
                     ),
                   );
+                  setFundingCancelAlertOpen(true);
                   closeCancelFundingModal();
                 }}
               >
@@ -4302,12 +5209,21 @@ function App() {
                 >
                   {aiDesignEditMode ? "저장" : "수정"}
                 </button>
-                <button type="button" className="primary">
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={() => {
+                    if (!hasBrandPage) {
+                      setBrandPageRequiredOpen(true);
+                      return;
+                    }
+                  }}
+                >
                   업로드
                 </button>
               </div>
             </div>
-            <div className="ai-design-frame">
+            <div className="ai-design-preview-container">
               <div className="modal-stack ai-design-stack">
                 <div className="modal-header">
                   <div>
@@ -4345,12 +5261,15 @@ function App() {
                 </div>
                 <div className="modal-body">
                   <div className="detail-media">
-                    <img
-                      src={aiDesignModal.design.design_img_url}
-                      alt={aiDesignModal.design.name}
-                    />
+                    <div className="image-placeholder" aria-label="Image area">
+                      이미지 영역
+                    </div>
                   </div>
-                  <div className="detail-scroll">
+                <div
+                  className={`detail-scroll ${
+                    detailTab === "feedback" ? "detail-scroll-feedback" : ""
+                  }`}
+                >
                     {detailTab === "overview" && (
                       <div className="detail-block">
                         <div className="price-row">
@@ -4397,6 +5316,11 @@ function App() {
                               "AI가 생성한 컨셉을 기반으로 실루엣과 소재 밸런스를 설계했습니다."}
                           </p>
                         )}
+                        <div className="detail-tags">
+                          <span className="detail-tag">#니트</span>
+                          <span className="detail-tag">#미니멀</span>
+                          <span className="detail-tag">#여성</span>
+                        </div>
                         <div className="spec-grid">
                           <div>
                             <span>카테고리</span>
@@ -4457,6 +5381,26 @@ function App() {
                             <strong>XS - XL</strong>
                           </div>
                         </div>
+                        <div className="spec-bar">
+                          {[
+                            { label: "신축성", value: 5 },
+                            { label: "두께감", value: 5 },
+                            { label: "탄탄함", value: 5 },
+                          ].map((item) => (
+                            <div className="spec-bar-row" key={item.label}>
+                              <span>{item.label}</span>
+                              <div className="spec-track">
+                                <div
+                                  className="spec-fill"
+                                  style={{
+                                    width: `${(item.value / 10) * 100}%`,
+                                  }}
+                                />
+                              </div>
+                              <strong>{item.value}/10</strong>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
                     {detailTab === "story" && (
@@ -4496,6 +5440,163 @@ function App() {
           </div>
         </div>
       )}
+      {nameModal.open && (
+        <div className="auth-modal" role="dialog" aria-modal="true">
+          <div className="auth-modal-content">
+            <button
+              type="button"
+              className="auth-modal-close"
+              aria-label="Close"
+              onClick={() =>
+                setNameModal({ open: false, type: null, value: "", view: null })
+              }
+            >
+              ×
+            </button>
+            <h3>이름을 입력하세요</h3>
+            <div className="auth-modal-form">
+              <label className="field">
+                이름
+                <input
+                  value={nameModal.value}
+                  onChange={(event) =>
+                    setNameModal((prev) => ({
+                      ...prev,
+                      value: event.target.value,
+                    }))
+                  }
+                  placeholder="이름을 입력하세요"
+                />
+              </label>
+            </div>
+            <div className="auth-modal-actions">
+              <button
+                type="button"
+                className="secondary"
+                onClick={() =>
+                  setNameModal({
+                    open: false,
+                    type: null,
+                    value: "",
+                    view: null,
+                  })
+                }
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                className="primary"
+                onClick={() => {
+                  const trimmed = nameModal.value.trim();
+                  if (nameModal.type === "temp-design") {
+                    saveTempDesign(trimmed);
+                  }
+                  if (nameModal.type === "fitting") {
+                    saveFittingSnapshot(trimmed, nameModal.view);
+                  }
+                  setNameModal({
+                    open: false,
+                    type: null,
+                    value: "",
+                    view: null,
+                  });
+                }}
+              >
+                저장
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {brandPageRequiredOpen && (
+        <div className="auth-modal" role="dialog" aria-modal="true">
+          <div className="auth-modal-content">
+            <button
+              type="button"
+              className="auth-modal-close"
+              aria-label="Close"
+              onClick={() => setBrandPageRequiredOpen(false)}
+            >
+              ×
+            </button>
+            <h3>브랜드 페이지가 필요합니다</h3>
+            <p>디자인을 업로드하려면 먼저 브랜드 페이지를 만들어야 합니다.</p>
+            <div className="auth-modal-actions">
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => setBrandPageRequiredOpen(false)}
+              >
+                나중에
+              </button>
+              <button type="button" className="primary" onClick={createBrandPage}>
+                브랜드 페이지 만들기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {brandDeleteConfirmOpen && (
+        <div className="auth-modal" role="dialog" aria-modal="true">
+          <div className="auth-modal-content">
+            <button
+              type="button"
+              className="auth-modal-close"
+              aria-label="Close"
+              onClick={() => setBrandDeleteConfirmOpen(false)}
+            >
+              ×
+            </button>
+            <h3>브랜드 페이지를 삭제할까요?</h3>
+            <p>삭제하면 브랜드 정보와 팔로우 상태가 모두 초기화됩니다.</p>
+            <div className="auth-modal-actions">
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => setBrandDeleteConfirmOpen(false)}
+              >
+                취소
+              </button>
+              <button type="button" className="primary" onClick={resetBrandPage}>
+                삭제
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {accountDeleteConfirmOpen && (
+        <div className="auth-modal" role="dialog" aria-modal="true">
+          <div className="auth-modal-content">
+            <button
+              type="button"
+              className="auth-modal-close"
+              aria-label="Close"
+              onClick={() => setAccountDeleteConfirmOpen(false)}
+            >
+              ×
+            </button>
+            <h3>정말 탈퇴하시겠어요?</h3>
+            <p>탈퇴하면 계정 정보가 모두 삭제됩니다.</p>
+            <div className="auth-modal-actions">
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => setAccountDeleteConfirmOpen(false)}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                className="primary"
+                onClick={handleAccountDelete}
+              >
+                탈퇴
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {designCoinModal && (
         <div className="auth-modal" role="dialog" aria-modal="true">
           <div className="auth-modal-content design-coin-modal">
@@ -4525,6 +5626,7 @@ function App() {
                     onClick={() => {
                       setDesignCoins((prev) => prev + pack.amount);
                       setDesignCoinAlertOpen(true);
+                      setDesignCoinAlertClosing(false);
                     }}
                   >
                     {currency.format(pack.price)} 구입
@@ -4536,23 +5638,93 @@ function App() {
         </div>
       )}
       {designCoinAlertOpen && (
+        <div
+          className={`toast-banner ${
+            designCoinAlertClosing ? "is-leaving" : ""
+          }`}
+          role="status"
+        >
+          <div className="toast-content">
+            <strong>토큰이 구매되었습니다.</strong>
+            <span>디자인 토큰이 충전되었습니다.</span>
+          </div>
+          <div className="toast-actions">
+            <button
+              type="button"
+              className="primary"
+              onClick={closeDesignCoinAlert}
+            >
+              확인
+            </button>
+          </div>
+        </div>
+      )}
+      {designGenerateConfirmOpen && (
         <div className="auth-modal" role="dialog" aria-modal="true">
-          <div className="auth-modal-content design-coin-modal">
+          <div className="auth-modal-content design-generate-modal">
             <button
               type="button"
               className="auth-modal-close"
               aria-label="Close"
-              onClick={() => setDesignCoinAlertOpen(false)}
+              onClick={() => setDesignGenerateConfirmOpen(false)}
             >
               ×
             </button>
-            <h3>토큰이 구매되었습니다.</h3>
-            <p>디자인 토큰이 충전되었습니다.</p>
+            <div className="design-generate-top">
+              <h3>디자인 토큰이 소모됩니다.</h3>
+              <button
+                type="button"
+                className="design-coin"
+                aria-label="Design token balance"
+                onClick={() => setDesignCoinModal(true)}
+              >
+                <span className="design-coin-icon" aria-hidden="true">
+                  <svg
+                    className="design-coin-brush"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M4 20c2.2 0 4-1.8 4-4 0-1.1.9-2 2-2h4"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M12 4l8 8-6 6-8-8z"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M10 6l8 8"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </span>
+                <span className="design-coin-count">{designCoins}</span>
+              </button>
+            </div>
+            <p>확인하면 AI 디자인 생성 페이지로 이동합니다.</p>
             <div className="auth-modal-actions">
               <button
                 type="button"
+                className="secondary"
+                onClick={() => setDesignGenerateConfirmOpen(false)}
+              >
+                돌아가기
+              </button>
+              <button
+                type="button"
                 className="primary"
-                onClick={() => setDesignCoinAlertOpen(false)}
+                onClick={confirmGenerateDesign}
               >
                 확인
               </button>
@@ -4560,28 +5732,112 @@ function App() {
           </div>
         </div>
       )}
-      {alreadyFundedAlertOpen && (
+      {fundingConfirmOpen && (
         <div className="auth-modal" role="dialog" aria-modal="true">
-          <div className="auth-modal-content design-coin-modal">
+          <div className="auth-modal-content funding-confirm-modal">
             <button
               type="button"
               className="auth-modal-close"
               aria-label="Close"
-              onClick={() => setAlreadyFundedAlertOpen(false)}
+              onClick={() => setFundingConfirmOpen(false)}
             >
               ×
             </button>
-            <h3>이미 펀딩한 옷입니다.</h3>
-            <p>해당 아이템은 이미 포트폴리오에 추가되어 있습니다.</p>
+            <h3>펀딩을 신청할까요?</h3>
+            <p>신청 후에는 포트폴리오에서 관리할 수 있습니다.</p>
             <div className="auth-modal-actions">
               <button
                 type="button"
-                className="primary"
-                onClick={() => setAlreadyFundedAlertOpen(false)}
+                className="secondary"
+                onClick={() => setFundingConfirmOpen(false)}
               >
-                확인
+                돌아가기
+              </button>
+              <button
+                type="button"
+                className="primary"
+                onClick={finalizeFundNow}
+              >
+                펀딩 신청
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {alreadyFundedAlertOpen && (
+        <div
+          className={`toast-banner ${alreadyFundedClosing ? "is-leaving" : ""}`}
+          role="status"
+        >
+          <div className="toast-content">
+            <strong>이미 펀딩한 옷입니다.</strong>
+            <span>해당 아이템은 포트폴리오에 있습니다.</span>
+          </div>
+          <div className="toast-actions">
+            <button
+              type="button"
+              className="primary"
+              onClick={closeAlreadyFundedAlert}
+            >
+              확인
+            </button>
+          </div>
+        </div>
+      )}
+      {fundingAlertOpen && (
+        <div
+          className={`toast-banner ${fundingAlertClosing ? "is-leaving" : ""}`}
+          role="status"
+        >
+          <div className="toast-content">
+            <strong>펀딩이 신청되었습니다.</strong>
+            <span>포트폴리오에서 진행 상황을 확인하세요.</span>
+          </div>
+          <div className="toast-actions">
+            <button
+              type="button"
+              className="primary"
+              onClick={closeFundingAlert}
+            >
+              확인
+            </button>
+          </div>
+        </div>
+      )}
+      {fundingCancelAlertOpen && (
+        <div
+          className={`toast-banner ${fundingCancelClosing ? "is-leaving" : ""}`}
+          role="status"
+        >
+          <div className="toast-content">
+            <strong>펀딩이 취소되었습니다.</strong>
+            <span>해당 항목이 포트폴리오에서 삭제되었습니다.</span>
+          </div>
+          <div className="toast-actions">
+            <button
+              type="button"
+              className="primary"
+              onClick={closeFundingCancelAlert}
+            >
+              확인
+            </button>
+          </div>
+        </div>
+      )}
+      {limitAlertOpen && (
+        <div className="toast-banner" role="status">
+          <div className="toast-content">
+            <strong>최대 저장 수를 초과했습니다.</strong>
+            <span>{limitAlertMessage}</span>
+          </div>
+          <div className="toast-actions">
+            <button
+              type="button"
+              className="primary"
+              onClick={() => setLimitAlertOpen(false)}
+            >
+              확인
+            </button>
           </div>
         </div>
       )}

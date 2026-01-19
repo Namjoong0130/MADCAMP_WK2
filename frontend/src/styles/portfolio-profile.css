@@ -246,29 +246,116 @@
   gap: 18px;
 }
 
-.profile-header {
+.profile-top {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: 180px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+.profile-photo-box {
+  width: 180px;
+  height: 180px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.profile-photo-area {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 180px;
+}
+
+.profile-photo-actions {
+  display: flex;
   align-items: center;
-  gap: 18px;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.profile-photo-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.profile-photo-toggle button {
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: rgba(255, 255, 255, 0.92);
+  color: #111111;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.profile-photo-toggle button.active {
+  border-color: #111111;
+  background: #111111;
+  color: #ffffff;
+}
+
+.profile-photo-remove {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  border: none;
+  background: #111111;
+  color: #ffffff;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.profile-photo-frame {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.profile-photo-frame input {
+  display: none;
+}
+
+.profile-photo-placeholder {
+  color: var(--muted);
+  font-size: 14px;
 }
 
 .profile-photo {
-  width: 88px;
-  height: 120px;
-  border-radius: 16px;
+  width: 100%;
+  height: 100%;
   object-fit: cover;
-  border: 1px solid var(--border);
 }
 
-.profile-header span {
+.profile-main {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.profile-main-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.profile-main-header span {
   font-size: 12px;
   color: var(--muted);
 }
 
-.profile-actions {
+.profile-main-actions {
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
 }
 
@@ -326,6 +413,10 @@
   grid-column: 1 / -1;
 }
 
+.profile-fields-compact {
+  padding-top: 6px;
+}
+
 .measurement-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -341,7 +432,7 @@
 
 .album {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
 }
 
@@ -352,6 +443,7 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
+  position: relative;
 }
 
 .album-card img {
@@ -359,6 +451,58 @@
   height: 140px;
   object-fit: cover;
   border-radius: 12px;
+}
+
+.album-meta {
+  display: flex;
+  flex-direction: column;
+  margin-top: 10px;
+  text-align: left;
+}
+
+.album-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.album-meta strong {
+  font-size: 14px;
+  color: #111111;
+  margin-bottom: 4px;
+}
+
+.album-meta span {
+  font-size: 10px;
+  color: #aaaaaa;
+}
+
+.album-load-btn {
+  border: 1px solid #111111;
+  background: #111111;
+  color: #ffffff;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.album-remove {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: #ffffff;
+  color: #111111;
+  font-size: 12px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
 }
 
 .follow-stats {
@@ -372,7 +516,7 @@
 .follow-stat-btn {
   border: 1px solid var(--border);
   border-radius: 14px;
-  padding: 12px;
+  padding: 8px 10px;
   background: #ffffff;
   display: grid;
   gap: 6px;
@@ -391,7 +535,7 @@
   cursor: pointer;
   border: 1px solid var(--border);
   background: #ffffff;
-  min-height: 72px;
+  min-height: 56px;
 }
 
 .follow-chart {
@@ -517,12 +661,36 @@
   margin-top: 4px;
 }
 
+.follow-cta {
+  border: 1px solid var(--border);
+  background: #ffffff;
+  color: #111111;
+  border-radius: 999px;
+  min-height: 0 !important; 
+  height: 32px; 
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  
+  padding: 0 14px; 
+  font-size: 12px;
+  cursor: pointer;
+  min-width: 74px;
+  text-align: center;
+}
+
+.follow-cta.is-mutual {
+  background: #111111;
+  color: #ffffff;
+  border-color: #111111;
+}
+
 .follow-modal {
-  max-width: 520px;
+  max-width: 420px;
   width: 100%;
   height: auto;
-  max-height: 80vh;
-  padding: 32px;
+  max-height: 40vh;
+  padding: 24px;
 }
 
 .follow-modal .close {
@@ -571,7 +739,28 @@
   gap: 16px;
 }
 
+.brand-title-actions {
+  display: inline-flex;
+  gap: 10px;
+  align-items: center;
+}
+
 .brand-edit-btn {
+  border: 1px solid var(--border);
+  background: #ffffff;
+  border-radius: 999px;
+  min-width: 36px;
+  height: 36px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.brand-delete-btn {
   border: 1px solid var(--border);
   background: #ffffff;
   border-radius: 999px;
@@ -580,6 +769,7 @@
   display: grid;
   place-items: center;
   cursor: pointer;
+  color: #c0392b;
 }
 
 .brand-hero-info input,
@@ -589,43 +779,99 @@
   padding: 8px 10px;
   font-size: 13px;
   font-family: var(--font-body);
+  width: 100%;
 }
 
 .brand-hero-logo {
-  width: 120px;
-  height: 32px;
+  width: auto;
+  height: 64px;
+  max-width: 180px;
   object-fit: contain;
+}
+
+.brand-logo-upload {
+  border: 1px dashed var(--border);
+  border-radius: 14px;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  height: 80px;
+  color: var(--muted);
+  background: #fafafa;
+}
+
+.brand-logo-upload input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.brand-logo-upload img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.brand-logo-remove {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: #ffffff;
+  color: #111111;
+  font-size: 12px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
 }
 
 .brand-hero-info textarea {
   height: 84px;
   resize: none;
+  min-width: 320px;
 }
 .brand-hero {
   display: grid;
   grid-template-columns: 1.2fr 0.8fr;
-  gap: 24px;
+  gap: 16px;
   margin-bottom: 32px;
 }
 
 .brand-hero-card {
   border: 1px solid var(--border);
   border-radius: 20px;
-  padding: 20px;
+  padding: 14px 16px;   /* ⬇️ */
   display: flex;
   justify-content: space-between;
-  gap: 20px;
+  gap: 12px;
   background: #ffffff;
+  min-height: 170px;
 }
 
 .brand-hero-info {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  flex: 1;
+  padding-top: 4px;
+  padding-bottom: 4px;
 }
 
 .brand-hero-info strong {
   font-size: 18px;
+}
+
+.brand-handle-inline {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 500;
+  margin-left: 8px;
 }
 
 .brand-hero-info span {
@@ -651,27 +897,36 @@
 .brand-stats {
   border: 1px solid var(--border);
   border-radius: 20px;
-  padding: 20px;
+  padding: 14px 16px;  /* ⬇️ */
+  gap: 10px; 
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+
   text-align: center;
   background: #ffffff;
+  align-items: center;
+  justify-items: center;
 }
 
 .brand-stats strong {
   font-size: 18px;
+  letter-spacing: 0.06em;
 }
 
 .brand-stats span {
   font-size: 12px;
   color: var(--muted);
+  letter-spacing: 0.08em;
 }
 
 .brand-feed {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 24px;
+}
+
+.empty-brand {
+  margin-top: 40px;
 }
 
 .brand-feed-card {
@@ -717,4 +972,44 @@
   100% {
     transform: scale(1);
   }
+}
+.brand-page-panel {
+  border: 1px solid var(--border);
+  background: #ffffff;
+  border-radius: 16px;
+
+  padding: 18px 20px;          /* ⬇️ 27px → 축소 */
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start; /* ❗ 중앙 정렬 제거 */
+  gap: 8px;                    /* ⬇️ 요소 간격 축소 */
+  min-height: auto;            /* ❗ 고정 높이 제거 */
+}
+
+
+/* 2. 타이틀 폰트 크기 수정 (아래 박스랑 똑같이!) */
+.brand-page-panel h3 {
+  font-size: 18px; /* 16px -> 18px로 변경 */
+  font-weight: 700; /* 조금 더 두껍게 (Bold) */
+  margin: 0;
+  color: #111111;
+}
+
+/* 3. 버튼 디자인 & 오른쪽 정렬 */
+.brand-page-panel button,
+.brand-page-panel .cta-btn {
+  /* ✨ 여기가 핵심! 버튼 혼자만 오른쪽으로 보냄 ✨ */
+  align-self: flex-end; 
+
+  width: fit-content; /* 글자 크기에 맞게 버튼 줄이기 */
+  padding: 8px 18px;
+  
+  /* 기존 버튼 스타일 */
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #ffffff;
+  font-size: 12px;
+  cursor: pointer;
+  text-align: center;
 }
