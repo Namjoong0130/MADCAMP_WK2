@@ -20,6 +20,7 @@ app.use(express.urlencoded({ extended: true })); //주소창 데이터 번역
 
 // --- 라우터 연결 ---
 app.use('/images', express.static(path.join(__dirname, '../public/images'))); // Serve images folder statically
+app.use('/uploads', express.static(path.join(__dirname, '../uploads'))); // Serve uploaded files
 app.use('/api', routes); //주소창에 /api로 시작하는 모든 요청은 routes/index.js 설계도에 따라 처리해라
 
 // Swagger Docs (Available at /api-docs)

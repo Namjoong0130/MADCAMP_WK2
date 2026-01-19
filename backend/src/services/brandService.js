@@ -92,6 +92,7 @@ exports.listBrandProfiles = async () => {
       return {
         id: brand.brand_id,
         brand: brand.brand_name,
+        brand_logo: brand.brand_logo,
         handle: buildHandle(brand.owner?.userName),
         followerCount: brand.totalFollowers,
         followingCount,
@@ -116,12 +117,42 @@ exports.getBrandProfile = async (brandId) => {
   return {
     id: brand.brand_id,
     brand: brand.brand_name,
+    brand_logo: brand.brand_logo,
     handle: buildHandle(brand.owner?.userName),
     followerCount: brand.totalFollowers,
     followingCount,
     bio: brand.brand_story || '',
     location: null,
   };
+};
+
+exports.deleteBrand = async (userId, brandId) => {
+  const brand = await prisma.brand.findUnique({
+    where: { brand_id: brandId },
+  });
+  if (!brand || brand.deleted_at) {
+    throw createError(404, '브랜드를 찾을 수 없습니다.');
+  }
+  if (brand.owner_id !== userId) {
+    throw createError(403, '삭제 권한이 없습니다.');
+  }
+
+  return prisma.$transaction(async (tx) => {
+    await tx.follow.deleteMany({ where: { target_brand: brandId } });
+    const deleted = await tx.brand.update({
+      where: { brand_id: brandId },
+      data: {
+        deleted_at: new Date(),
+        is_public: false,
+        totalFollowers: 0,
+      },
+    });
+    await tx.user.update({
+      where: { user_id: userId },
+      data: { is_creator: false },
+    });
+    return deleted;
+  });
 };
 
 exports.toggleFollow = async (userId, brandId) => {

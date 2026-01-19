@@ -54,3 +54,15 @@ exports.getBrandProfile = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.deleteBrand = async (req, res, next) => {
+  try {
+    const result = await brandService.deleteBrand(
+      req.user.userId,
+      Number(req.params.brandId),
+    );
+    return success(res, result);
+  } catch (error) {
+    next(error);
+  }
+};

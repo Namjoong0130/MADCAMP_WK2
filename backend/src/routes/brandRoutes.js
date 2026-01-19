@@ -89,6 +89,23 @@ router.get('/:brandId', brandController.getBrandDetail);
  *         description: Brand created
  */
 router.post('/', authMiddleware, brandController.createBrand);
+/**
+ * @swagger
+ * /api/brands/{brandId}:
+ *   delete:
+ *     summary: Delete a brand
+ *     tags: [Brands]
+ *     parameters:
+ *       - in: path
+ *         name: brandId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Brand deleted
+ */
+router.delete('/:brandId', authMiddleware, brandController.deleteBrand);
 
 /**
  * @swagger

@@ -11,6 +11,25 @@ export const getBrandProfiles = async () => {
     return response.data.data;
 };
 
+export const createBrand = async (payload) => {
+    const response = await axios.post('/api/brands', payload);
+    return response.data.data;
+};
+
+export const deleteBrand = async (brandId) => {
+    const response = await axios.delete(`/api/brands/${brandId}`);
+    return response.data.data;
+};
+
+export const uploadBrandLogo = async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await axios.post('/api/upload/brand-logo', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data.data;
+};
+
 // Clothes
 export const getClothes = async () => {
     const response = await axios.get('/api/clothes');

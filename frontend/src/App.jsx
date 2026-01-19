@@ -14,6 +14,10 @@ import {
 } from "./api/auth";
 import {
   getPublicBrands,
+  getBrandProfiles,
+  createBrand,
+  deleteBrand,
+  uploadBrandLogo,
   getClothes,
   getFundingFeed,
   getUserInvestments,
@@ -72,6 +76,24 @@ const brandPlaceholders = {
   bio: "소개를 입력해주세요.",
 };
 
+const getBackendBaseUrl = () => {
+  if (
+    typeof import.meta !== "undefined" &&
+    import.meta.env &&
+    import.meta.env.VITE_API_PROXY_TARGET
+  ) {
+    return import.meta.env.VITE_API_PROXY_TARGET;
+  }
+  return "";
+};
+
+const normalizeAssetUrl = (value) => {
+  if (!value) return "";
+  if (value.startsWith("http")) return value;
+  const base = getBackendBaseUrl();
+  return base ? `${base}${value}` : value;
+};
+
 function App() {
   const [activeTab, setActiveTab] = useState("discover");
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -114,6 +136,7 @@ function App() {
   const [hasBrandPage, setHasBrandPage] = useState(false);
   const [brandPageReady, setBrandPageReady] = useState(false);
   const [brandFollowerOverride, setBrandFollowerOverride] = useState(null);
+  const [myBrandId, setMyBrandId] = useState(null);
   const [fittingAlbumOpen, setFittingAlbumOpen] = useState(false);
   const [portfolioTab, setPortfolioTab] = useState("investee");
   const [investments, setInvestments] = useState(initialInvestments);
@@ -371,13 +394,14 @@ function App() {
       selectedBrandKey === myBrandDetails.brand
     ) {
       return {
-        id: "my-brand",
+        id: myBrandId || "my-brand",
         brand: myBrandDetails.brand,
         handle: myBrandDetails.handle,
         followerCount: currentFollowerCount,
         followingCount,
         bio: myBrandDetails.bio,
         location: myBrandDetails.location,
+        logoUrl: myBrandDetails.logoUrl,
       };
     }
     return (
@@ -972,15 +996,16 @@ function App() {
 
   const myBrandProfile = useMemo(
     () => ({
-      id: "my-brand",
+      id: myBrandId || "my-brand",
       brand: myBrandDetails.brand,
       handle: myBrandDetails.handle,
       followerCount: currentFollowerCount,
       followingCount,
       bio: myBrandDetails.bio,
       location: myBrandDetails.location,
+      logoUrl: myBrandDetails.logoUrl,
     }),
-    [currentFollowerCount, followingCount, myBrandDetails],
+    [currentFollowerCount, followingCount, myBrandDetails, myBrandId],
   );
 
   const createBrandPage = () => {
@@ -1015,6 +1040,64 @@ function App() {
     return true;
   };
 
+  const handleCreateBrand = async () => {
+    if (!validateBrandProfile()) return;
+    if (!window.localStorage.getItem("token")) {
+      openAuthModal("login-required");
+      return;
+    }
+
+    try {
+      const payload = {
+        brand_name: myBrandDetails.brand.trim(),
+        brand_logo: myBrandDetails.logoUrl,
+        brand_story: myBrandDetails.bio.trim(),
+        is_public: true,
+      };
+      const created = await createBrand(payload);
+      setMyBrandId(created.brand_id ?? created.id ?? null);
+      setHasBrandPage(true);
+      setBrandEditing(false);
+      setBrandPageReady(true);
+      setSelectedBrandKey("my-brand");
+
+      const profiles = await getBrandProfiles();
+      const normalized = profiles.map((profile) => ({
+        ...profile,
+        logoUrl: normalizeAssetUrl(profile.brand_logo || profile.logoUrl),
+        bio: profile.bio || "",
+      }));
+      setBrandProfiles(normalized);
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.message || "브랜드 생성에 실패했습니다.");
+    }
+  };
+
+  const handleDeleteBrandPage = async () => {
+    const brandId = myBrandId || selectedBrandProfile?.id;
+    if (!brandId) {
+      resetBrandPage();
+      return;
+    }
+
+    try {
+      await deleteBrand(brandId);
+      setMyBrandId(null);
+      resetBrandPage();
+      const profiles = await getBrandProfiles();
+      const normalized = profiles.map((profile) => ({
+        ...profile,
+        logoUrl: normalizeAssetUrl(profile.brand_logo || profile.logoUrl),
+        bio: profile.bio || "",
+      }));
+      setBrandProfiles(normalized);
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.message || "브랜드 삭제에 실패했습니다.");
+    }
+  };
+
   const resetBrandPage = () => {
     setHasBrandPage(false);
     setBrandPageReady(false);
@@ -1022,7 +1105,8 @@ function App() {
     setSelectedBrandKey(null);
     setFollowedBrands([]);
     setBrandFollowerOverride(null);
-    setMyBrandDetails(buildDefaultBrandDetails(brand.name));
+    setMyBrandDetails(buildEmptyBrandDetails());
+    setMyBrandId(null);
     setBrandDeleteConfirmOpen(false);
     setActiveTab("portfolio");
   };
@@ -2138,6 +2222,50 @@ function App() {
       active = false;
     };
   }, [applyUserProfile, isLoggedIn]);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const profiles = await getBrandProfiles();
+        if (!active) return;
+        const normalized = profiles.map((profile) => ({
+          ...profile,
+          logoUrl: normalizeAssetUrl(profile.brand_logo || profile.logoUrl),
+          bio: profile.bio || "",
+        }));
+        setBrandProfiles(normalized);
+
+        const myProfile = normalized.find(
+          (profile) => profile.handle === userProfile.handle,
+        );
+        if (myProfile && !brandEditing) {
+          setHasBrandPage(true);
+          setBrandPageReady(true);
+          setMyBrandId(myProfile.id);
+          setMyBrandDetails((prev) => ({
+            ...prev,
+            brand: myProfile.brand,
+            bio: myProfile.bio || brandPlaceholders.bio,
+            logoUrl: myProfile.logoUrl,
+          }));
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [brandEditing, userProfile.handle]);
+
+  useEffect(() => {
+    if (!userProfile.handle) return;
+    setMyBrandDetails((prev) =>
+      prev.handle ? prev : { ...prev, handle: userProfile.handle },
+    );
+  }, [userProfile.handle]);
 
   useEffect(() => {
     const handleMessage = (event) => {
@@ -4649,9 +4777,11 @@ function App() {
                       }
                       onClick={() => {
                         if (brandEditing || !brandPageReady) {
-                          if (!validateBrandProfile()) {
+                          if (!brandPageReady) {
+                            handleCreateBrand();
                             return;
                           }
+                          if (!validateBrandProfile()) return;
                           setBrandEditing(false);
                           setBrandPageReady(true);
                           setSelectedBrandKey("my-brand");
@@ -4692,14 +4822,26 @@ function App() {
                         <input
                           type="file"
                           accept="image/*"
-                          onChange={(event) => {
+                          onChange={async (event) => {
                             const file = event.target.files[0];
                             if (!file) return;
-                            const url = URL.createObjectURL(file);
-                            setMyBrandDetails((prev) => ({
-                              ...prev,
-                              logoUrl: url,
-                            }));
+                            if (!window.localStorage.getItem("token")) {
+                              openAuthModal("login-required");
+                              return;
+                            }
+                            try {
+                              const { url } = await uploadBrandLogo(file);
+                              setMyBrandDetails((prev) => ({
+                                ...prev,
+                                logoUrl: normalizeAssetUrl(url),
+                              }));
+                            } catch (err) {
+                              console.error(err);
+                              alert(
+                                err.response?.data?.message ||
+                                "브랜드 로고 업로드에 실패했습니다.",
+                              );
+                            }
                           }}
                         />
                         {myBrandDetails.logoUrl ? (
@@ -4750,7 +4892,11 @@ function App() {
                     <>
                       <img
                         className="brand-hero-logo"
-                        src={myBrandDetails.logoUrl}
+                        src={
+                          selectedBrandProfile.handle === myBrandDetails.handle
+                            ? myBrandDetails.logoUrl
+                            : selectedBrandProfile.logoUrl
+                        }
                         alt={`${selectedBrandProfile.brand} logo`}
                       />
                       <strong>{selectedBrandProfile.brand}</strong>
@@ -5764,7 +5910,11 @@ function App() {
               >
                 취소
               </button>
-              <button type="button" className="primary" onClick={resetBrandPage}>
+              <button
+                type="button"
+                className="primary"
+                onClick={handleDeleteBrandPage}
+              >
                 삭제
               </button>
             </div>
