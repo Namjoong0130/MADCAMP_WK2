@@ -13,7 +13,11 @@ const notificationService = require('./notificationService');
 exports.register = async (email, password, userName, height, weight) => {
   // 1. 이미 가입된 이메일인지 확인
   const existingUser = await prisma.user.findUnique({ where: { email } });
-  if (existingUser) throw new Error('이미 존재하는 이메일입니다.');
+  if (existingUser) {
+    const error = new Error('이미 존재하는 이메일입니다.');
+    error.status = 400;
+    throw error;
+  }
 
   // 2. 비밀번호 암호화 (보안 필수)
   const hashedPassword = await bcrypt.hash(password, 10);

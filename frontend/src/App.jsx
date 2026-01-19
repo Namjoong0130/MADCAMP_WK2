@@ -4,6 +4,15 @@ import "./App.css";
 import MyFitting from "./pages/MyFitting";
 import { Canvas } from "@react-three/fiber";
 import { Center, Environment, OrbitControls } from "@react-three/drei";
+import { login, signup, getMe } from "./api/auth";
+import {
+  getPublicBrands,
+  getClothes,
+  getFundingFeed,
+  getUserInvestments,
+  getMyFittings,
+  getDesignHistory
+} from "./api/services";
 import Tshirt from "./Tshirt";
 import {
   initialClothing,
@@ -264,9 +273,9 @@ function App() {
     () =>
       brandFollowerOverride !== null
         ? followerSeries.map((item) => ({
-            ...item,
-            value: brandFollowerOverride,
-          }))
+          ...item,
+          value: brandFollowerOverride,
+        }))
         : followerSeries,
     [brandFollowerOverride, followerSeries],
   );
@@ -391,14 +400,14 @@ function App() {
       if ((matchesBrand || matchesHandle) && !seenBrands.has(brandKey)) {
         const profile = brandProfileMap[brandKey] ||
           brandProfileMap[handleKey] || {
-            id: brandKey,
-            brand: entry.brand,
-            handle: entry.designer_handle,
-            followerCount: 0,
-            followingCount: 0,
-            bio: "브랜드 프로필이 준비 중입니다.",
-            location: "Seoul",
-          };
+          id: brandKey,
+          brand: entry.brand,
+          handle: entry.designer_handle,
+          followerCount: 0,
+          followingCount: 0,
+          bio: "브랜드 프로필이 준비 중입니다.",
+          location: "Seoul",
+        };
         results.push({
           type: "brand",
           label: profile.brand,
@@ -530,9 +539,8 @@ function App() {
     }
     const trimmed = prompt.trim();
     const nextId = Math.max(...clothing.map((item) => item.id), 0) + 1;
-    const nextImage = `/image${
-      ((clothing.length + generatedDesigns.length) % 7) + 1
-    }.jpg`;
+    const nextImage = `/image${((clothing.length + generatedDesigns.length) % 7) + 1
+      }.jpg`;
     const newDesign = {
       id: nextId,
       name: trimmed || `AI 컨셉 ${nextId}`,
@@ -773,13 +781,13 @@ function App() {
 
   const detailProgress = detailItem
     ? clamp(
-        Math.round(
-          (detailItem.funding.current_amount / detailItem.funding.goal_amount) *
-            100,
-        ),
-        0,
+      Math.round(
+        (detailItem.funding.current_amount / detailItem.funding.goal_amount) *
         100,
-      )
+      ),
+      0,
+      100,
+    )
     : 0;
 
   const detailAverageRating = useMemo(() => {
@@ -813,7 +821,7 @@ function App() {
     const genderMap = { Mens: "남자", Womens: "여자", Unisex: "공용" };
     const tags = [
       categoryMap[detailItem.clothing.category] ||
-        detailItem.clothing.category,
+      detailItem.clothing.category,
       styleMap[detailItem.clothing.style] || detailItem.clothing.style,
       genderMap[detailItem.clothing.gender] || detailItem.clothing.gender,
     ].filter(Boolean);
@@ -1768,20 +1776,20 @@ function App() {
     }));
   };
 
-const handleProfilePhotoChange = (event) => {
-  const file = event.target.files[0];
+  const handleProfilePhotoChange = (event) => {
+    const file = event.target.files[0];
 
-  if (file) {
-    // 1. 파일을 미리보기용 주소(URL)로 변환! (이게 빠져서 안 떴던 거야)
-    const imageUrl = URL.createObjectURL(file);
+    if (file) {
+      // 1. 파일을 미리보기용 주소(URL)로 변환! (이게 빠져서 안 떴던 거야)
+      const imageUrl = URL.createObjectURL(file);
 
-    // 2. 상태 업데이트 (사진 주소 저장)
-    setSignupDraft((prev) => ({
-      ...prev,
-      base_photo_url: imageUrl,
-    }));
-  }
-};
+      // 2. 상태 업데이트 (사진 주소 저장)
+      setSignupDraft((prev) => ({
+        ...prev,
+        base_photo_url: imageUrl,
+      }));
+    }
+  };
 
   const handleDesignPhotoChange = (event) => {
     const file = event.target.files[0];
@@ -1917,32 +1925,29 @@ const handleProfilePhotoChange = (event) => {
     );
   };
 
-  const finalizeOnboarding = () => {
-    const nextStyleTags = Array.from(
-      new Set(
-        selectedStyleIds.map((id) => clothingMap[id]?.style).filter(Boolean),
-      ),
-    );
-    setUserProfile((prev) => ({
-      ...prev,
-      handle: signupDraft.handle,
-      name: signupDraft.name,
-      base_photo_url: signupDraft.base_photo_url,
-      measurements: { ...prev.measurements, ...signupDraft.measurements },
-      styleTags: nextStyleTags.length ? nextStyleTags : prev.styleTags,
-      updatedAt: formatDate(new Date()),
-    }));
-    setFundings((prev) =>
-      prev.map((item) => {
-        if (!selectedStyleIds.includes(item.clothing_id)) return item;
-        if (item.liked) return item;
-        return { ...item, liked: true, likes: item.likes + 1 };
-      }),
-    );
-    setIsLoggedIn(true);
-    setOnboardingOpen(false);
-    setActiveTab(pendingTab || "discover");
-    setPendingTab(null);
+  const finalizeOnboarding = async () => {
+    try {
+      // Backend expects: email, password, userName, height, weight
+      const userData = {
+        email: signupDraft.handle,
+        password: signupDraft.password,
+        userName: signupDraft.name,
+        height: Number(signupDraft.measurements.height) || 0,
+        weight: Number(signupDraft.measurements.weight) || 0,
+        // Other measurements are currently not supported by backend schema but available in local state
+      };
+
+      await signup(userData);
+      alert("회원가입이 완료되었습니다. 로그인해주세요.");
+
+      setOnboardingOpen(false);
+      setIntroOpen(false);
+      openAuthModal("login-required");
+
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.message || "회원가입에 실패했습니다.");
+    }
   };
 
   useEffect(() => {
@@ -2086,12 +2091,12 @@ const handleProfilePhotoChange = (event) => {
         current.map((profile) =>
           profile.handle === handle
             ? {
-                ...profile,
-                followerCount: Math.max(
-                  0,
-                  profile.followerCount + (isFollowed ? -1 : 1),
-                ),
-              }
+              ...profile,
+              followerCount: Math.max(
+                0,
+                profile.followerCount + (isFollowed ? -1 : 1),
+              ),
+            }
             : profile,
         ),
       );
@@ -2192,9 +2197,8 @@ const handleProfilePhotoChange = (event) => {
                           </button>
                         )}
                         <div
-                          className={`profile-icon ${
-                            signupDraft.base_photo_url ? "has-photo" : ""
-                          }`}
+                          className={`profile-icon ${signupDraft.base_photo_url ? "has-photo" : ""
+                            }`}
                         >
                           {/* 1. 항상 'profile' 글자를 배경에 깔아둡니다 */}
                           <span className="profile-text">profile</span>
@@ -2259,9 +2263,8 @@ const handleProfilePhotoChange = (event) => {
                       </div>
                     </div>
                     <p
-                      className={`onboarding-hint ${
-                        showPasswordHint ? "is-visible" : "is-hidden"
-                      }`}
+                      className={`onboarding-hint ${showPasswordHint ? "is-visible" : "is-hidden"
+                        }`}
                     >
                       비밀번호가 일치하지 않습니다.
                     </p>
@@ -2417,9 +2420,8 @@ const handleProfilePhotoChange = (event) => {
                         <button
                           key={item.id}
                           type="button"
-                          className={`style-pick-card ${
-                            selectedStyleIds.includes(item.id) ? "selected" : ""
-                          }`}
+                          className={`style-pick-card ${selectedStyleIds.includes(item.id) ? "selected" : ""
+                            }`}
                           onClick={() => toggleStyleSelection(item.id)}
                         >
                           <div className="style-pick-media">
@@ -2463,9 +2465,8 @@ const handleProfilePhotoChange = (event) => {
 
   const appContent = (
     <div
-      className={`app ${sidebarOpen ? "" : "sidebar-collapsed"} ${
-        darkMode ? "dark" : ""
-      }`}
+      className={`app ${sidebarOpen ? "" : "sidebar-collapsed"} ${darkMode ? "dark" : ""
+        }`}
     >
       {introOpen && (
         <div className="intro-overlay" role="dialog" aria-modal="true">
@@ -2822,9 +2823,8 @@ const handleProfilePhotoChange = (event) => {
                       <button
                         key={category}
                         type="button"
-                        className={`tag ${
-                          selectedMainCategory === category ? "active" : ""
-                        }`}
+                        className={`tag ${selectedMainCategory === category ? "active" : ""
+                          }`}
                         onClick={() => {
                           setSelectedMainCategory(category);
                           setSelectedSubCategory("All");
@@ -2863,9 +2863,8 @@ const handleProfilePhotoChange = (event) => {
                         <button
                           key={category}
                           type="button"
-                          className={`tag ${
-                            selectedSubCategory === category ? "active" : ""
-                          }`}
+                          className={`tag ${selectedSubCategory === category ? "active" : ""
+                            }`}
                           onClick={() => setSelectedSubCategory(category)}
                         >
                           <span className="tag-label">{category}</span>
@@ -3017,7 +3016,7 @@ const handleProfilePhotoChange = (event) => {
                             onClick={() => {
                               const profile =
                                 brandProfileMap[
-                                  item.designer_handle?.toLowerCase()
+                                item.designer_handle?.toLowerCase()
                                 ] || brandProfileMap[item.brand.toLowerCase()];
                               if (profile) {
                                 openBrandProfile(profile);
@@ -3085,10 +3084,10 @@ const handleProfilePhotoChange = (event) => {
                           onClick={() => {
                             const profile =
                               brandProfileMap[
-                                detailItem.funding.designer_handle?.toLowerCase()
+                              detailItem.funding.designer_handle?.toLowerCase()
                               ] ||
                               brandProfileMap[
-                                detailItem.funding.brand.toLowerCase()
+                              detailItem.funding.brand.toLowerCase()
                               ];
                             if (profile) {
                               openBrandProfile(profile);
@@ -3104,9 +3103,8 @@ const handleProfilePhotoChange = (event) => {
                           <button
                             key={tab}
                             type="button"
-                            className={`pill ${
-                              detailTab === tab ? "active" : ""
-                            }`}
+                            className={`pill ${detailTab === tab ? "active" : ""
+                              }`}
                             onClick={() => setDetailTab(tab)}
                           >
                             {tab === "overview" && "Overview"}
@@ -3140,9 +3138,8 @@ const handleProfilePhotoChange = (event) => {
                         </button>
                       </div>
                       <div
-                        className={`detail-scroll ${
-                          detailTab === "feedback" ? "detail-scroll-feedback" : ""
-                        }`}
+                        className={`detail-scroll ${detailTab === "feedback" ? "detail-scroll-feedback" : ""
+                          }`}
                       >
                         {detailTab === "overview" && (
                           <div className="detail-block">
@@ -3165,9 +3162,8 @@ const handleProfilePhotoChange = (event) => {
                               <div className="price-like-row">
                                 <button
                                   type="button"
-                                  className={`like-count-inline subtle ${
-                                    detailItem.funding.liked ? "liked" : ""
-                                  }`}
+                                  className={`like-count-inline subtle ${detailItem.funding.liked ? "liked" : ""
+                                    }`}
                                   aria-label="Likes"
                                   onClick={() =>
                                     handleLike(detailItem.funding.id)
@@ -3298,11 +3294,10 @@ const handleProfilePhotoChange = (event) => {
                                   .map((comment) => (
                                     <div
                                       key={comment.id}
-                                      className={`comment compact ${
-                                        comment.parent_id && comment.is_creator
+                                      className={`comment compact ${comment.parent_id && comment.is_creator
                                           ? "reply"
                                           : ""
-                                      }`}
+                                        }`}
                                     >
                                       {comment.parent_id && (
                                         <span className="reply-icon" aria-hidden="true">
@@ -3324,11 +3319,10 @@ const handleProfilePhotoChange = (event) => {
                                           (_, index) => (
                                             <span
                                               key={index}
-                                              className={`star-icon ${
-                                                index < comment.rating
+                                              className={`star-icon ${index < comment.rating
                                                   ? "active"
                                                   : ""
-                                              }`}
+                                                }`}
                                             >
                                               ★
                                             </span>
@@ -3412,11 +3406,10 @@ const handleProfilePhotoChange = (event) => {
                                     <button
                                       key={index}
                                       type="button"
-                                      className={`star-btn ${
-                                        index < commentDraft.rating
+                                      className={`star-btn ${index < commentDraft.rating
                                           ? "active"
                                           : ""
-                                      }`}
+                                        }`}
                                       aria-label={`Rate ${index + 1} stars`}
                                       onClick={() =>
                                         setCommentDraft((prev) => ({
@@ -3570,9 +3563,8 @@ const handleProfilePhotoChange = (event) => {
                       <div className="tool-group">
                         <button
                           type="button"
-                          className={`tool-btn ${
-                            designTool === "brush" ? "active" : ""
-                          }`}
+                          className={`tool-btn ${designTool === "brush" ? "active" : ""
+                            }`}
                           onClick={() => {
                             setDesignTool("brush");
                             setShowClearBubble(false);
@@ -3585,9 +3577,8 @@ const handleProfilePhotoChange = (event) => {
                         <div className="tool-anchor">
                           <button
                             type="button"
-                            className={`tool-btn ${
-                              designTool === "eraser" ? "active" : ""
-                            }`}
+                            className={`tool-btn ${designTool === "eraser" ? "active" : ""
+                              }`}
                             onClick={() => {
                               if (designTool === "eraser") {
                                 setShowClearBubble((prev) => !prev);
@@ -3602,11 +3593,10 @@ const handleProfilePhotoChange = (event) => {
                             <Eraser size={16} strokeWidth={1.6} />
                           </button>
                           <div
-                            className={`tool-sub ${
-                              designTool === "eraser" && showClearBubble
+                            className={`tool-sub ${designTool === "eraser" && showClearBubble
                                 ? "is-visible"
                                 : ""
-                            }`}
+                              }`}
                           >
                             <div className="bubble">
                               <button
@@ -4006,9 +3996,8 @@ const handleProfilePhotoChange = (event) => {
                 {closetItems.map((item) => (
                   <div
                     key={item.id}
-                    className={`closet-card ${
-                      focusClothingId === item.id ? "selected" : ""
-                    }`}
+                    className={`closet-card ${focusClothingId === item.id ? "selected" : ""
+                      }`}
                   >
                     <button
                       type="button"
@@ -4019,10 +4008,10 @@ const handleProfilePhotoChange = (event) => {
                           prev.map((funding) =>
                             funding.clothing_id === item.id
                               ? {
-                                  ...funding,
-                                  liked: false,
-                                  likes: Math.max(0, funding.likes - 1),
-                                }
+                                ...funding,
+                                liked: false,
+                                likes: Math.max(0, funding.likes - 1),
+                              }
                               : funding,
                           ),
                         );
@@ -4064,9 +4053,8 @@ const handleProfilePhotoChange = (event) => {
             {fittingAlbumOpen && (
               <div className="modal" role="dialog" aria-modal="true">
                 <div
-                  className={`modal-content album-modal-content ${
-                    fittingHistory.length <= 2 ? "compact" : ""
-                  }`}
+                  className={`modal-content album-modal-content ${fittingHistory.length <= 2 ? "compact" : ""
+                    }`}
                 >
                   <button
                     className="close"
@@ -4132,18 +4120,16 @@ const handleProfilePhotoChange = (event) => {
               <div className="portfolio-tabs">
                 <button
                   type="button"
-                  className={`pill ${
-                    portfolioTab === "investee" ? "active" : ""
-                  }`}
+                  className={`pill ${portfolioTab === "investee" ? "active" : ""
+                    }`}
                   onClick={() => setPortfolioTab("investee")}
                 >
                   Investee
                 </button>
                 <button
                   type="button"
-                  className={`pill ${
-                    portfolioTab === "investor" ? "active" : ""
-                  }`}
+                  className={`pill ${portfolioTab === "investor" ? "active" : ""
+                    }`}
                   onClick={() => setPortfolioTab("investor")}
                 >
                   Investor
@@ -4400,47 +4386,46 @@ const handleProfilePhotoChange = (event) => {
                   <div className="follow-modal-list">
                     {portfolioListOpen === "followers"
                       ? followerProfiles.map((profile) => (
-                          <div
-                            key={profile.handle}
-                            className="follow-list-item"
-                          >
-                            <div>
-                              <strong>{profile.name}</strong>
-                              <span>{profile.handle}</span>
-                            </div>
-                            <button
-                              type="button"
-                              className={`follow-cta ${
-                                followedBrands.includes(profile.handle)
-                                  ? "is-mutual"
-                                  : ""
+                        <div
+                          key={profile.handle}
+                          className="follow-list-item"
+                        >
+                          <div>
+                            <strong>{profile.name}</strong>
+                            <span>{profile.handle}</span>
+                          </div>
+                          <button
+                            type="button"
+                            className={`follow-cta ${followedBrands.includes(profile.handle)
+                                ? "is-mutual"
+                                : ""
                               }`}
-                              onClick={() => toggleFollowBrand(profile.handle)}
-                            >
-                              {followedBrands.includes(profile.handle)
-                                ? "맞팔로우"
-                                : "팔로우"}
-                            </button>
-                          </div>
-                        ))
-                      : followingProfiles.map((profile) => (
-                          <div
-                            key={profile.handle}
-                            className="follow-list-item"
+                            onClick={() => toggleFollowBrand(profile.handle)}
                           >
-                            <div>
-                              <strong>{profile.brand}</strong>
-                              <span>{profile.handle}</span>
-                            </div>
-                            <button
-                              type="button"
-                              className="ghost"
-                              onClick={() => toggleFollowBrand(profile.handle)}
-                            >
-                              Unfollow
-                            </button>
+                            {followedBrands.includes(profile.handle)
+                              ? "맞팔로우"
+                              : "팔로우"}
+                          </button>
+                        </div>
+                      ))
+                      : followingProfiles.map((profile) => (
+                        <div
+                          key={profile.handle}
+                          className="follow-list-item"
+                        >
+                          <div>
+                            <strong>{profile.brand}</strong>
+                            <span>{profile.handle}</span>
                           </div>
-                        ))}
+                          <button
+                            type="button"
+                            className="ghost"
+                            onClick={() => toggleFollowBrand(profile.handle)}
+                          >
+                            Unfollow
+                          </button>
+                        </div>
+                      ))}
                     {portfolioListOpen === "following" &&
                       followingProfiles.length === 0 && (
                         <div className="follow-empty">
@@ -4506,7 +4491,7 @@ const handleProfilePhotoChange = (event) => {
               <div className="brand-hero-card">
                 <div className="brand-hero-info">
                   {brandEditing &&
-                  selectedBrandProfile.handle === myBrandDetails.handle ? (
+                    selectedBrandProfile.handle === myBrandDetails.handle ? (
                     <>
                       <div className="brand-logo-upload">
                         <input
@@ -4675,33 +4660,33 @@ const handleProfilePhotoChange = (event) => {
                           userProfile.profile_photo_url) ||
                           (profilePhotoMode === "body" &&
                             userProfile.base_photo_url)) && (
-                        <button
-                          type="button"
-                          className="profile-photo-remove"
-                          aria-label="Remove photo"
-                          onClick={() => {
-                            if (profilePhotoMode === "profile") {
-                              updateProfileField("profile_photo_url", null);
-                            } else {
-                              updateProfileField("base_photo_url", null);
-                            }
-                          }}
-                        >
-                          ×
-                        </button>
-                      )}
+                          <button
+                            type="button"
+                            className="profile-photo-remove"
+                            aria-label="Remove photo"
+                            onClick={() => {
+                              if (profilePhotoMode === "profile") {
+                                updateProfileField("profile_photo_url", null);
+                              } else {
+                                updateProfileField("base_photo_url", null);
+                              }
+                            }}
+                          >
+                            ×
+                          </button>
+                        )}
                     </div>
                     <div className="profile-photo-box">
                       <label className="profile-photo-frame">
                         {profilePhotoMode === "profile" &&
-                        userProfile.profile_photo_url ? (
+                          userProfile.profile_photo_url ? (
                           <img
                             className="profile-photo"
                             src={userProfile.profile_photo_url}
                             alt="profile"
                           />
                         ) : profilePhotoMode === "body" &&
-                        userProfile.base_photo_url ? (
+                          userProfile.base_photo_url ? (
                           <img
                             className="profile-photo"
                             src={userProfile.base_photo_url}
@@ -5035,9 +5020,8 @@ const handleProfilePhotoChange = (event) => {
           onClick={() => setIsGalleryOpen(false)}
         >
           <div
-            className={`studio-gallery-content ${
-              generatedDesigns.length + tempDesigns.length <= 2 ? "compact" : ""
-            }`}
+            className={`studio-gallery-content ${generatedDesigns.length + tempDesigns.length <= 2 ? "compact" : ""
+              }`}
             onClick={(event) => event.stopPropagation()}
           >
             <button
@@ -5265,11 +5249,10 @@ const handleProfilePhotoChange = (event) => {
                       이미지 영역
                     </div>
                   </div>
-                <div
-                  className={`detail-scroll ${
-                    detailTab === "feedback" ? "detail-scroll-feedback" : ""
-                  }`}
-                >
+                  <div
+                    className={`detail-scroll ${detailTab === "feedback" ? "detail-scroll-feedback" : ""
+                      }`}
+                  >
                     {detailTab === "overview" && (
                       <div className="detail-block">
                         <div className="price-row">
@@ -5639,9 +5622,8 @@ const handleProfilePhotoChange = (event) => {
       )}
       {designCoinAlertOpen && (
         <div
-          className={`toast-banner ${
-            designCoinAlertClosing ? "is-leaving" : ""
-          }`}
+          className={`toast-banner ${designCoinAlertClosing ? "is-leaving" : ""
+            }`}
           role="status"
         >
           <div className="toast-content">
