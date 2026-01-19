@@ -4,7 +4,14 @@ import "./App.css";
 import MyFitting from "./pages/MyFitting";
 import { Canvas } from "@react-three/fiber";
 import { Center, Environment, OrbitControls } from "@react-three/drei";
-import { login, signup, getProfile, updateBodyMetrics } from "./api/auth";
+import {
+  login,
+  signup,
+  getProfile,
+  updateBodyMetrics,
+  deleteAccount,
+  uploadProfilePhoto
+} from "./api/auth";
 import {
   getPublicBrands,
   getClothes,
@@ -180,6 +187,7 @@ function App() {
     base_photo_url: null,
     measurements: { ...userBase.measurements },
   }));
+  const [signupPhotoFile, setSignupPhotoFile] = useState(null);
   const [selectedStyleIds, setSelectedStyleIds] = useState([]);
   const [profilePasswordDraft, setProfilePasswordDraft] = useState({
     password: "",
@@ -728,6 +736,7 @@ function App() {
       handle: normalizeHandle(profile.handle ?? profile.name ?? prev.handle),
       followerCount: profile.followerCount ?? prev.followerCount,
       followingCount: profile.followingCount ?? prev.followingCount,
+      profile_photo_url: profile.profile_img_url ?? prev.profile_photo_url,
       base_photo_url: profile.base_photo_url ?? prev.base_photo_url,
       measurements: {
         ...prev.measurements,
@@ -747,7 +756,7 @@ function App() {
     }));
   };
 
-  const handleProfilePhotoUpload = (event) => {
+  const handleProfilePhotoUpload = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
     const url = URL.createObjectURL(file);
@@ -755,6 +764,16 @@ function App() {
       updateProfileField("profile_photo_url", url);
     } else {
       updateProfileField("base_photo_url", url);
+    }
+
+    try {
+      const type = profilePhotoMode === "body" ? "body" : "profile";
+      await uploadProfilePhoto(file, type);
+      const profile = await getProfile();
+      applyUserProfile(profile);
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.message || "프로필 이미지 업로드에 실패했습니다.");
     }
   };
 
@@ -1779,23 +1798,29 @@ function App() {
     );
   };
 
-  const handleAccountDelete = () => {
-    handleLogout();
-    resetBrandPage();
-    setUserProfile(userBase);
-    setSignupDraft({
-      handle: userBase.handle,
-      name: userBase.name,
-      password: "",
-      passwordConfirm: "",
-      base_photo_url: null,
-      measurements: { ...userBase.measurements },
-    });
-    setSelectedStyleIds([]);
-    setMeasurementMode("manual");
-    setIntroOpen(true);
-    setOnboardingOpen(false);
-    setAccountDeleteConfirmOpen(false);
+  const handleAccountDelete = async () => {
+    try {
+      await deleteAccount();
+      handleLogout();
+      resetBrandPage();
+      setUserProfile(userBase);
+      setSignupDraft({
+        handle: userBase.handle,
+        name: userBase.name,
+        password: "",
+        passwordConfirm: "",
+        base_photo_url: null,
+        measurements: { ...userBase.measurements },
+      });
+      setSelectedStyleIds([]);
+      setMeasurementMode("manual");
+      setIntroOpen(true);
+      setOnboardingOpen(false);
+      setAccountDeleteConfirmOpen(false);
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.message || "탈퇴에 실패했습니다.");
+    }
   };
 
   const handleRestrictedNav = (nextTab) => {
@@ -1831,6 +1856,7 @@ function App() {
         ...prev,
         base_photo_url: imageUrl,
       }));
+      setSignupPhotoFile(file);
     }
   };
 
@@ -1992,6 +2018,15 @@ function App() {
       window.localStorage.setItem("token", token);
       setIsLoggedIn(true);
 
+      if (signupPhotoFile) {
+        try {
+          await uploadProfilePhoto(signupPhotoFile);
+        } catch (err) {
+          console.error(err);
+          alert(err.response?.data?.message || "프로필 이미지 업로드에 실패했습니다.");
+        }
+      }
+
       const rawMetrics = {
         height: signupDraft.measurements.height,
         weight: signupDraft.measurements.weight,
@@ -2019,6 +2054,7 @@ function App() {
       applyUserProfile(profile);
 
       alert("회원가입이 완료되었습니다.");
+      setSignupPhotoFile(null);
       setOnboardingOpen(false);
       setIntroOpen(false);
       setLoginModalOpen(false);
@@ -2295,12 +2331,13 @@ function App() {
                             type="button"
                             className="profile-remove"
                             aria-label="Remove profile photo"
-                            onClick={() =>
+                            onClick={() => {
                               setSignupDraft((prev) => ({
                                 ...prev,
                                 base_photo_url: null,
-                              }))
-                            }
+                              }));
+                              setSignupPhotoFile(null);
+                            }}
                           >
                             ×
                           </button>

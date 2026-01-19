@@ -30,3 +30,17 @@ export const updateProfile = async (profileData) => {
     const response = await axios.patch('/api/users/me/profile', profileData);
     return response.data;
 };
+
+export const uploadProfilePhoto = async (file, type = 'profile') => {
+    const formData = new FormData();
+    formData.append('photo', file);
+    const response = await axios.post(`/api/users/me/photo?type=${type}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return response.data;
+};
+
+export const deleteAccount = async () => {
+    const response = await axios.delete('/api/users/me');
+    return response.data;
+};

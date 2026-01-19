@@ -1,4 +1,4 @@
-const prisma = require('../config/prisma');
+﻿const prisma = require('../config/prisma');
 const { createError } = require('../utils/responseHandler');
 const { toNumber } = require('../utils/validator');
 const { buildHandle } = require('../utils/transformers');
@@ -15,7 +15,14 @@ exports.getUserHeader = async (userId) => {
     },
   });
 
-  if (!user) throw createError(404, '사용자를 찾을 수 없습니다.');
+  if (!user) throw createError(404, 'User not found.');
+  if (!user.is_creator) {
+    await prisma.user.update({
+      where: { user_id: userId },
+      data: { is_creator: true },
+    });
+    user.is_creator = true;
+  }
   return user;
 };
 
@@ -57,13 +64,21 @@ exports.getUserProfile = async (userId) => {
     include: { brand: true, follows: true },
   });
 
-  if (!user) throw createError(404, '사용자를 찾을 수 없습니다.');
+  if (!user) throw createError(404, 'User not found.');
+  if (!user.is_creator) {
+    await prisma.user.update({
+      where: { user_id: userId },
+      data: { is_creator: true },
+    });
+    user.is_creator = true;
+  }
 
   return {
     name: user.userName,
     handle: buildHandle(user.userName),
     followerCount: user.brand?.totalFollowers || 0,
     followingCount: user.follows?.length || 0,
+    profile_img_url: user.profile_img_url || null,
     base_photo_url: user.basePhotoUrl || user.profile_img_url || null,
     measurements: {
       height: user.height,
@@ -113,3 +128,14 @@ exports.updateUserProfile = async (userId, payload) => {
     updatedAt: user.updatedAt,
   };
 };
+
+exports.deleteAccount = async (userId) => {
+  await prisma.user.delete({
+    where: { user_id: userId },
+  });
+  return true;
+};
+
+
+
+
