@@ -66,7 +66,10 @@ router.get('/album', authMiddleware, fittingController.listFittingAlbum);
  *         description: Fitting details
  */
 router.get('/:fittingId', authMiddleware, fittingController.getFittingDetail);
-router.post('/', authMiddleware, fittingController.createFitting);
+
+// Upload middleware for cloth_image
+const uploadMiddleware = require('../middlewares/uploadMiddleware');
+router.post('/', authMiddleware, uploadMiddleware.array('cloth_image'), fittingController.createFitting);
 
 /**
  * @swagger
@@ -85,6 +88,7 @@ router.post('/', authMiddleware, fittingController.createFitting);
  *         description: Result added
  */
 router.post('/:fittingId/results', authMiddleware, fittingController.createFittingResult);
+
 /**
  * @swagger
  * /api/fittings/{fittingId}/generate:
@@ -101,6 +105,6 @@ router.post('/:fittingId/results', authMiddleware, fittingController.createFitti
  *       200:
  *         description: Fitting initiated successfully
  */
-router.post('/:fittingId/generate', authMiddleware, fittingController.generateFitting); // Added
+router.post('/:fittingId/generate', authMiddleware, fittingController.generateFitting);
 
 module.exports = router;

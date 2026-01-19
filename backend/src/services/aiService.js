@@ -35,11 +35,55 @@ const resolveImageUrl = async (imgUrl) => {
   return imgUrl;
 };
 
+const { removeBackground: removeBackgroundImgly } = require('@imgly/background-removal-node');
+
 const { fal } = require("@fal-ai/client");
 
 fal.config({
-  credentials: FAL_KEY, // Use environment variable
+  credentials: FAL_KEY,
 });
+
+// ...
+
+const removeBackground = async (inputPath) => {
+  try {
+    let fullPath = inputPath;
+
+    // Resolve Web URL path (/images/...) to System Path
+    if (inputPath.startsWith('/images/')) {
+      fullPath = path.join(UPLOAD_ROOT, inputPath.replace(/^\/images\//, ''));
+    }
+    // Fallback: If it looks like an absolute system path, check if it exists there
+    else if (!inputPath.startsWith('/') && !inputPath.match(/^[a-zA-Z]:/)) {
+      // Relative path not starting with /images? unlikely given our app.
+      fullPath = path.join(UPLOAD_ROOT, inputPath);
+    }
+
+    if (!fs.existsSync(fullPath)) {
+      console.warn('[AI] removeBackground file not found:', fullPath);
+      return null;
+    }
+
+    console.log('[AI] Removing background (Local) for:', fullPath);
+    // imgly accepts file:// URL for local files in Node
+    const blob = await removeBackgroundImgly(`file://${fullPath}`);
+    console.log('[AI] Imgly result blob size:', blob.size);
+
+    const arrayBuffer = await blob.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    console.log('[AI] Final buffer length:', buffer.length);
+
+    if (buffer.length === 0) {
+      console.error('[AI] Warning: generated transparent buffer is empty.');
+      return null;
+    }
+
+    return buffer;
+  } catch (error) {
+    console.error('Background Removal Failed:', error.message || error);
+  }
+  return null;
+};
 
 const callFalAi = async (prompt, imageUrls = []) => {
   if (!FAL_KEY) {
@@ -153,8 +197,19 @@ exports.generateDesignImage = async (clothId, userPrompt, attemptId, inputImages
   const leftBuffer = await image.clone().extract({ left: 0, top: 0, width: midpoint, height: height }).toBuffer();
   const rightBuffer = await image.clone().extract({ left: midpoint, top: 0, width: width - midpoint, height: height }).toBuffer();
 
+  // ... (inside generateDesignImage)
   const frontUrl = saveLocalFile(leftBuffer, 'designs', `${fileNameBase}_front.png`);
   const backUrl = saveLocalFile(rightBuffer, 'designs', `${fileNameBase}_back.png`);
+
+  // Background Removal Integration (Design)
+  const frontBuffer = await removeBackground(frontUrl);
+  if (frontBuffer) {
+    saveLocalFile(frontBuffer, 'designs', `${fileNameBase}_front.png`); // Overwrite
+  }
+  const backBuffer = await removeBackground(backUrl);
+  if (backBuffer) {
+    saveLocalFile(backBuffer, 'designs', `${fileNameBase}_back.png`); // Overwrite
+  }
 
   return {
     all: allUrl,
@@ -163,58 +218,71 @@ exports.generateDesignImage = async (clothId, userPrompt, attemptId, inputImages
   };
 };
 
-exports.generateFittingResult = async (fittingId, basePhotoUrl, clothingList) => {
-  // clothingList example: [{ category: 'TOP', order: 1, name: 'White T-shirt' }, { category: 'BOTTOM', order: 1, name: 'Jeans' }...]
+exports.generateFittingResult = async (fittingId, basePhotoUrl, clothingList, externalClothItems = []) => {
+  // 1. Consolidate all clothing items
+  const allClothing = [];
 
+  // Add Internal Items
+  if (clothingList) {
+    clothingList.forEach(c => allClothing.push({
+      type: 'INTERNAL',
+      ...c
+    }));
+  }
+
+  // Add External Items
+  externalClothItems.forEach((c, idx) => {
+    allClothing.push({
+      type: 'EXTERNAL_FILE',
+      name: `Custom Uploaded Item ${idx + 1}`,
+      category: c.category || 'Custom',
+      order: Number(c.order) || 10,
+      url: c.url
+    });
+  });
+
+  // 2. Sort by Layer Order
+  allClothing.sort((a, b) => a.order - b.order);
+
+  // 3. Prepare Input Images & Map sourceIdx
+  const extraImages = [];
+  allClothing.forEach(item => {
+    if (item.url) {
+      extraImages.push(item.url);
+      item.sourceIdx = extraImages.length + 1;
+    }
+  });
+
+  const allInputImages = [basePhotoUrl, ...extraImages];
+
+  // 4. Build Prompt
   let layeringText = "";
-  if (clothingList && clothingList.length > 0) {
-    // 1. Group by category to form structured sentences
-    const tops = clothingList.filter(c => c.category === 'TOP' || c.category === 'OUTER').sort((a, b) => a.order - b.order);
-    const bottoms = clothingList.filter(c => c.category === 'BOTTOM'); // Usually single layer, but supports multiple
-    const shoes = clothingList.filter(c => c.category === 'SHOES');
-    const acc = clothingList.filter(c => ['ACC', 'HAT'].includes(c.category));
-
-    const sentences = [];
-
-    // Tops & Outerwear
-    if (tops.length > 0) {
-      if (tops[0]) {
-        sentences.push(`First, putting on the [${tops[0].category}, ${tops[0].order}: ${tops[0].name}] as the base layer.`);
+  if (allClothing.length > 0) {
+    const sentences = allClothing.map(item => {
+      let sourceText = "";
+      if (item.url) {
+        sourceText = `referencing Input Image ${item.sourceIdx}`;
+      } else {
+        sourceText = `style: ${item.name}`;
       }
-      if (tops.length > 1) {
-        const layers = tops.slice(1).map(t => `[${t.category}, ${t.order}: ${t.name}]`).join(' and ');
-        sentences.push(`Then, layering the ${layers} over it.`);
-      }
-    }
-
-    // Bottoms
-    if (bottoms.length > 0) {
-      const bottomDesc = bottoms.map(b => `[${b.category}, ${b.order}: ${b.name}]`).join(', ');
-      sentences.push(`Wearing the ${bottomDesc} on the lower body.`);
-    }
-
-    // Shoes
-    if (shoes.length > 0) {
-      const shoeDesc = shoes.map(s => `[${s.category}, ${s.order}: ${s.name}]`).join(', ');
-      sentences.push(`Putting on the ${shoeDesc}.`);
-    }
-
-    // Accessories
-    if (acc.length > 0) {
-      const accDesc = acc.map(a => `[${a.category}, ${a.order}: ${a.name}]`).join(', ');
-      sentences.push(`Adding accessories: ${accDesc}.`);
-    }
-
-    layeringText = `The person is now wearing the following items, layered strictly in this order: ${sentences.join(' ')}`;
+      return `[Layer ${item.order}] Wearing ${item.category} (${sourceText}).`;
+    });
+    layeringText = `The person is wearing the following items, strictly layered in this order: ${sentences.join(' ')}`;
   } else {
     layeringText = "The person is wearing the specified clothing items.";
   }
 
-  const finalPrompt = `A photorealistic virtual try-on image. The goal is to dress the person from the main reference image with the provided clothing items. CRITICAL REQUIREMENT: The person's identity, facial features, body shape, pose, and the original background environment must be PERFECTLY PRESERVED without any alteration. Only the clothing area on the person's body should be changed. ${layeringText}. Ensure realistic fabric physics, natural folds, and believable shadows cast by the new clothes onto the person's body. The lighting on the clothes must match the lighting conditions of the original photo.`;
+  // Additional Reference Instruction
+  let externalImagePrompt = "";
+  if (extraImages.length > 0) {
+    externalImagePrompt = ` ADDITIONAL REFERENCE: Use the additional input images (Image 2 to Image ${allInputImages.length}) as strict visual references for the specific clothing items. Map them exactly as described in the layering order.`;
+  }
+
+  const finalPrompt = `A photorealistic virtual try-on image. The goal is to dress the person from the main reference image (Image 1) with the provided clothing items. CRITICAL REQUIREMENT: The person's identity, facial features, body shape, pose, and the original background environment must be PERFECTLY PRESERVED without any alteration. Only the clothing area on the person's body should be changed. ${layeringText}.${externalImagePrompt} Ensure realistic fabric physics, natural folds, and believable shadows cast by the new clothes onto the person's body. The lighting on the clothes must match the lighting conditions of the original photo.`;
 
   console.log(`[AI] Generating Fitting #${fittingId}`);
 
-  let imageUrl = await callFalAi(finalPrompt, [basePhotoUrl]);
+  let imageUrl = await callFalAi(finalPrompt, allInputImages);
   let buffer;
 
   if (imageUrl) {
@@ -227,6 +295,15 @@ exports.generateFittingResult = async (fittingId, basePhotoUrl, clothingList) =>
   // Unique filename
   const uniqueName = `${fittingId}_${Date.now()}_tryon.png`;
   const resultUrl = saveLocalFile(buffer, 'fittings', uniqueName);
+
+  // Background Removal Integration (Fitting)
+  if (imageUrl) { // Only remove bg if AI actually generated something
+    const transparentBuffer = await removeBackground(resultUrl);
+    if (transparentBuffer) {
+      saveLocalFile(transparentBuffer, 'fittings', uniqueName); // Overwrite
+    }
+  }
+
   return resultUrl;
 };
 
@@ -246,7 +323,27 @@ exports.generateMannequinResult = async (fittingId, tryOnImageUrl) => {
   }
 
   // Unique filename
-  const uniqueName = `${fittingId}_${Date.now()}_mannequin.png`;
-  const resultUrl = saveLocalFile(buffer, 'fittings', uniqueName);
+  // Unique filename
+  const baseName = `${fittingId}_${Date.now()}`;
+  const originalName = `${baseName}_mannequin_original.png`;
+  const transparentName = `${baseName}_mannequin_transparent.png`;
+
+  const originalUrl = saveLocalFile(buffer, 'fittings', originalName);
+  let resultUrl = originalUrl;
+
+  // Background Removal Integration (Mannequin)
+  if (imageUrl) {
+    try {
+      const transparentBuffer = await removeBackground(originalUrl);
+      if (transparentBuffer && transparentBuffer.length > 0) {
+        resultUrl = saveLocalFile(transparentBuffer, 'fittings', transparentName);
+      } else {
+        console.warn('[AI] Mannequin BG Removal produced empty buffer. Reverting to original.');
+      }
+    } catch (err) {
+      console.error('[AI] Mannequin BG Removal Exception:', err);
+    }
+  }
+
   return resultUrl;
 };
