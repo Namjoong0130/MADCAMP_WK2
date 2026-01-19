@@ -47,7 +47,17 @@ fal.config({
 
 const removeBackground = async (inputPath) => {
   try {
-    const fullPath = inputPath.startsWith('/') ? inputPath : path.join(UPLOAD_ROOT, inputPath.replace('/images/', ''));
+    let fullPath = inputPath;
+
+    // Resolve Web URL path (/images/...) to System Path
+    if (inputPath.startsWith('/images/')) {
+      fullPath = path.join(UPLOAD_ROOT, inputPath.replace(/^\/images\//, ''));
+    }
+    // Fallback: If it looks like an absolute system path, check if it exists there
+    else if (!inputPath.startsWith('/') && !inputPath.match(/^[a-zA-Z]:/)) {
+      // Relative path not starting with /images? unlikely given our app.
+      fullPath = path.join(UPLOAD_ROOT, inputPath);
+    }
 
     if (!fs.existsSync(fullPath)) {
       console.warn('[AI] removeBackground file not found:', fullPath);
