@@ -1,18 +1,21 @@
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 
 // https://vitejs.dev/config/
-export default defineConfig({
-  plugins: [react()],
-  server: {
-    proxy: {
-      // 프론트엔드에서 '/api'로 시작하는 요청을 보내면
-      "/api": {
-        // 백엔드 서버(80번 포트, nginx)로 전달해줍니다.
-        target: "http://172.10.5.178",
-        changeOrigin: true,
-        secure: false,
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), "");
+  const apiTarget = env.VITE_API_PROXY_TARGET || "http://localhost:3000";
+
+  return {
+    plugins: [react()],
+    server: {
+      proxy: {
+        "/api": {
+          target: apiTarget,
+          changeOrigin: true,
+          secure: false,
+        },
       },
     },
-  },
+  };
 });
