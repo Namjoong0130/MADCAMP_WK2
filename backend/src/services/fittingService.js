@@ -125,7 +125,8 @@ exports.generateFittingImage = async (userId, fittingId) => {
         clothingList.push({
           category: c.category,
           order: c.layer_order || (idx + 1),
-          name: c.clothing_name
+          name: c.clothing_name,
+          url: c.final_result_front_url // Pass the design image
         });
       });
     }
