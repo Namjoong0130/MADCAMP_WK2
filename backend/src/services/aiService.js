@@ -35,11 +35,29 @@ const resolveImageUrl = async (imgUrl) => {
   return imgUrl;
 };
 
-const { fal } = require("@fal-ai/client");
+const { removeBackground: removeBackgroundImgly } = require('@imgly/background-removal-node');
 
-fal.config({
-  credentials: FAL_KEY, // Use environment variable
-});
+// ...
+
+const removeBackground = async (inputPath) => {
+  try {
+    const fullPath = inputPath.startsWith('/') ? inputPath : path.join(UPLOAD_ROOT, inputPath.replace('/images/', ''));
+
+    if (!fs.existsSync(fullPath)) return null;
+
+    // imgly accepts file path or blob. Node env usually path or buffer. 
+    // Documentation says: removeBackground(src)
+    console.log('[AI] Removing background (Local) for:', fullPath);
+    const blob = await removeBackgroundImgly(`file://${fullPath}`);
+
+    // Convert Blob to Buffer
+    const arrayBuffer = await blob.arrayBuffer();
+    return Buffer.from(arrayBuffer);
+  } catch (error) {
+    console.error('Background Removal Failed:', error.message || error);
+  }
+  return null;
+};
 
 const callFalAi = async (prompt, imageUrls = []) => {
   if (!FAL_KEY) {
@@ -153,8 +171,19 @@ exports.generateDesignImage = async (clothId, userPrompt, attemptId, inputImages
   const leftBuffer = await image.clone().extract({ left: 0, top: 0, width: midpoint, height: height }).toBuffer();
   const rightBuffer = await image.clone().extract({ left: midpoint, top: 0, width: width - midpoint, height: height }).toBuffer();
 
+  // ... (inside generateDesignImage)
   const frontUrl = saveLocalFile(leftBuffer, 'designs', `${fileNameBase}_front.png`);
   const backUrl = saveLocalFile(rightBuffer, 'designs', `${fileNameBase}_back.png`);
+
+  // Background Removal Integration (Design)
+  const frontTransparent = await removeBackground(frontUrl);
+  if (frontTransparent) {
+    await saveFileFromUrl(frontTransparent, 'designs', `${fileNameBase}_front.png`); // Overwrite
+  }
+  const backTransparent = await removeBackground(backUrl);
+  if (backTransparent) {
+    await saveFileFromUrl(backTransparent, 'designs', `${fileNameBase}_back.png`); // Overwrite
+  }
 
   return {
     all: allUrl,
@@ -164,75 +193,7 @@ exports.generateDesignImage = async (clothId, userPrompt, attemptId, inputImages
 };
 
 exports.generateFittingResult = async (fittingId, basePhotoUrl, clothingList, externalClothItems = []) => {
-  // 1. Consolidate all clothing items
-  const allClothing = [];
-
-  // Add Internal Items
-  if (clothingList) {
-    clothingList.forEach(c => allClothing.push({
-      type: 'INTERNAL',
-      ...c
-      // c has { category, order, name, url? }
-    }));
-  }
-
-  // Add External Items
-  externalClothItems.forEach((c, idx) => {
-    allClothing.push({
-      type: 'EXTERNAL_FILE',
-      name: `Custom Uploaded Item ${idx + 1}`,
-      category: c.category || 'Custom',
-      order: Number(c.order) || 10,
-      url: c.url
-    });
-  });
-
-  // 2. Sort by Layer Order
-  allClothing.sort((a, b) => a.order - b.order);
-
-  // 3. Prepare Input Images & Map sourceIdx
-  // Image 1 is always Base Photo. 
-  // Subsequent images are collected from allClothing items that have a URL.
-  const extraImages = [];
-
-  allClothing.forEach(item => {
-    if (item.url) {
-      extraImages.push(item.url);
-      // Assign the index based on current length of extraImages + 1 (Base)
-      item.sourceIdx = extraImages.length + 1;
-    }
-  });
-
-  const allInputImages = [basePhotoUrl, ...extraImages];
-
-  // 4. Build Prompt
-  let layeringText = "";
-  if (allClothing.length > 0) {
-    const sentences = allClothing.map(item => {
-      let sourceText = "";
-      if (item.url) {
-        sourceText = `referencing Input Image ${item.sourceIdx}`;
-      } else {
-        // Fallback for internal items without design image (text only)
-        sourceText = `style: ${item.name}`;
-      }
-      return `[Layer ${item.order}] Wearing ${item.category} (${sourceText}).`;
-    });
-    layeringText = `The person is wearing the following items, strictly layered in this order: ${sentences.join(' ')}`;
-  } else {
-    layeringText = "The person is wearing the specified clothing items.";
-  }
-
-  // Additional Reference Instruction
-  let externalImagePrompt = "";
-  if (extraImages.length > 0) {
-    externalImagePrompt = ` ADDITIONAL REFERENCE: Use the additional input images (Image 2 to Image ${allInputImages.length}) as strict visual references for the specific clothing items. Map them exactly as described in the layering order.`;
-  }
-
-  const finalPrompt = `A photorealistic virtual try-on image. The goal is to dress the person from the main reference image (Image 1) with the provided clothing items. CRITICAL REQUIREMENT: The person's identity, facial features, body shape, pose, and the original background environment must be PERFECTLY PRESERVED without any alteration. Only the clothing area on the person's body should be changed. ${layeringText}.${externalImagePrompt} Ensure realistic fabric physics, natural folds, and believable shadows cast by the new clothes onto the person's body. The lighting on the clothes must match the lighting conditions of the original photo.`;
-
-  console.log(`[AI] Generating Fitting #${fittingId}`);
-
+  // ... (existing logic)
   let imageUrl = await callFalAi(finalPrompt, allInputImages);
   let buffer;
 
@@ -246,14 +207,20 @@ exports.generateFittingResult = async (fittingId, basePhotoUrl, clothingList, ex
   // Unique filename
   const uniqueName = `${fittingId}_${Date.now()}_tryon.png`;
   const resultUrl = saveLocalFile(buffer, 'fittings', uniqueName);
+
+  // Background Removal Integration (Fitting)
+  if (imageUrl) { // Only remove bg if AI actually generated something
+    const transparentUrl = await removeBackground(resultUrl);
+    if (transparentUrl) {
+      await saveFileFromUrl(transparentUrl, 'fittings', uniqueName); // Overwrite
+    }
+  }
+
   return resultUrl;
 };
 
 exports.generateMannequinResult = async (fittingId, tryOnImageUrl) => {
-  const finalPrompt = `A photorealistic transformation based on the reference image. The goal is to replace *only* the visible human skin areas with a mannequin material. CRITICAL REQUIREMENT: All clothing items, including their specific fabric textures, folds, shadows, and the exact lighting striking them, MUST be perfectly preserved without any alteration. The original background remains unchanged. Transform the human figure into a high-quality retail display mannequin while maintaining the exact original body shape, volume, and pose. Mannequin Specification (Standardized): The mannequin must have a uniform MATTE WHITE finish over its entire surface. The head is abstract and featureless (smooth surface, no eyes, nose, mouth, or hair). The joints are seamless.`;
-
-  console.log(`[AI] Generating Mannequin #${fittingId}`);
-
+  // ... (existing prompt)
   let imageUrl = await callFalAi(finalPrompt, [tryOnImageUrl]);
   let buffer;
 
@@ -267,5 +234,14 @@ exports.generateMannequinResult = async (fittingId, tryOnImageUrl) => {
   // Unique filename
   const uniqueName = `${fittingId}_${Date.now()}_mannequin.png`;
   const resultUrl = saveLocalFile(buffer, 'fittings', uniqueName);
+
+  // Background Removal Integration (Mannequin)
+  if (imageUrl) {
+    const transparentUrl = await removeBackground(resultUrl);
+    if (transparentUrl) {
+      await saveFileFromUrl(transparentUrl, 'fittings', uniqueName); // Overwrite
+    }
+  }
+
   return resultUrl;
 };
