@@ -12,14 +12,23 @@ exports.createBrand = async (userId, payload) => {
     throw createError(400, '이미 브랜드를 보유하고 있습니다.');
   }
 
-  return prisma.brand.create({
-    data: {
-      owner_id: userId,
-      brand_name: payload.brand_name,
-      brand_logo: payload.brand_logo || null,
-      brand_story: payload.brand_story || null,
-      is_public: payload.is_public ?? false,
-    },
+  return prisma.$transaction(async (tx) => {
+    const brand = await tx.brand.create({
+      data: {
+        owner_id: userId,
+        brand_name: payload.brand_name,
+        brand_logo: payload.brand_logo || null,
+        brand_story: payload.brand_story || null,
+        is_public: payload.is_public ?? false,
+      },
+    });
+
+    await tx.user.update({
+      where: { user_id: userId },
+      data: { is_creator: true },
+    });
+
+    return brand;
   });
 };
 
