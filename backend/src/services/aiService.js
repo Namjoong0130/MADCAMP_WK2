@@ -37,6 +37,12 @@ const resolveImageUrl = async (imgUrl) => {
 
 const { removeBackground: removeBackgroundImgly } = require('@imgly/background-removal-node');
 
+const { fal } = require("@fal-ai/client");
+
+fal.config({
+  credentials: FAL_KEY,
+});
+
 // ...
 
 const removeBackground = async (inputPath) => {
@@ -307,14 +313,25 @@ exports.generateMannequinResult = async (fittingId, tryOnImageUrl) => {
   }
 
   // Unique filename
-  const uniqueName = `${fittingId}_${Date.now()}_mannequin.png`;
-  const resultUrl = saveLocalFile(buffer, 'fittings', uniqueName);
+  // Unique filename
+  const baseName = `${fittingId}_${Date.now()}`;
+  const originalName = `${baseName}_mannequin_original.png`;
+  const transparentName = `${baseName}_mannequin_transparent.png`;
+
+  const originalUrl = saveLocalFile(buffer, 'fittings', originalName);
+  let resultUrl = originalUrl;
 
   // Background Removal Integration (Mannequin)
   if (imageUrl) {
-    const transparentBuffer = await removeBackground(resultUrl);
-    if (transparentBuffer) {
-      saveLocalFile(transparentBuffer, 'fittings', uniqueName); // Overwrite
+    try {
+      const transparentBuffer = await removeBackground(originalUrl);
+      if (transparentBuffer && transparentBuffer.length > 0) {
+        resultUrl = saveLocalFile(transparentBuffer, 'fittings', transparentName);
+      } else {
+        console.warn('[AI] Mannequin BG Removal produced empty buffer. Reverting to original.');
+      }
+    } catch (err) {
+      console.error('[AI] Mannequin BG Removal Exception:', err);
     }
   }
 
