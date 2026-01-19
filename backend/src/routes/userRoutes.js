@@ -86,4 +86,27 @@ router.patch('/me/body', authMiddleware, userController.updateBodyMetrics);
 router.get('/me/profile', authMiddleware, userController.getProfile);
 router.patch('/me/profile', authMiddleware, userController.updateProfile);
 
+const uploadMiddleware = require('../middlewares/uploadMiddleware');
+
+/**
+ * @swagger
+ * /api/users/me/photo:
+ *   post:
+ *     summary: Upload user profile/base photo
+ *     tags: [Users]
+ *     requestBody:
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               photo:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       200:
+ *         description: Photo uploaded and profile updated
+ */
+router.post('/me/photo', authMiddleware, uploadMiddleware.single('photo'), userController.uploadProfilePhoto);
+
 module.exports = router;
