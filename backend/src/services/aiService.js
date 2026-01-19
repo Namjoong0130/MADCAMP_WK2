@@ -109,7 +109,11 @@ exports.generateDesignImage = async (clothId, userPrompt, attemptId, inputImages
   // Explicitly map inputs if 2 are provided (checked by controller anyway)
   const mappingText = "The input Image 1 strictly represents the FRONT view sketch. The input Image 2 strictly represents the BACK view sketch.";
 
-  const finalPrompt = `A photorealistic 3D product rendering with a strict vertical split-screen layout. The entire left 50% frame shows the FRONT view based on the first sketch, and the entire right 50% frame shows the BACK view based on the second sketch. ${mappingText} The center area must be a seamless pure white gap. CRITICAL: Do NOT draw any vertical line, black bar, strip, or divider in the middle. The background must be one continuous solid white field separating the two views. Both views must be perfectly symmetrical, aligned horizontally at the same height, and rendered at the identical scale. Render details based on user description: ${userPrompt}. Ghost mannequin style (just clothes, invisible body), neutral studio lighting, straight-on camera view at eye level, clean solid white background.`;
+  const finalPrompt = `A photorealistic 3D product rendering with a strict vertical split-screen layout. The entire left 50% frame shows the FRONT view based on the first sketch, and the entire right 50% frame shows the BACK view based on the second sketch. ${mappingText} The center area must be a seamless pure white gap. CRITICAL: Do NOT draw any vertical line, black bar, strip, or divider in the middle. The background must be one continuous solid white field separating the two views. Both views must be perfectly symmetrical, aligned horizontally at the same height, and rendered at the identical scale.
+  
+  CRITICAL INSTRUCTION: The final design must be a perfect synthesis of the input sketches and the user prompt. You must strictly preserve the structural silhouette, cut, and shape from the input sketches, while applying the materials, colors, textures, and design details specified in the user description: "${userPrompt}".
+
+  Ghost mannequin style (just clothes, invisible body), neutral studio lighting, straight-on camera view at eye level, clean solid white background.`;
 
   console.log(`[AI] Generating Design for Cloth #${clothId}, Attempt #${attemptId} with Prompt:`, finalPrompt);
 
