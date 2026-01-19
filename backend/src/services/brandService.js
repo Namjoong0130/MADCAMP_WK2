@@ -160,13 +160,8 @@ exports.deleteBrand = async (userId, brandId) => {
 
   return prisma.$transaction(async (tx) => {
     await tx.follow.deleteMany({ where: { target_brand: brandId } });
-    const deleted = await tx.brand.update({
+    const deleted = await tx.brand.delete({
       where: { brand_id: brandId },
-      data: {
-        deleted_at: new Date(),
-        is_public: false,
-        totalFollowers: 0,
-      },
     });
     await tx.user.update({
       where: { user_id: userId },
