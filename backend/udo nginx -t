@@ -1,0 +1,21 @@
+[0;1;32m●[0m nginx.service - A high performance web server and a reverse proxy server
+     Loaded: loaded (]8;;file://camp-33/usr/lib/systemd/system/nginx.service/usr/lib/systemd/system/nginx.service]8;;; [0;1;32menabled[0m; preset: [0;1;32menabled[0m)
+     Active: [0;1;32mactive (running)[0m since Mon 2026-01-19 01:14:48 UTC; 6s ago
+       Docs: ]8;;man:nginx(8)man:nginx(8)]8;;
+    Process: 89509 ExecStartPre=/usr/sbin/nginx -t -q -g daemon on; master_process on; (code=exited, status=0/SUCCESS)
+    Process: 89511 ExecStart=/usr/sbin/nginx -g daemon on; master_process on; (code=exited, status=0/SUCCESS)
+   Main PID: 89512 (nginx)
+      Tasks: 5 (limit: 4657)
+     Memory: 3.7M (peak: 4.2M)
+        CPU: 40ms
+     CGroup: /system.slice/nginx.service
+             ├─[0;38;5;245m89512 "nginx: master process /usr/sbin/nginx -g daemon on; master_process on;"[0m
+             ├─[0;38;5;245m89513 "nginx: worker process"[0m
+             ├─[0;38;5;245m89514 "nginx: worker process"[0m
+             ├─[0;38;5;245m89515 "nginx: worker process"[0m
+             └─[0;38;5;245m89516 "nginx: worker process"[0m
+
+Jan 19 01:14:48 camp-33 systemd[1]: Starting nginx.service - A high performance web server and a reverse proxy server...
+Jan 19 01:14:48 camp-33 nginx[89509]: 2026/01/19 01:14:48 [warn] 89509#89509: duplicate MIME type "text/html" in /etc/nginx/sites-enabled/default:34
+Jan 19 01:14:48 camp-33 nginx[89511]: 2026/01/19 01:14:48 [warn] 89511#89511: duplicate MIME type "text/html" in /etc/nginx/sites-enabled/default:34
+Jan 19 01:14:48 camp-33 systemd[1]: Started nginx.service - A high performance web server and a reverse proxy server.
