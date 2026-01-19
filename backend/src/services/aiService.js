@@ -6,7 +6,7 @@ const { saveLocalFile, saveFileFromUrl } = require('../utils/fileHandler');
 const FAL_KEY = process.env.FAL_KEY;
 // Using a generic endpoint for now as "nanobanana pro" specific endpoint isn't standard public info without docs.
 // User can replace this constant.
-const FAL_MODEL_ENDPOINT = 'https://queue.fal.run/fal-ai/nano-banana-pro/edit';
+const FAL_MODEL_ENDPOINT = 'fal-ai/nano-banana-pro/edit';
 
 const fs = require('fs');
 const path = require('path');
@@ -35,6 +35,12 @@ const resolveImageUrl = async (imgUrl) => {
   return imgUrl;
 };
 
+const { fal } = require("@fal-ai/client");
+
+fal.config({
+  credentials: FAL_KEY, // Use environment variable
+});
+
 const callFalAi = async (prompt, imageUrls = []) => {
   if (!FAL_KEY) {
     console.warn('FAL_KEY is missing. Using mock generation.');
@@ -44,24 +50,34 @@ const callFalAi = async (prompt, imageUrls = []) => {
   try {
     // Resolve all image URLs (convert local to base64 if needed)
     const processedImage = await resolveImageUrl(imageUrls[0]);
+    const inputImages = processedImage ? [processedImage] : [];
 
-    const response = await axios.post(FAL_MODEL_ENDPOINT, {
-      prompt: prompt,
-      image_url: processedImage // Send Data URI for local files
-    }, {
-      headers: {
-        'Authorization': `Key ${FAL_KEY}`,
-        'Content-Type': 'application/json'
-      }
+    console.log('[FAL AI Request]', { endpoint: FAL_MODEL_ENDPOINT, hasImage: inputImages.length > 0 });
+
+    const result = await fal.subscribe(FAL_MODEL_ENDPOINT, {
+      input: {
+        prompt: prompt,
+        image_urls: inputImages // Correct field name per docs: image_urls
+      },
+      logs: true,
+      onQueueUpdate: (update) => {
+        if (update.status === "IN_PROGRESS") {
+          update.logs.map((log) => log.message).forEach(console.log);
+        }
+      },
     });
 
-    // Check various response formats (sometimes 'images', sometimes direct 'image')
-    if (response.data) {
-      if (response.data.images && response.data.images[0]) return response.data.images[0].url;
-      if (response.data.image && response.data.image.url) return response.data.image.url;
+    // Log result for debugging
+    console.log('[FAL AI Result]', JSON.stringify(result.data));
+
+    // Return the image URL from result
+    if (result.data) {
+      // Check for 'images' array or 'image' object
+      if (result.data.images && result.data.images[0]) return result.data.images[0].url;
+      if (result.data.image && result.data.image.url) return result.data.image.url;
     }
   } catch (error) {
-    console.error('Fal.ai API Error:', error.response?.data || error.message);
+    console.error('Fal.ai API Error:', error.message || error);
   }
   return null;
 };
