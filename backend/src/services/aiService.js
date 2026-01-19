@@ -176,13 +176,13 @@ exports.generateDesignImage = async (clothId, userPrompt, attemptId, inputImages
   const backUrl = saveLocalFile(rightBuffer, 'designs', `${fileNameBase}_back.png`);
 
   // Background Removal Integration (Design)
-  const frontTransparent = await removeBackground(frontUrl);
-  if (frontTransparent) {
-    await saveFileFromUrl(frontTransparent, 'designs', `${fileNameBase}_front.png`); // Overwrite
+  const frontBuffer = await removeBackground(frontUrl);
+  if (frontBuffer) {
+    saveLocalFile(frontBuffer, 'designs', `${fileNameBase}_front.png`); // Overwrite
   }
-  const backTransparent = await removeBackground(backUrl);
-  if (backTransparent) {
-    await saveFileFromUrl(backTransparent, 'designs', `${fileNameBase}_back.png`); // Overwrite
+  const backBuffer = await removeBackground(backUrl);
+  if (backBuffer) {
+    saveLocalFile(backBuffer, 'designs', `${fileNameBase}_back.png`); // Overwrite
   }
 
   return {
@@ -210,9 +210,9 @@ exports.generateFittingResult = async (fittingId, basePhotoUrl, clothingList, ex
 
   // Background Removal Integration (Fitting)
   if (imageUrl) { // Only remove bg if AI actually generated something
-    const transparentUrl = await removeBackground(resultUrl);
-    if (transparentUrl) {
-      await saveFileFromUrl(transparentUrl, 'fittings', uniqueName); // Overwrite
+    const transparentBuffer = await removeBackground(resultUrl);
+    if (transparentBuffer) {
+      saveLocalFile(transparentBuffer, 'fittings', uniqueName); // Overwrite
     }
   }
 
@@ -237,9 +237,9 @@ exports.generateMannequinResult = async (fittingId, tryOnImageUrl) => {
 
   // Background Removal Integration (Mannequin)
   if (imageUrl) {
-    const transparentUrl = await removeBackground(resultUrl);
-    if (transparentUrl) {
-      await saveFileFromUrl(transparentUrl, 'fittings', uniqueName); // Overwrite
+    const transparentBuffer = await removeBackground(resultUrl);
+    if (transparentBuffer) {
+      saveLocalFile(transparentBuffer, 'fittings', uniqueName); // Overwrite
     }
   }
 
