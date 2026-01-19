@@ -146,8 +146,6 @@ router.post('/:clothId/attempts', authMiddleware, clothController.createDesignAt
 
 const uploadMiddleware = require('../middlewares/uploadMiddleware');
 
-// ...
-
 /**
  * @swagger
  * /api/clothes/{clothId}/generate:
@@ -162,7 +160,6 @@ const uploadMiddleware = require('../middlewares/uploadMiddleware');
  *             properties:
  *               prompt:
  *                 type: string
-// ...
  *               images:
  *                 type: array
  *                 items:

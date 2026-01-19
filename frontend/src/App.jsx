@@ -1,10 +1,10 @@
-﻿import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+﻿import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Route, Routes } from "react-router-dom";
 import "./App.css";
 import MyFitting from "./pages/MyFitting";
 import { Canvas } from "@react-three/fiber";
 import { Center, Environment, OrbitControls } from "@react-three/drei";
-import { login, signup, getMe } from "./api/auth";
+import { login, signup, getProfile } from "./api/auth";
 import {
   getPublicBrands,
   getClothes,
@@ -714,6 +714,30 @@ function App() {
       bodyTypeLabel: numeric > 95 ? "Plus" : numeric > 85 ? "Athletic" : "Slim",
     }));
   };
+
+  const normalizeHandle = useCallback((value) => {
+    if (!value) return "";
+    return value.startsWith("@") ? value : `@${value}`;
+  }, []);
+
+  const applyUserProfile = useCallback((profile) => {
+    if (!profile) return;
+    setUserProfile((prev) => ({
+      ...prev,
+      name: profile.name ?? prev.name,
+      handle: normalizeHandle(profile.handle ?? profile.name ?? prev.handle),
+      followerCount: profile.followerCount ?? prev.followerCount,
+      followingCount: profile.followingCount ?? prev.followingCount,
+      base_photo_url: profile.base_photo_url ?? prev.base_photo_url,
+      measurements: {
+        ...prev.measurements,
+        ...(profile.measurements || {}),
+      },
+      bodyTypeLabel: profile.bodyTypeLabel ?? prev.bodyTypeLabel,
+      styleTags: Array.isArray(profile.styleTags) ? profile.styleTags : prev.styleTags,
+      updatedAt: profile.updatedAt ?? prev.updatedAt,
+    }));
+  }, [normalizeHandle]);
 
   const updateProfileField = (key, value) => {
     setUserProfile((prev) => ({
@@ -1709,15 +1733,34 @@ function App() {
     }, 250);
   };
 
-  const submitLogin = () => {
+  const submitLogin = async () => {
     if (!loginDraft.handle.trim() || !loginDraft.password.trim()) return;
-    setIsLoggedIn(true);
-    setLoginModalOpen(false);
-    setActiveTab(pendingTab || "discover");
-    setPendingTab(null);
+    try {
+      const result = await login(loginDraft.handle, loginDraft.password);
+      const token = result?.data?.token;
+      if (!token) {
+        throw new Error("로그인 토큰을 받지 못했습니다.");
+      }
+      window.localStorage.setItem("token", token);
+
+      const loginUser = result?.data?.user;
+      if (loginUser?.userName) {
+        applyUserProfile({ name: loginUser.userName, handle: loginUser.userName });
+      }
+
+      setIsLoggedIn(true);
+      setLoginModalOpen(false);
+      setActiveTab(pendingTab || "discover");
+      setPendingTab(null);
+      setLoginDraft({ handle: "", password: "" });
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.message || "로그인에 실패했습니다.");
+    }
   };
 
   const handleLogout = () => {
+    window.localStorage.removeItem("token");
     setIsLoggedIn(false);
     setActiveTab("discover");
     setDetailItem(null);
@@ -1957,6 +2000,37 @@ function App() {
   useEffect(() => {
     window.localStorage.setItem("modifLoggedIn", isLoggedIn ? "true" : "false");
   }, [isLoggedIn]);
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    const token = window.localStorage.getItem("token");
+    if (!token) {
+      setIsLoggedIn(false);
+      return;
+    }
+
+    let active = true;
+    (async () => {
+      try {
+        const profile = await getProfile();
+        if (active) {
+          applyUserProfile(profile);
+        }
+      } catch (err) {
+        const status = err.response?.status;
+        if (status === 401 || status === 403) {
+          window.localStorage.removeItem("token");
+          setIsLoggedIn(false);
+        } else {
+          console.error(err);
+        }
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [applyUserProfile, isLoggedIn]);
 
   useEffect(() => {
     const handleMessage = (event) => {
@@ -2216,13 +2290,13 @@ function App() {
                       </div>
                       <div className="name-fields">
                         <label className="onboarding-field">
-                          아이디
+                          이메일
                           <input
                             value={signupDraft.handle}
                             onChange={(event) =>
                               updateSignupField("handle", event.target.value)
                             }
-                            placeholder="your.id"
+                            placeholder="name@example.com"
                           />
                         </label>
                         <label className="onboarding-field">
@@ -4970,7 +5044,7 @@ function App() {
             <h3>로그인</h3>
             <div className="auth-modal-form">
               <label>
-                아이디
+                이메일
                 <input
                   value={loginDraft.handle}
                   onChange={(event) =>
@@ -4979,7 +5053,7 @@ function App() {
                       handle: event.target.value,
                     }))
                   }
-                  placeholder="your.id"
+                  placeholder="name@example.com"
                 />
               </label>
               <label>
@@ -5836,3 +5910,4 @@ function App() {
 }
 
 export default App;
+
