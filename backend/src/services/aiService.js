@@ -220,7 +220,10 @@ exports.generateFittingResult = async (fittingId, basePhotoUrl, clothingList, ex
 };
 
 exports.generateMannequinResult = async (fittingId, tryOnImageUrl) => {
-  // ... (existing prompt)
+  const finalPrompt = `A photorealistic transformation based on the reference image. The goal is to replace *only* the visible human skin areas with a mannequin material. CRITICAL REQUIREMENT: All clothing items, including their specific fabric textures, folds, shadows, and the exact lighting striking them, MUST be perfectly preserved without any alteration. The original background remains unchanged. Transform the human figure into a high-quality retail display mannequin while maintaining the exact original body shape, volume, and pose. Mannequin Specification (Standardized): The mannequin must have a uniform MATTE WHITE finish over its entire surface. The head is abstract and featureless (smooth surface, no eyes, nose, mouth, or hair). The joints are seamless.`;
+
+  console.log(`[AI] Generating Mannequin #${fittingId}`);
+
   let imageUrl = await callFalAi(finalPrompt, [tryOnImageUrl]);
   let buffer;
 
