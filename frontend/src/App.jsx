@@ -59,6 +59,19 @@ const buildDefaultBrandDetails = (brandName) => ({
   logoUrl: "/logo.png",
 });
 
+const buildEmptyBrandDetails = () => ({
+  brand: "이름을 입력해주세요.",
+  handle: "",
+  bio: "소개를 입력해주세요.",
+  location: "지역을 입력해주세요.",
+  logoUrl: "",
+});
+
+const brandPlaceholders = {
+  brand: "이름을 입력해주세요.",
+  bio: "소개를 입력해주세요.",
+};
+
 function App() {
   const [activeTab, setActiveTab] = useState("discover");
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -113,6 +126,7 @@ function App() {
     open: false,
     investmentId: null,
   });
+  const [brandCreatePromptOpen, setBrandCreatePromptOpen] = useState(false);
   const [brandPageRequiredOpen, setBrandPageRequiredOpen] = useState(false);
   const [brandDeleteConfirmOpen, setBrandDeleteConfirmOpen] = useState(false);
   const [accountDeleteConfirmOpen, setAccountDeleteConfirmOpen] =
@@ -350,8 +364,9 @@ function App() {
   const followingCount = followedBrands.length;
 
   const selectedBrandProfile = useMemo(() => {
-    if (!selectedBrandKey) return null;
+    if (!selectedBrandKey && !hasBrandPage) return null;
     if (
+      selectedBrandKey === "my-brand" ||
       selectedBrandKey === myBrandDetails.handle ||
       selectedBrandKey === myBrandDetails.brand
     ) {
@@ -376,6 +391,7 @@ function App() {
     brandProfiles,
     currentFollowerCount,
     followingCount,
+    hasBrandPage,
     myBrandDetails,
     selectedBrandKey,
   ]);
@@ -971,12 +987,32 @@ function App() {
     setHasBrandPage(true);
     setBrandPageReady(false);
     setBrandFollowerOverride(0);
-    setSelectedBrandKey(myBrandDetails.handle);
+    setMyBrandDetails(buildEmptyBrandDetails());
+    setSelectedBrandKey("my-brand");
     setActiveTab("brand");
     setBrandEditing(true);
     setAiDesignModal({ open: false, design: null });
     setAiDesignEditMode(false);
+    setBrandCreatePromptOpen(false);
     setBrandPageRequiredOpen(false);
+  };
+
+  const validateBrandProfile = () => {
+    const brandName = myBrandDetails.brand?.trim() || "";
+    if (!brandName || brandName === brandPlaceholders.brand) {
+      alert("브랜드 이름을 입력해주세요.");
+      return false;
+    }
+    const bio = myBrandDetails.bio?.trim() || "";
+    if (!bio || bio === brandPlaceholders.bio) {
+      alert("브랜드 소개를 입력해주세요.");
+      return false;
+    }
+    if (!myBrandDetails.logoUrl) {
+      alert("브랜드 로고를 등록해주세요.");
+      return false;
+    }
+    return true;
   };
 
   const resetBrandPage = () => {
@@ -2201,11 +2237,18 @@ function App() {
 
   const openBrandProfile = (profile) => {
     if (!profile) return;
-    const key = profile.handle || profile.brand;
+    const key = profile.handle || profile.brand || profile.id;
     setSelectedBrandKey(key);
     setActiveTab("brand");
     setDetailItem(null);
     setSearchOpen(false);
+    if (
+      profile.handle === myBrandDetails.handle &&
+      hasBrandPage &&
+      brandPageReady
+    ) {
+      setBrandEditing(false);
+    }
   };
 
   const openNotificationTarget = (notice) => {
@@ -4347,7 +4390,7 @@ function App() {
                         <button
                           type="button"
                           className="secondary"
-                          onClick={createBrandPage}
+                          onClick={() => setBrandCreatePromptOpen(true)}
                         >
                           브랜드 페이지 만들기
                         </button>
@@ -4590,7 +4633,6 @@ function App() {
             <div className="page-title brand-title brand-title-row">
               <div>
                 <h1>{selectedBrandProfile.brand}</h1>
-                <p>{selectedBrandProfile.handle}</p>
               </div>
               {selectedBrandProfile.handle === myBrandDetails.handle &&
                 hasBrandPage && (
@@ -4599,21 +4641,28 @@ function App() {
                       type="button"
                       className="brand-edit-btn"
                       aria-label={
-                        brandEditing || !brandPageReady
-                          ? "Save brand profile"
-                          : "Edit brand profile"
+                        !brandPageReady
+                          ? "Create brand profile"
+                          : brandEditing
+                            ? "Save brand profile"
+                            : "Edit brand profile"
                       }
                       onClick={() => {
                         if (brandEditing || !brandPageReady) {
+                          if (!validateBrandProfile()) {
+                            return;
+                          }
                           setBrandEditing(false);
                           setBrandPageReady(true);
-                          setSelectedBrandKey(myBrandDetails.handle);
+                          setSelectedBrandKey("my-brand");
                         } else {
                           setBrandEditing(true);
                         }
                       }}
                     >
-                      {brandEditing || !brandPageReady ? (
+                      {!brandPageReady ? (
+                        "생성"
+                      ) : brandEditing ? (
                         "저장"
                       ) : (
                         <Pencil size={16} strokeWidth={1.6} />
@@ -5661,6 +5710,34 @@ function App() {
               </button>
               <button type="button" className="primary" onClick={createBrandPage}>
                 브랜드 페이지 만들기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {brandCreatePromptOpen && (
+        <div className="auth-modal" role="dialog" aria-modal="true">
+          <div className="auth-modal-content">
+            <button
+              type="button"
+              className="auth-modal-close"
+              aria-label="Close"
+              onClick={() => setBrandCreatePromptOpen(false)}
+            >
+              ×
+            </button>
+            <h3>브랜드를 생성하시겠습니까?</h3>
+            <p>브랜드 페이지를 만든 뒤 바로 포트폴리오를 시작할 수 있습니다.</p>
+            <div className="auth-modal-actions">
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => setBrandCreatePromptOpen(false)}
+              >
+                취소
+              </button>
+              <button type="button" className="primary" onClick={createBrandPage}>
+                계속
               </button>
             </div>
           </div>
