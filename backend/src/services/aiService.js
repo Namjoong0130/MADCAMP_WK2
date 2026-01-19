@@ -106,14 +106,20 @@ const generateMockBuffer = (text, width = 1024, height = 1024) => {
 
 exports.generateDesignImage = async (clothId, userPrompt, attemptId, inputImages = []) => {
   // 1. Construct Prompt
-  // Explicitly map inputs if 2 are provided (checked by controller anyway)
-  const mappingText = "The input Image 1 strictly represents the FRONT view sketch. The input Image 2 strictly represents the BACK view sketch.";
-
-  const finalPrompt = `A photorealistic 3D product rendering with a strict vertical split-screen layout. The entire left 50% frame shows the FRONT view based on the first sketch, and the entire right 50% frame shows the BACK view based on the second sketch. ${mappingText} The center area must be a seamless pure white gap. CRITICAL: Do NOT draw any vertical line, black bar, strip, or divider in the middle. The background must be one continuous solid white field separating the two views. Both views must be perfectly symmetrical, aligned horizontally at the same height, and rendered at the identical scale.
+  const finalPrompt = `A high-quality 3D product rendering showing two views of the same clothing item side-by-side on a SINGLE, CONTINUOUS, UNIFORM PURE WHITE BACKGROUND.
   
-  CRITICAL INSTRUCTION: The final design must be a perfect synthesis of the input sketches and the user prompt. You must strictly preserve the structural silhouette, cut, and shape from the input sketches, while applying the materials, colors, textures, and design details specified in the user description: "${userPrompt}".
+  Layout:
+  - Left side: FRONT view (based on Image 1)
+  - Right side: BACK view (based on Image 2)
+  - Center: A wide empty white space separating them. DO NOT OVERLAP. DO NOT DRAW ANY DIVIDER LINES.
 
-  Ghost mannequin style (just clothes, invisible body), neutral studio lighting, straight-on camera view at eye level, clean solid white background.`;
+  ${mappingText}
+
+  CRITICAL ENVIRONMENT INSTRUCTION: The background must be one single infinite white surface. The lighting, shadows, and color tone must be IDENTICAL for both views. It should look like two items placed on the same white table/floor, not two different images stitched together.
+
+  CRITICAL DESIGN INSTRUCTION: The final design must be a perfect synthesis of the input sketches and the user prompt. You must strictly preserve the structural silhouette, cut, and shape from the input sketches, while applying the materials, colors, textures, and design details specified in the user description: "${userPrompt}".
+
+  Ghost mannequin style (just clothes, invisible body), neutral studio lighting, straight-on camera view at eye level.`;
 
   console.log(`[AI] Generating Design for Cloth #${clothId}, Attempt #${attemptId} with Prompt:`, finalPrompt);
 
