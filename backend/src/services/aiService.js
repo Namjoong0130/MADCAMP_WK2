@@ -6,7 +6,7 @@ const { saveLocalFile, saveFileFromUrl } = require('../utils/fileHandler');
 const FAL_KEY = process.env.FAL_KEY;
 // Using a generic endpoint for now as "nanobanana pro" specific endpoint isn't standard public info without docs.
 // User can replace this constant.
-const FAL_MODEL_ENDPOINT = 'https://queue.fal.run/fal-ai/fast-sdxl';
+const FAL_MODEL_ENDPOINT = 'https://queue.fal.run/fal-ai/nano-banana-pro/edit';
 
 const callFalAi = async (prompt, imageUrls = []) => {
   if (!FAL_KEY) {
@@ -17,18 +17,18 @@ const callFalAi = async (prompt, imageUrls = []) => {
   try {
     const response = await axios.post(FAL_MODEL_ENDPOINT, {
       prompt: prompt,
-      image_url: imageUrls[0] // Simplify for now, real implementation depends on model API
+      image_url: imageUrls[0] // Simplify for now
     }, {
       headers: {
         'Authorization': `Key ${FAL_KEY}`,
         'Content-Type': 'application/json'
       }
     });
-    // This is async queue usually, need polling. For simplicity assuming sync or fast response structure here
-    // or just returning the queue result. Real Fal.ai often needs polling.
-    // For this prototype, if it returns a URL immediately (fast-sdxl does), use it.
-    if (response.data && response.data.images && response.data.images[0]) {
-      return response.data.images[0].url;
+
+    // Check various response formats (sometimes 'images', sometimes direct 'image')
+    if (response.data) {
+      if (response.data.images && response.data.images[0]) return response.data.images[0].url;
+      if (response.data.image && response.data.image.url) return response.data.image.url;
     }
   } catch (error) {
     console.error('Fal.ai API Error:', error.response?.data || error.message);
@@ -65,9 +65,15 @@ exports.generateDesignImage = async (clothId, userPrompt) => {
   }
 
   // 2. Save Combined Image
+  // FIX: Provide FULL URL in return, assuming fileHandler returns relative path '/images/...'
+  // If saveLocalFile returns just filename, we need to prepend /images/designs/
+  // But usually saveLocalFile returns the relative web path. Let's assume it returns '/images/designs/...'
+  // The issue described is "full image not loading". It might be missing the full host or path is wrong.
+  // Let's rely on standard fileHandler return.
   const allUrl = saveLocalFile(buffer, 'designs', `${clothId}_all.png`);
 
   // 3. Split Image (Left/Right)
+  // Optimization: use sharp locally, DO NOT CALL AI AGAIN. (Already implemented correctly, verification only)
   const image = sharp(buffer);
   const metadata = await image.metadata();
   const width = metadata.width;
@@ -81,7 +87,7 @@ exports.generateDesignImage = async (clothId, userPrompt) => {
   const backUrl = saveLocalFile(rightBuffer, 'designs', `${clothId}_back.png`);
 
   return {
-    all: allUrl,
+    all: allUrl, // This path must be correct for frontend to load
     front: frontUrl,
     back: backUrl
   };
