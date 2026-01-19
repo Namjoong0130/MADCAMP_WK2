@@ -78,13 +78,18 @@ exports.listDesignHistory = async (req, res, next) => {
 
 exports.generateDesign = async (req, res, next) => {
   try {
-    const { prompt } = req.body;
-    if (!prompt) throw createError(400, 'Prompt is required');
+    const { prompt, input_images } = req.body;
+
+    // Strict validation as requested
+    if (!prompt || !input_images || input_images.length === 0) {
+      throw createError(400, '디자인 생성을 위해서는 프롬프트와 참조 이미지(URL)가 모두 필요합니다.');
+    }
 
     const attempt = await clothService.generateDesignImage(
       req.user.userId,
       Number(req.params.clothId),
-      prompt
+      prompt,
+      input_images // Pass images
     );
     return created(res, attempt, '디자인이 생성되었습니다.');
   } catch (error) {

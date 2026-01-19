@@ -93,13 +93,13 @@ const generateMockBuffer = (text, width = 1024, height = 1024) => {
   return Buffer.from(svg);
 };
 
-exports.generateDesignImage = async (clothId, userPrompt, attemptId) => {
+exports.generateDesignImage = async (clothId, userPrompt, attemptId, inputImages = []) => {
   // 1. Construct Prompt
   const finalPrompt = `A photorealistic 3D product rendering with a strict vertical split-screen layout. The entire left 50% frame shows the FRONT view based on the first sketch, and the entire right 50% frame shows the BACK view based on the second sketch. The center line must be clear empty space, guaranteeing absolutely no overlap. Both views must be perfectly symmetrical, aligned horizontally at the same height, and rendered at the identical scale. Render details based on user description: ${userPrompt}. Ghost mannequin style (just clothes, invisible body), neutral studio lighting, straight-on camera view at eye level, clean solid white background.`;
 
   console.log(`[AI] Generating Design for Cloth #${clothId}, Attempt #${attemptId} with Prompt:`, finalPrompt);
 
-  let imageUrl = await callFalAi(finalPrompt);
+  let imageUrl = await callFalAi(finalPrompt, inputImages);
   let buffer;
 
   if (imageUrl) {

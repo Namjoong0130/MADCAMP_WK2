@@ -236,7 +236,7 @@ exports.listDesignHistory = async (userId) => {
   });
 };
 
-exports.generateDesignImage = async (userId, clothId, prompt) => {
+exports.generateDesignImage = async (userId, clothId, prompt, inputImages = []) => {
   const cloth = await prisma.cloth.findUnique({
     where: { clothing_id: clothId },
     include: { brand: true },
@@ -248,14 +248,14 @@ exports.generateDesignImage = async (userId, clothId, prompt) => {
   const attempt = await prisma.designAttempt.create({
     data: {
       clothing_id: clothId,
-      input_images: [],
+      input_images: ensureArray(inputImages, []), // Store provided images
       design_prompt: prompt,
       ai_result_url: '', // Temporary
     }
   });
 
-  // 2. Call AI Service (Pass attemptId for naming)
-  const images = await require('./aiService').generateDesignImage(clothId, prompt, attempt.attempt_id);
+  // 2. Call AI Service (Pass attemptId and images)
+  const images = await require('./aiService').generateDesignImage(clothId, prompt, attempt.attempt_id, inputImages);
 
   // 3. Update Cloth with Front/Back
   await prisma.cloth.update({
