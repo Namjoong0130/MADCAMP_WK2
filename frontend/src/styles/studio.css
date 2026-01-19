@@ -26,8 +26,8 @@
 
 .studio-workbench-actions .secondary,
 .studio-workbench-actions .primary {
-  width: 93px;
-  padding: 8px 0;
+  width: fit-content; 
+  padding: 8px 14px;  
   min-width: auto;
   justify-content: center;
 }
@@ -42,6 +42,7 @@
   background: #ffffff;
   font-size: 12px;
   color: #111111;
+  cursor: pointer;
 }
 
 .design-coin-icon {
@@ -83,8 +84,9 @@
 
 .studio-workbench .workbench-body {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
-  gap: 6px;
+  
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: 38px; 
 }
 .studio-workbench .workbench-canvas {
   display: flex;
@@ -98,8 +100,123 @@
   border-radius: 16px;
 }
 
+.design-canvas-area {
+  position: relative;
+  width: min(100%, 660px);
+  height: 420px;
+  align-self: flex-start;
+}
+
+.design-canvas-area .design-canvas {
+  position: relative;
+  z-index: 2;
+  background: transparent;
+}
+
+.design-canvas-frame {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 16px;
+  border: 1px dashed var(--border);
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.studio-side-toggle {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: inline-flex;
+  gap: 6px;
+  z-index: 3;
+}
+
+.studio-side-toggle button {
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.studio-side-toggle button.active {
+  background: #111111;
+  border-color: #111111;
+  color: #ffffff;
+}
+
+.studio-workbench .design-canvas {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.design-photo-preview {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 16px;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.canvas-photo-actions {
+  position: absolute;   /* 핵심 */
+  top: 2px;
+  right: 6px;          /* 👉 캔버스 오른쪽 끝 */
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 3;
+}
+
+.canvas-photo-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: #ffffff;
+  color: #111111;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  
+}
+
+.canvas-photo-btn svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
+.canvas-photo-clear {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  border: none;
+  background: transparent;
+  color: #111111;
+  font-size: 11px;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.canvas-photo-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
 .studio-workbench .design-canvas-wrap {
-  align-items: stretch;
+  align-items: flex-start;
 }
 
 .design-toolbar {
@@ -232,8 +349,9 @@
 .workbench-prompt {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding-top: 0;
+  gap: 38px;
+  padding: 6px 0 0 4px;
+  margin-top: 19px;
 }
 
 .panel {
@@ -249,6 +367,7 @@
 
 .studio-workbench.panel {
   padding: 26px;
+  gap: 18px;
 }
 
 .field {
@@ -256,6 +375,7 @@
   flex-direction: column;
   gap: 14px;
   font-size: 13px;
+  margin: 0;
 }
 
 .field textarea,
@@ -286,6 +406,7 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+  margin: 0;
 }
 
 .subsection h4 {
@@ -298,6 +419,7 @@
   align-items: center;
   gap: 12px;
   font-size: 13px;
+  margin: 0;
 }
 
 .workbench-prompt .field textarea {
@@ -334,23 +456,24 @@
 
 .gallery-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 28px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
 }
 
 .gallery-card {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  border-radius: 18px;
+  gap: 14px;
+  border-radius: 16px;
   border: 1px solid var(--border);
   padding: 16px;
+  position: relative;
 }
 
 .gallery-card img {
   width: 100%;
-  height: 160px;
-  border-radius: 16px;
+  height: 140px;
+  border-radius: 12px;
   object-fit: cover;
 }
 
@@ -369,25 +492,31 @@
 }
 
 .studio-gallery-content {
-  width: min(760px, 90vw);
-  max-height: 70vh;
-  min-height: 320px;
+  max-width: 600px;
+  width: 100%;
+  max-height: 80vh;
   background: #ffffff;
   border-radius: 18px;
-  padding: 16px;
+  padding: 24px;
   position: relative;
   display: flex;
   flex-direction: column;
   gap: 12px;
   box-shadow: 0 24px 48px rgba(0, 0, 0, 0.24);
   overflow: hidden;
+  height: 520px;
+}
+
+.studio-gallery-content.compact {
+  height: 320px;
 }
 
 .studio-gallery-header {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  justify-content: flex-start;
+  align-items: baseline;
   gap: 12px;
+  padding-right: 40px;
 }
 
 .studio-gallery-count {
@@ -399,6 +528,11 @@
   overflow-y: auto;
   padding-right: 6px;
   min-height: 200px;
+}
+
+.studio-gallery-content .empty {
+  text-align: center;
+  padding: 24px 0;
 }
 
 .studio-canvas-page {
@@ -445,4 +579,21 @@
   .workbench-body {
     grid-template-columns: 1fr;
   }
+}
+
+.workbench-prompt {
+  height: 420px; 
+  justify-content: space-between; /* 내용물들을 위아래로 분산 */
+}
+
+.workbench-prompt .field:last-child {
+  flex: 1; /* 남은 공간 모두 내꺼! */
+  display: flex;
+  flex-direction: column;
+}
+
+/* 3. 실제 입력창 높이를 100%로 늘림 */
+.workbench-prompt .field textarea {
+  height: 100%; /* 부모 크기만큼 꽉 채우기 */
+  min-height: 120px; /* 너무 작아지지 않게 최소 높이 설정 */
 }

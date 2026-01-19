@@ -8,11 +8,11 @@
     grid-template-columns: 1fr;
   }
 
-  .profile-header {
+  .profile-top {
     grid-template-columns: 1fr;
   }
 
-  .profile-actions {
+  .profile-main-actions {
     justify-content: flex-start;
   }
 
