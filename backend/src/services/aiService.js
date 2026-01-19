@@ -8,6 +8,33 @@ const FAL_KEY = process.env.FAL_KEY;
 // User can replace this constant.
 const FAL_MODEL_ENDPOINT = 'https://queue.fal.run/fal-ai/nano-banana-pro/edit';
 
+const fs = require('fs');
+const path = require('path');
+const UPLOAD_ROOT = path.join(__dirname, '../../public/images'); // Align with fileHandler
+
+// Helper to convert local file or URL to appropriate format for FAL
+const resolveImageUrl = async (imgUrl) => {
+  if (!imgUrl) return null;
+
+  // If it's a web URL, return as is
+  if (imgUrl.startsWith('http')) return imgUrl;
+
+  // If it's a local path (e.g. /images/fittings/...), read and convert to Data URI
+  if (imgUrl.startsWith('/images/')) {
+    // /images/abc.png -> .../public/images/abc.png
+    const relativePath = imgUrl.replace('/images/', '');
+    const fullPath = path.join(UPLOAD_ROOT, relativePath);
+
+    if (fs.existsSync(fullPath)) {
+      const fileBuffer = fs.readFileSync(fullPath);
+      const base64 = fileBuffer.toString('base64');
+      const mimeType = fullPath.endsWith('.jpg') ? 'image/jpeg' : 'image/png';
+      return `data:${mimeType};base64,${base64}`;
+    }
+  }
+  return imgUrl;
+};
+
 const callFalAi = async (prompt, imageUrls = []) => {
   if (!FAL_KEY) {
     console.warn('FAL_KEY is missing. Using mock generation.');
@@ -15,9 +42,12 @@ const callFalAi = async (prompt, imageUrls = []) => {
   }
 
   try {
+    // Resolve all image URLs (convert local to base64 if needed)
+    const processedImage = await resolveImageUrl(imageUrls[0]);
+
     const response = await axios.post(FAL_MODEL_ENDPOINT, {
       prompt: prompt,
-      image_url: imageUrls[0] // Simplify for now
+      image_url: processedImage // Send Data URI for local files
     }, {
       headers: {
         'Authorization': `Key ${FAL_KEY}`,
@@ -47,11 +77,11 @@ const generateMockBuffer = (text, width = 1024, height = 1024) => {
   return Buffer.from(svg);
 };
 
-exports.generateDesignImage = async (clothId, userPrompt) => {
+exports.generateDesignImage = async (clothId, userPrompt, attemptId) => {
   // 1. Construct Prompt
   const finalPrompt = `A photorealistic 3D product rendering with a strict vertical split-screen layout. The entire left 50% frame shows the FRONT view based on the first sketch, and the entire right 50% frame shows the BACK view based on the second sketch. The center line must be clear empty space, guaranteeing absolutely no overlap. Both views must be perfectly symmetrical, aligned horizontally at the same height, and rendered at the identical scale. Render details based on user description: ${userPrompt}. Ghost mannequin style (just clothes, invisible body), neutral studio lighting, straight-on camera view at eye level, clean solid white background.`;
 
-  console.log(`[AI] Generating Design for Cloth #${clothId} with Prompt:`, finalPrompt);
+  console.log(`[AI] Generating Design for Cloth #${clothId}, Attempt #${attemptId} with Prompt:`, finalPrompt);
 
   let imageUrl = await callFalAi(finalPrompt);
   let buffer;
@@ -61,19 +91,16 @@ exports.generateDesignImage = async (clothId, userPrompt) => {
     buffer = Buffer.from(response.data);
   } else {
     // Mock Generation
-    buffer = generateMockBuffer(`Design ${clothId} (Split View)`, 1024, 768);
+    buffer = generateMockBuffer(`Design ${clothId}-${attemptId}`, 1024, 768);
   }
 
   // 2. Save Combined Image
-  // FIX: Provide FULL URL in return, assuming fileHandler returns relative path '/images/...'
-  // If saveLocalFile returns just filename, we need to prepend /images/designs/
-  // But usually saveLocalFile returns the relative web path. Let's assume it returns '/images/designs/...'
-  // The issue described is "full image not loading". It might be missing the full host or path is wrong.
-  // Let's rely on standard fileHandler return.
-  const allUrl = saveLocalFile(buffer, 'designs', `${clothId}_all.png`);
+  // Use id_attempt format as requested
+  const fileNameBase = `${clothId}_${attemptId}`;
+  const allUrl = saveLocalFile(buffer, 'designs', `${fileNameBase}_all.png`);
 
   // 3. Split Image (Left/Right)
-  // Optimization: use sharp locally, DO NOT CALL AI AGAIN. (Already implemented correctly, verification only)
+  // Optimization: use sharp locally
   const image = sharp(buffer);
   const metadata = await image.metadata();
   const width = metadata.width;
@@ -83,11 +110,11 @@ exports.generateDesignImage = async (clothId, userPrompt) => {
   const leftBuffer = await image.clone().extract({ left: 0, top: 0, width: midpoint, height: height }).toBuffer();
   const rightBuffer = await image.clone().extract({ left: midpoint, top: 0, width: width - midpoint, height: height }).toBuffer();
 
-  const frontUrl = saveLocalFile(leftBuffer, 'designs', `${clothId}_front.png`);
-  const backUrl = saveLocalFile(rightBuffer, 'designs', `${clothId}_back.png`);
+  const frontUrl = saveLocalFile(leftBuffer, 'designs', `${fileNameBase}_front.png`);
+  const backUrl = saveLocalFile(rightBuffer, 'designs', `${fileNameBase}_back.png`);
 
   return {
-    all: allUrl, // This path must be correct for frontend to load
+    all: allUrl,
     front: frontUrl,
     back: backUrl
   };
@@ -154,7 +181,9 @@ exports.generateFittingResult = async (fittingId, basePhotoUrl, clothingList) =>
     buffer = generateMockBuffer(`Try-On Result #${fittingId}`);
   }
 
-  const resultUrl = saveLocalFile(buffer, 'fittings', `${fittingId}_tryon.png`);
+  // Unique filename
+  const uniqueName = `${fittingId}_${Date.now()}_tryon.png`;
+  const resultUrl = saveLocalFile(buffer, 'fittings', uniqueName);
   return resultUrl;
 };
 
@@ -173,6 +202,8 @@ exports.generateMannequinResult = async (fittingId, tryOnImageUrl) => {
     buffer = generateMockBuffer(`Mannequin Result #${fittingId}`);
   }
 
-  const resultUrl = saveLocalFile(buffer, 'fittings', `${fittingId}_mannequin.png`);
+  // Unique filename
+  const uniqueName = `${fittingId}_${Date.now()}_mannequin.png`;
+  const resultUrl = saveLocalFile(buffer, 'fittings', uniqueName);
   return resultUrl;
 };

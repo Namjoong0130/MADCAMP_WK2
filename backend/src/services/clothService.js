@@ -244,10 +244,20 @@ exports.generateDesignImage = async (userId, clothId, prompt) => {
   if (!cloth || cloth.deleted_at) throw createError(404, '의류를 찾을 수 없습니다.');
   if (cloth.brand?.owner_id !== userId) throw createError(403, '권한이 없습니다.');
 
-  // Call AI Service (Now returns { all, front, back })
-  const images = await require('./aiService').generateDesignImage(clothId, prompt);
+  // 1. Create DesignAttempt first to get the ID for filename
+  const attempt = await prisma.designAttempt.create({
+    data: {
+      clothing_id: clothId,
+      input_images: [],
+      design_prompt: prompt,
+      ai_result_url: '', // Temporary
+    }
+  });
 
-  // Update Cloth with Front/Back
+  // 2. Call AI Service (Pass attemptId for naming)
+  const images = await require('./aiService').generateDesignImage(clothId, prompt, attempt.attempt_id);
+
+  // 3. Update Cloth with Front/Back
   await prisma.cloth.update({
     where: { clothing_id: clothId },
     data: {
@@ -257,16 +267,14 @@ exports.generateDesignImage = async (userId, clothId, prompt) => {
     }
   });
 
-  // Save as DesignAttempt
-  const attempt = await prisma.designAttempt.create({
+  // 4. Update DesignAttempt with final URL
+  const updatedAttempt = await prisma.designAttempt.update({
+    where: { attempt_id: attempt.attempt_id },
     data: {
-      clothing_id: clothId,
-      input_images: [],
-      design_prompt: prompt,
-      ai_result_url: images.all, // Store the combined one here
+      ai_result_url: images.all,
     }
   });
 
   // Return combined info
-  return { ...attempt, front: images.front, back: images.back };
+  return { ...updatedAttempt, front: images.front, back: images.back };
 };
