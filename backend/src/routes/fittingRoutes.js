@@ -66,9 +66,6 @@ router.get('/album', authMiddleware, fittingController.listFittingAlbum);
  *         description: Fitting details
  */
 router.get('/:fittingId', authMiddleware, fittingController.getFittingDetail);
-// ... (previous lines)
-
-router.get('/:fittingId', authMiddleware, fittingController.getFittingDetail);
 
 // Upload middleware for cloth_image
 const uploadMiddleware = require('../middlewares/uploadMiddleware');
