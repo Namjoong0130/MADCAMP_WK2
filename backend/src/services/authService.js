@@ -14,7 +14,7 @@ exports.register = async (email, password, userName, height, weight) => {
   // 1. ?대? 媛?낅맂 ?대찓?쇱씤吏 ?뺤씤
   const existingUser = await prisma.user.findUnique({ where: { email } });
   if (existingUser) {
-    const error = new Error('?대? 議댁옱?섎뒗 ?대찓?쇱엯?덈떎.');
+    const error = new Error('이미 존재하는 이메일입니다.');
     error.status = 400;
     throw error;
   }
@@ -54,15 +54,17 @@ exports.register = async (email, password, userName, height, weight) => {
 };
 // ?ㅽ궎留덉뿉??????ㅼ뿉 ?媛 ?녾퀬 @default ?ㅼ젙???녿뒗 ?꾨뱶?ㅼ? 諛섎뱶???낅젰
 // email: ?좎? ?앸퀎???꾪븳 ?꾩닔 ?뺣낫?낅땲??
-// userName: ???댁뿉??遺瑜??대쫫?낅땲??
-// height, weight: ?ㅽ궎留덉뿉 Float濡??뺤쓽?섏뼱 ?덇퀬 ?媛 ?놁쑝誘濡?媛????瑗?諛쏆븘???⑸땲??
+// 스키마에 저장할 데이터에 @default 설정이 없는 필드들은 반드시 입력
+// email: 유저 식별을 위한 필수 정보입니다.
+// userName: 앱 내에서 부를 이름입니다.
+// height, weight: 스키마에 Float로 정의되어 있고 @default 설정이 없으므로 가입 시 꼭 받아야 합니다.
 
 exports.login = async (email, password) => {
-  // 1. ?ъ슜??議댁옱 ?뺤씤
+  // 1. 사용자 존재 확인
   const user = await prisma.user.findUnique({ where: { email } });
-  if (!user) throw new Error('?대찓???먮뒗 鍮꾨?踰덊샇媛 ?쇱튂?섏? ?딆뒿?덈떎.');
+  if (!user) throw new Error('이메일 또는 비밀번호가 일치하지 않습니다.');
 
-  // 2. 鍮꾨?踰덊샇 ?쇱튂 ?뺤씤
+  // 2. 비밀번호 일치 확인
   const isMatch = await bcrypt.compare(password, user.password);
   if (!user.is_creator) {
     await prisma.user.update({
@@ -71,13 +73,13 @@ exports.login = async (email, password) => {
     });
     user.is_creator = true;
   }
-  if (!isMatch) throw new Error('?대찓???먮뒗 鍮꾨?踰덊샇媛 ?쇱튂?섏? ?딆뒿?덈떎.');
+  if (!isMatch) throw new Error('이메일 또는 비밀번호가 일치하지 않습니다.');
 
-  // 3. JWT ?좏겙 ?앹꽦 (?ъ슜???앸퀎??
+  // 3. JWT 토큰 생성 (사용자 식별)
   const token = jwt.sign(
     { userId: user.user_id, email: user.email },
     process.env.JWT_SECRET,
-    { expiresIn: '7d' } // 7?쇨컙 ?좎?
+    { expiresIn: '7d' } // 7일간 유효
   );
 
   return { user, token };
