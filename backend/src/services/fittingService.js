@@ -170,8 +170,7 @@ exports.generateFittingImage = async (userId, fittingId) => {
         fitting_id: fittingId,
         user_id: userId,
         result_img_url: tryOnUrl,
-        generation_prompt: 'AI Virtual Try-On',
-        status: 'COMPLETED'
+        generation_prompt: 'AI Virtual Try-On'
       }
     });
 
@@ -184,8 +183,7 @@ exports.generateFittingImage = async (userId, fittingId) => {
         fitting_id: fittingId,
         user_id: userId,
         result_img_url: mannequinUrl,
-        generation_prompt: 'AI Mannequin Transformation',
-        status: 'COMPLETED'
+        generation_prompt: 'AI Mannequin Transformation'
       }
     });
 
