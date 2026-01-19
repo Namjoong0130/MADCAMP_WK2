@@ -122,7 +122,7 @@ exports.generateDesignImage = async (clothId, userPrompt, attemptId, inputImages
 
   CRITICAL DESIGN INSTRUCTION: The final design must be a perfect synthesis of the input sketches and the user prompt. You must strictly preserve the structural silhouette, cut, and shape from the input sketches, while applying the materials, colors, textures, and design details specified in the user description: "${userPrompt}".
 
-  Ghost mannequin style (just clothes, invisible body), neutral studio lighting, straight-on camera view at eye level.`;
+  Ghost mannequin style (just clothes, invisible body), neutral studio lighting, no shadows, straight-on camera view at eye level.`;
 
   console.log(`[AI] Generating Design for Cloth #${clothId}, Attempt #${attemptId} with Prompt:`, finalPrompt);
 
