@@ -130,11 +130,34 @@ exports.generateFittingImage = async (userId, fittingId) => {
       });
     }
 
+    // Prepare External Clothing from Tags
+    const externalClothItems = [];
+    if (fitting.tags) {
+      fitting.tags.forEach(tag => {
+        if (tag.startsWith('META_CLOTH_JSON:')) {
+          try {
+            const jsonStr = tag.replace('META_CLOTH_JSON:', '');
+            externalClothItems.push(JSON.parse(jsonStr));
+          } catch (e) {
+            console.error('Failed to parse cloth meta tag', e);
+          }
+        }
+      });
+    }
+
+    // If no meta tags but urls exist (legacy or simple upload), fallback to basic
+    if (externalClothItems.length === 0 && fitting.external_cloth_urls && fitting.external_cloth_urls.length > 0) {
+      fitting.external_cloth_urls.forEach((url, idx) => {
+        externalClothItems.push({ url, category: 'UNKNOWN', order: 10 + idx });
+      });
+    }
+
     // 1. Generate Try-On
     const tryOnUrl = await aiService.generateFittingResult(
       fittingId,
       fitting.base_photo_url,
-      clothingList
+      clothingList,
+      externalClothItems
     );
 
     // 2. Generate Mannequin Ver.

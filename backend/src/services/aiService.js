@@ -163,58 +163,57 @@ exports.generateDesignImage = async (clothId, userPrompt, attemptId, inputImages
   };
 };
 
-exports.generateFittingResult = async (fittingId, basePhotoUrl, clothingList) => {
-  // clothingList example: [{ category: 'TOP', order: 1, name: 'White T-shirt' }, { category: 'BOTTOM', order: 1, name: 'Jeans' }...]
+exports.generateFittingResult = async (fittingId, basePhotoUrl, clothingList, externalClothItems = []) => {
+  // externalClothItems: [{ url, category, order }]
 
   let layeringText = "";
-  if (clothingList && clothingList.length > 0) {
-    // 1. Group by category to form structured sentences
-    const tops = clothingList.filter(c => c.category === 'TOP' || c.category === 'OUTER').sort((a, b) => a.order - b.order);
-    const bottoms = clothingList.filter(c => c.category === 'BOTTOM'); // Usually single layer, but supports multiple
-    const shoes = clothingList.filter(c => c.category === 'SHOES');
-    const acc = clothingList.filter(c => ['ACC', 'HAT'].includes(c.category));
+  const allClothing = [];
 
-    const sentences = [];
+  // 1. Convert internal clothingList to common format
+  if (clothingList) {
+    clothingList.forEach(c => allClothing.push({ type: 'INTERNAL', ...c }));
+  }
 
-    // Tops & Outerwear
-    if (tops.length > 0) {
-      if (tops[0]) {
-        sentences.push(`First, putting on the [${tops[0].category}, ${tops[0].order}: ${tops[0].name}] as the base layer.`);
-      }
-      if (tops.length > 1) {
-        const layers = tops.slice(1).map(t => `[${t.category}, ${t.order}: ${t.name}]`).join(' and ');
-        sentences.push(`Then, layering the ${layers} over it.`);
-      }
-    }
+  // 2. Add external items
+  externalClothItems.forEach((c, idx) => {
+    // Offset image index logic: Image 1 is base, so External 1 is Image 2...
+    allClothing.push({
+      type: 'EXTERNAL_FILE',
+      name: `Custom Uploaded Item (Image ${idx + 2})`,
+      category: c.category || 'Custom',
+      order: Number(c.order) || 10,
+      sourceIdx: idx + 2 // Image index for prompt
+    });
+  });
 
-    // Bottoms
-    if (bottoms.length > 0) {
-      const bottomDesc = bottoms.map(b => `[${b.category}, ${b.order}: ${b.name}]`).join(', ');
-      sentences.push(`Wearing the ${bottomDesc} on the lower body.`);
-    }
+  // 3. Sort by Order
+  allClothing.sort((a, b) => a.order - b.order);
 
-    // Shoes
-    if (shoes.length > 0) {
-      const shoeDesc = shoes.map(s => `[${s.category}, ${s.order}: ${s.name}]`).join(', ');
-      sentences.push(`Putting on the ${shoeDesc}.`);
-    }
-
-    // Accessories
-    if (acc.length > 0) {
-      const accDesc = acc.map(a => `[${a.category}, ${a.order}: ${a.name}]`).join(', ');
-      sentences.push(`Adding accessories: ${accDesc}.`);
-    }
-
-    layeringText = `The person is now wearing the following items, layered strictly in this order: ${sentences.join(' ')}`;
+  if (allClothing.length > 0) {
+    const sentences = allClothing.map(item => {
+      const sourceText = item.type === 'EXTERNAL_FILE' ? `referencing Input Image ${item.sourceIdx}` : `style: ${item.name}`;
+      return `[Layer ${item.order}] Wearing ${item.category} (${sourceText}).`;
+    });
+    layeringText = `The person is wearing the following items, strictly layered in this order: ${sentences.join(' ')}`;
   } else {
     layeringText = "The person is wearing the specified clothing items.";
   }
 
-  const finalPrompt = `A photorealistic virtual try-on image. The goal is to dress the person from the main reference image with the provided clothing items. CRITICAL REQUIREMENT: The person's identity, facial features, body shape, pose, and the original background environment must be PERFECTLY PRESERVED without any alteration. Only the clothing area on the person's body should be changed. ${layeringText}. Ensure realistic fabric physics, natural folds, and believable shadows cast by the new clothes onto the person's body. The lighting on the clothes must match the lighting conditions of the original photo.`;
+  // Handle External Images Prompting
+  let externalImagePrompt = "";
+  if (externalClothItems.length > 0) {
+    externalImagePrompt = ` ADDITIONAL REFERENCE: Use the additional input images (Image 2 onwards) as strict visual references for the specific clothing items. Map "Image 2" to the first custom item, "Image 3" to the second, matching the layering order description.`;
+  }
+
+  const finalPrompt = `A photorealistic virtual try-on image. The goal is to dress the person from the main reference image (Image 1) with the provided clothing items. CRITICAL REQUIREMENT: The person's identity, facial features, body shape, pose, and the original background environment must be PERFECTLY PRESERVED without any alteration. Only the clothing area on the person's body should be changed. ${layeringText}.${externalImagePrompt} Ensure realistic fabric physics, natural folds, and believable shadows cast by the new clothes onto the person's body. The lighting on the clothes must match the lighting conditions of the original photo.`;
 
   console.log(`[AI] Generating Fitting #${fittingId}`);
 
-  let imageUrl = await callFalAi(finalPrompt, [basePhotoUrl]);
+  // Combine inputs: Base Photo + External Cloth URLs
+  const externalUrls = externalClothItems.map(c => c.url);
+  const allInputImages = [basePhotoUrl, ...externalUrls];
+
+  let imageUrl = await callFalAi(finalPrompt, allInputImages);
   let buffer;
 
   if (imageUrl) {

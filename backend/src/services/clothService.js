@@ -100,6 +100,9 @@ exports.createCloth = async (userId, payload) => {
   if (!payload.category) {
     throw createError(400, '카테고리가 필요합니다.');
   }
+  if (payload.layer_order === undefined || payload.layer_order === null) {
+    throw createError(400, '레이어링 순서(layer_order)를 입력해야 합니다. (1: 안쪽 ~ 5: 바깥쪽)');
+  }
 
   const user = await prisma.user.findUnique({
     where: { user_id: userId },
@@ -126,6 +129,11 @@ exports.createCloth = async (userId, payload) => {
   const clothData = normalizeClothPayload(payload);
   if (!clothData.clothing_name) throw createError(400, '의류 이름이 필요합니다.');
   if (!clothData.category) throw createError(400, '카테고리를 확인해주세요.');
+
+  // Re-verify layer_order assignment from normalize not hiding 0 or intended value
+  // normalize uses ?? 1, so override strict if payload exists
+  clothData.layer_order = Number(payload.layer_order);
+
   if (!clothData.gender) clothData.gender = 'UNISEX';
 
   const attemptPayload = payload.design_attempt;
