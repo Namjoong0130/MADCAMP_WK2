@@ -3,6 +3,26 @@ const { created, success } = require('../utils/responseHandler');
 
 exports.createFitting = async (req, res, next) => {
   try {
+    // Check if base_photo_url is provided, otherwise fallback to user's saved photo
+    if (!req.body.base_photo_url) {
+      const userService = require('../services/userService');
+      const userProfile = await userService.getUserHeader(req.user.userId);
+
+      // Need to fetch full profile or just check db directly? 
+      // getUserHeader gets basic info. let's check profile_img_url or basePhotoUrl
+      // Actually fittingService uses user_id, so we can let service handle it? 
+      // No, service createFitting validates payload.base_photo_url first.
+
+      // Better: Get full profile
+      const fullProfile = await userService.getUserProfile(req.user.userId);
+
+      if (fullProfile.base_photo_url) {
+        req.body.base_photo_url = fullProfile.base_photo_url;
+      } else {
+        throw new Error('피팅을 위해 전신 사진(base_photo_url)을 입력하거나 프로필 사진을 먼저 업로드해주세요.');
+      }
+    }
+
     const fitting = await fittingService.createFitting(req.user.userId, req.body);
     return created(res, fitting, '피팅이 생성되었습니다.');
   } catch (error) {
