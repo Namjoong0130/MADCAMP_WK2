@@ -144,34 +144,32 @@ router.patch('/:clothId/physics', authMiddleware, clothController.updateClothPhy
 router.get('/:clothId/attempts', authMiddleware, clothController.listDesignAttempts);
 router.post('/:clothId/attempts', authMiddleware, clothController.createDesignAttempt);
 
+const uploadMiddleware = require('../middlewares/uploadMiddleware');
+
+// ...
+
 /**
  * @swagger
  * /api/clothes/{clothId}/generate:
  *   post:
  *     summary: Generate an AI design for a clothing item
  *     tags: [Clothes]
- *     parameters:
- *       - in: path
- *         name: clothId
- *         required: true
- *         schema:
- *           type: integer
  *     requestBody:
- *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
- *             required:
- *               - prompt
  *             properties:
  *               prompt:
  *                 type: string
+ *               image:
+ *                 type: string
+ *                 format: binary
  *     responses:
  *       200:
  *         description: AI Design Generated
  */
-router.post('/:clothId/generate', authMiddleware, clothController.generateDesign);
+router.post('/:clothId/generate', authMiddleware, uploadMiddleware.single('image'), clothController.generateDesign);
 
 
 module.exports = router;
