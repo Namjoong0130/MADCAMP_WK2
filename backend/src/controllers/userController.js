@@ -28,10 +28,13 @@ exports.getProfile = async (req, res, next) => {
   }
 };
 
-return success(res, updated, '프로필이 업데이트되었습니다.');
+exports.updateProfile = async (req, res, next) => {
+  try {
+    const updated = await userService.updateUserProfile(req.user.userId, req.body);
+    return success(res, updated, '프로필이 업데이트되었습니다.');
   } catch (error) {
-  next(error);
-}
+    next(error);
+  }
 };
 
 exports.uploadProfilePhoto = async (req, res, next) => {
