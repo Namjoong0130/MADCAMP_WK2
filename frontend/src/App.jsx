@@ -4,7 +4,7 @@ import "./App.css";
 import MyFitting from "./pages/MyFitting";
 import { Canvas } from "@react-three/fiber";
 import { Center, Environment, OrbitControls } from "@react-three/drei";
-import { login, signup, getProfile } from "./api/auth";
+import { login, signup, getProfile, updateBodyMetrics } from "./api/auth";
 import {
   getPublicBrands,
   getClothes,
@@ -1970,23 +1970,58 @@ function App() {
 
   const finalizeOnboarding = async () => {
     try {
+      const email = signupDraft.handle;
+      const password = signupDraft.password;
+
       // Backend expects: email, password, userName, height, weight
       const userData = {
-        email: signupDraft.handle,
-        password: signupDraft.password,
+        email,
+        password,
         userName: signupDraft.name,
         height: Number(signupDraft.measurements.height) || 0,
         weight: Number(signupDraft.measurements.weight) || 0,
-        // Other measurements are currently not supported by backend schema but available in local state
       };
 
       await signup(userData);
-      alert("회원가입이 완료되었습니다. 로그인해주세요.");
 
+      const loginResult = await login(email, password);
+      const token = loginResult?.data?.token;
+      if (!token) {
+        throw new Error("로그인 토큰을 받지 못했습니다.");
+      }
+      window.localStorage.setItem("token", token);
+      setIsLoggedIn(true);
+
+      const rawMetrics = {
+        height: signupDraft.measurements.height,
+        weight: signupDraft.measurements.weight,
+        neckCircum: signupDraft.measurements.neckCircum,
+        shoulderWidth: signupDraft.measurements.shoulderWidth,
+        chestCircum: signupDraft.measurements.chestCircum,
+        waistCircum: signupDraft.measurements.waistCircum,
+        hipCircum: signupDraft.measurements.hipCircum,
+        armLength: signupDraft.measurements.armLength,
+        legLength: signupDraft.measurements.legLength,
+        footSize: signupDraft.measurements.shoeSize,
+      };
+
+      const bodyMetrics = Object.fromEntries(
+        Object.entries(rawMetrics)
+          .map(([key, value]) => [key, Number(value)])
+          .filter(([, value]) => !Number.isNaN(value) && value > 0),
+      );
+
+      if (Object.keys(bodyMetrics).length > 0) {
+        await updateBodyMetrics(bodyMetrics);
+      }
+
+      const profile = await getProfile();
+      applyUserProfile(profile);
+
+      alert("회원가입이 완료되었습니다.");
       setOnboardingOpen(false);
       setIntroOpen(false);
-      openAuthModal("login-required");
-
+      setLoginModalOpen(false);
     } catch (err) {
       console.error(err);
       alert(err.response?.data?.message || "회원가입에 실패했습니다.");

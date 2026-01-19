@@ -21,6 +21,11 @@ export const getProfile = async () => {
     return response.data.data;
 };
 
+export const updateBodyMetrics = async (metrics) => {
+    const response = await axios.patch('/api/users/me/body', metrics);
+    return response.data.data;
+};
+
 export const updateProfile = async (profileData) => {
     const response = await axios.patch('/api/users/me/profile', profileData);
     return response.data;
