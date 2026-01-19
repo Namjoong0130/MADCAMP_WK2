@@ -92,6 +92,23 @@ router.post('/', authMiddleware, brandController.createBrand);
 /**
  * @swagger
  * /api/brands/{brandId}:
+ *   patch:
+ *     summary: Update a brand
+ *     tags: [Brands]
+ *     parameters:
+ *       - in: path
+ *         name: brandId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Brand updated
+ */
+router.patch('/:brandId', authMiddleware, brandController.updateBrand);
+/**
+ * @swagger
+ * /api/brands/{brandId}:
  *   delete:
  *     summary: Delete a brand
  *     tags: [Brands]

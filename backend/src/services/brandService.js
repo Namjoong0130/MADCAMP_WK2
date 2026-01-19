@@ -9,7 +9,28 @@ exports.createBrand = async (userId, payload) => {
 
   const existing = await prisma.brand.findUnique({ where: { owner_id: userId } });
   if (existing) {
-    throw createError(400, '이미 브랜드를 보유하고 있습니다.');
+    if (!existing.deleted_at) {
+      throw createError(400, '??? ?????? ?????? ??????.');
+    }
+    return prisma.$transaction(async (tx) => {
+      const brand = await tx.brand.update({
+        where: { brand_id: existing.brand_id },
+        data: {
+          brand_name: payload.brand_name,
+          brand_logo: payload.brand_logo || null,
+          brand_story: payload.brand_story || null,
+          is_public: payload.is_public ?? true,
+          deleted_at: null,
+          totalFollowers: 0,
+          design_count: 0,
+        },
+      });
+      await tx.user.update({
+        where: { user_id: userId },
+        data: { is_creator: true },
+      });
+      return brand;
+    });
   }
 
   return prisma.$transaction(async (tx) => {
@@ -152,6 +173,34 @@ exports.deleteBrand = async (userId, brandId) => {
       data: { is_creator: false },
     });
     return deleted;
+  });
+};
+
+exports.updateBrand = async (userId, brandId, payload) => {
+  const brand = await prisma.brand.findUnique({
+    where: { brand_id: brandId },
+  });
+  if (!brand || brand.deleted_at) {
+    throw createError(404, '???? ?? ? ????.');
+  }
+  if (brand.owner_id !== userId) {
+    throw createError(403, '?? ??? ????.');
+  }
+
+  const data = {
+    brand_name: payload.brand_name,
+    brand_logo: payload.brand_logo,
+    brand_story: payload.brand_story,
+    is_public: payload.is_public,
+  };
+  Object.keys(data).forEach((key) => data[key] === undefined && delete data[key]);
+  if (Object.keys(data).length == 0) {
+    throw createError(400, '??? ??? ????.');
+  }
+
+  return prisma.brand.update({
+    where: { brand_id: brandId },
+    data,
   });
 };
 

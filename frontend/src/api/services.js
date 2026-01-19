@@ -16,6 +16,11 @@ export const createBrand = async (payload) => {
     return response.data.data;
 };
 
+export const updateBrand = async (brandId, payload) => {
+    const response = await axios.patch(`/api/brands/${brandId}`, payload);
+    return response.data.data;
+};
+
 export const deleteBrand = async (brandId) => {
     const response = await axios.delete(`/api/brands/${brandId}`);
     return response.data.data;

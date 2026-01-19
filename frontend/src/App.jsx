@@ -16,6 +16,7 @@ import {
   getPublicBrands,
   getBrandProfiles,
   createBrand,
+  updateBrand,
   deleteBrand,
   uploadBrandLogo,
   getClothes,
@@ -1074,6 +1075,38 @@ function App() {
     }
   };
 
+  const handleUpdateBrand = async () => {
+    if (!validateBrandProfile()) return;
+    const brandId = myBrandId || selectedBrandProfile?.id;
+    if (!brandId) {
+      alert("브랜드 정보를 찾을 수 없습니다.");
+      return;
+    }
+    try {
+      const payload = {
+        brand_name: myBrandDetails.brand.trim(),
+        brand_logo: myBrandDetails.logoUrl,
+        brand_story: myBrandDetails.bio.trim(),
+        is_public: true,
+      };
+      await updateBrand(brandId, payload);
+      setBrandEditing(false);
+      setBrandPageReady(true);
+      setSelectedBrandKey("my-brand");
+
+      const profiles = await getBrandProfiles();
+      const normalized = profiles.map((profile) => ({
+        ...profile,
+        logoUrl: normalizeAssetUrl(profile.brand_logo || profile.logoUrl),
+        bio: profile.bio || "",
+      }));
+      setBrandProfiles(normalized);
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.message || "브랜드 저장에 실패했습니다.");
+    }
+  };
+
   const handleDeleteBrandPage = async () => {
     const brandId = myBrandId || selectedBrandProfile?.id;
     if (!brandId) {
@@ -1909,6 +1942,15 @@ function App() {
     setSelectedBrandKey(null);
     setPendingTab(null);
     setLoginDraft({ handle: "", password: "" });
+    setHasBrandPage(false);
+    setBrandPageReady(false);
+    setBrandEditing(false);
+    setBrandFollowerOverride(null);
+    setMyBrandDetails(buildEmptyBrandDetails());
+    setMyBrandId(null);
+    setBrandDeleteConfirmOpen(false);
+    setBrandCreatePromptOpen(false);
+    setUserProfile(userBase);
     setFundings((prev) =>
       prev.map((item) =>
         item.liked
@@ -2249,6 +2291,11 @@ function App() {
             bio: myProfile.bio || brandPlaceholders.bio,
             logoUrl: myProfile.logoUrl,
           }));
+        } else if (isLoggedIn && !brandEditing) {
+          setHasBrandPage(false);
+          setBrandPageReady(false);
+          setMyBrandId(null);
+          setMyBrandDetails(buildEmptyBrandDetails());
         }
       } catch (err) {
         console.error(err);
@@ -2258,7 +2305,7 @@ function App() {
     return () => {
       active = false;
     };
-  }, [brandEditing, userProfile.handle]);
+  }, [brandEditing, isLoggedIn, userProfile.handle]);
 
   useEffect(() => {
     if (!userProfile.handle) return;
@@ -4781,10 +4828,9 @@ function App() {
                             handleCreateBrand();
                             return;
                           }
-                          if (!validateBrandProfile()) return;
-                          setBrandEditing(false);
-                          setBrandPageReady(true);
-                          setSelectedBrandKey("my-brand");
+                          if (brandEditing) {
+                            handleUpdateBrand();
+                          }
                         } else {
                           setBrandEditing(true);
                         }
