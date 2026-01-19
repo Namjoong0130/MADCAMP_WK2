@@ -193,7 +193,69 @@ exports.generateDesignImage = async (clothId, userPrompt, attemptId, inputImages
 };
 
 exports.generateFittingResult = async (fittingId, basePhotoUrl, clothingList, externalClothItems = []) => {
-  // ... (existing logic)
+  // 1. Consolidate all clothing items
+  const allClothing = [];
+
+  // Add Internal Items
+  if (clothingList) {
+    clothingList.forEach(c => allClothing.push({
+      type: 'INTERNAL',
+      ...c
+    }));
+  }
+
+  // Add External Items
+  externalClothItems.forEach((c, idx) => {
+    allClothing.push({
+      type: 'EXTERNAL_FILE',
+      name: `Custom Uploaded Item ${idx + 1}`,
+      category: c.category || 'Custom',
+      order: Number(c.order) || 10,
+      url: c.url
+    });
+  });
+
+  // 2. Sort by Layer Order
+  allClothing.sort((a, b) => a.order - b.order);
+
+  // 3. Prepare Input Images & Map sourceIdx
+  const extraImages = [];
+  allClothing.forEach(item => {
+    if (item.url) {
+      extraImages.push(item.url);
+      item.sourceIdx = extraImages.length + 1;
+    }
+  });
+
+  const allInputImages = [basePhotoUrl, ...extraImages];
+
+  // 4. Build Prompt
+  let layeringText = "";
+  if (allClothing.length > 0) {
+    const sentences = allClothing.map(item => {
+      let sourceText = "";
+      if (item.url) {
+        sourceText = `referencing Input Image ${item.sourceIdx}`;
+      } else {
+        sourceText = `style: ${item.name}`;
+      }
+      return `[Layer ${item.order}] Wearing ${item.category} (${sourceText}).`;
+    });
+    layeringText = `The person is wearing the following items, strictly layered in this order: ${sentences.join(' ')}`;
+  } else {
+    layeringText = "The person is wearing the specified clothing items.";
+  }
+
+  // Additional Reference Instruction
+  let externalImagePrompt = "";
+  if (extraImages.length > 0) {
+    externalImagePrompt = ` ADDITIONAL REFERENCE: Use the additional input images (Image 2 to Image ${allInputImages.length}) as strict visual references for the specific clothing items. Map them exactly as described in the layering order.`;
+  }
+
+  const finalPrompt = `A photorealistic virtual try-on image. The goal is to dress the person from the main reference image (Image 1) with the provided clothing items. CRITICAL REQUIREMENT: The person's identity, facial features, body shape, pose, and the original background environment must be PERFECTLY PRESERVED without any alteration. Only the clothing area on the person's body should be changed. ${layeringText}.${externalImagePrompt} Ensure realistic fabric physics, natural folds, and believable shadows cast by the new clothes onto the person's body. The lighting on the clothes must match the lighting conditions of the original photo.`;
+
+  console.log(`[AI] Generating Fitting #${fittingId}`);
+
   let imageUrl = await callFalAi(finalPrompt, allInputImages);
   let buffer;
 
