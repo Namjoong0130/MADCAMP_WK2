@@ -81,11 +81,10 @@ exports.generateDesign = async (req, res, next) => {
     const { prompt } = req.body;
     let input_images = [];
 
-    // Prioritize uploaded file
-    if (req.file) {
-      // With diskStorage, req.file.filename is available
-      const webPath = `/images/uploads/${req.file.filename}`;
-      input_images = [webPath];
+    // Prioritize uploaded files
+    if (req.files && req.files.length > 0) {
+      // With diskStorage, req.files is array of file objects
+      input_images = req.files.map(file => `/images/uploads/${file.filename}`);
     } else if (req.body.input_images) {
       // Fallback to URL string/array if provided manually
       input_images = Array.isArray(req.body.input_images) ? req.body.input_images : [req.body.input_images];
