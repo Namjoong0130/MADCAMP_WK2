@@ -164,34 +164,58 @@ exports.generateDesignImage = async (clothId, userPrompt, attemptId, inputImages
 };
 
 exports.generateFittingResult = async (fittingId, basePhotoUrl, clothingList, externalClothItems = []) => {
-  // externalClothItems: [{ url, category, order }]
-
-  let layeringText = "";
+  // 1. Consolidate all clothing items
   const allClothing = [];
 
-  // 1. Convert internal clothingList to common format
+  // Add Internal Items
   if (clothingList) {
-    clothingList.forEach(c => allClothing.push({ type: 'INTERNAL', ...c }));
+    clothingList.forEach(c => allClothing.push({
+      type: 'INTERNAL',
+      ...c
+      // c has { category, order, name, url? }
+    }));
   }
 
-  // 2. Add external items
+  // Add External Items
   externalClothItems.forEach((c, idx) => {
-    // Offset image index logic: Image 1 is base, so External 1 is Image 2...
     allClothing.push({
       type: 'EXTERNAL_FILE',
-      name: `Custom Uploaded Item (Image ${idx + 2})`,
+      name: `Custom Uploaded Item ${idx + 1}`,
       category: c.category || 'Custom',
       order: Number(c.order) || 10,
-      sourceIdx: idx + 2 // Image index for prompt
+      url: c.url
     });
   });
 
-  // 3. Sort by Order
+  // 2. Sort by Layer Order
   allClothing.sort((a, b) => a.order - b.order);
 
+  // 3. Prepare Input Images & Map sourceIdx
+  // Image 1 is always Base Photo. 
+  // Subsequent images are collected from allClothing items that have a URL.
+  const extraImages = [];
+
+  allClothing.forEach(item => {
+    if (item.url) {
+      extraImages.push(item.url);
+      // Assign the index based on current length of extraImages + 1 (Base)
+      item.sourceIdx = extraImages.length + 1;
+    }
+  });
+
+  const allInputImages = [basePhotoUrl, ...extraImages];
+
+  // 4. Build Prompt
+  let layeringText = "";
   if (allClothing.length > 0) {
     const sentences = allClothing.map(item => {
-      const sourceText = item.type === 'EXTERNAL_FILE' ? `referencing Input Image ${item.sourceIdx}` : `style: ${item.name}`;
+      let sourceText = "";
+      if (item.url) {
+        sourceText = `referencing Input Image ${item.sourceIdx}`;
+      } else {
+        // Fallback for internal items without design image (text only)
+        sourceText = `style: ${item.name}`;
+      }
       return `[Layer ${item.order}] Wearing ${item.category} (${sourceText}).`;
     });
     layeringText = `The person is wearing the following items, strictly layered in this order: ${sentences.join(' ')}`;
@@ -199,19 +223,15 @@ exports.generateFittingResult = async (fittingId, basePhotoUrl, clothingList, ex
     layeringText = "The person is wearing the specified clothing items.";
   }
 
-  // Handle External Images Prompting
+  // Additional Reference Instruction
   let externalImagePrompt = "";
-  if (externalClothItems.length > 0) {
-    externalImagePrompt = ` ADDITIONAL REFERENCE: Use the additional input images (Image 2 onwards) as strict visual references for the specific clothing items. Map "Image 2" to the first custom item, "Image 3" to the second, matching the layering order description.`;
+  if (extraImages.length > 0) {
+    externalImagePrompt = ` ADDITIONAL REFERENCE: Use the additional input images (Image 2 to Image ${allInputImages.length}) as strict visual references for the specific clothing items. Map them exactly as described in the layering order.`;
   }
 
   const finalPrompt = `A photorealistic virtual try-on image. The goal is to dress the person from the main reference image (Image 1) with the provided clothing items. CRITICAL REQUIREMENT: The person's identity, facial features, body shape, pose, and the original background environment must be PERFECTLY PRESERVED without any alteration. Only the clothing area on the person's body should be changed. ${layeringText}.${externalImagePrompt} Ensure realistic fabric physics, natural folds, and believable shadows cast by the new clothes onto the person's body. The lighting on the clothes must match the lighting conditions of the original photo.`;
 
   console.log(`[AI] Generating Fitting #${fittingId}`);
-
-  // Combine inputs: Base Photo + External Cloth URLs
-  const externalUrls = externalClothItems.map(c => c.url);
-  const allInputImages = [basePhotoUrl, ...externalUrls];
 
   let imageUrl = await callFalAi(finalPrompt, allInputImages);
   let buffer;
