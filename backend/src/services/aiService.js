@@ -43,16 +43,26 @@ const removeBackground = async (inputPath) => {
   try {
     const fullPath = inputPath.startsWith('/') ? inputPath : path.join(UPLOAD_ROOT, inputPath.replace('/images/', ''));
 
-    if (!fs.existsSync(fullPath)) return null;
+    if (!fs.existsSync(fullPath)) {
+      console.warn('[AI] removeBackground file not found:', fullPath);
+      return null;
+    }
 
-    // imgly accepts file path or blob. Node env usually path or buffer. 
-    // Documentation says: removeBackground(src)
     console.log('[AI] Removing background (Local) for:', fullPath);
+    // imgly accepts file:// URL for local files in Node
     const blob = await removeBackgroundImgly(`file://${fullPath}`);
+    console.log('[AI] Imgly result blob size:', blob.size);
 
-    // Convert Blob to Buffer
     const arrayBuffer = await blob.arrayBuffer();
-    return Buffer.from(arrayBuffer);
+    const buffer = Buffer.from(arrayBuffer);
+    console.log('[AI] Final buffer length:', buffer.length);
+
+    if (buffer.length === 0) {
+      console.error('[AI] Warning: generated transparent buffer is empty.');
+      return null;
+    }
+
+    return buffer;
   } catch (error) {
     console.error('Background Removal Failed:', error.message || error);
   }
