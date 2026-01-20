@@ -36,6 +36,15 @@ const normalizeClothPayload = (payload) => {
     thumbnail_url: payload.thumbnail_url || payload.design_img_url || null,
     final_result_front_url: payload.final_result_front_url || payload.design_img_url || null,
     is_public: payload.is_public ?? true,
+
+    // Body Measurements
+    shoulderWidth: toNumber(payload.shoulderWidth, 'shoulderWidth'),
+    chestCircum: toNumber(payload.chestCircum, 'chestCircum'),
+    waistCircum: toNumber(payload.waistCircum, 'waistCircum'),
+    hipCircum: toNumber(payload.hipCircum, 'hipCircum'),
+    armLength: toNumber(payload.armLength, 'armLength'),
+    legLength: toNumber(payload.legLength, 'legLength'),
+    neckCircum: toNumber(payload.neckCircum, 'neckCircum'),
   };
 };
 

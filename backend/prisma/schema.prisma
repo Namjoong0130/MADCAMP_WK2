@@ -140,6 +140,15 @@ model Cloth {
   style                 String?
   price                 Int             @default(0)
   
+  // 신체 치수 (User와 비교용)
+  shoulderWidth         Float?
+  chestCircum           Float?
+  waistCircum           Float?
+  hipCircum             Float?
+  armLength             Float?
+  legLength             Float?
+  neckCircum            Float?
+  
   // 물리 값 (AI 피팅용)
   stretch               Int
   weight                Int
