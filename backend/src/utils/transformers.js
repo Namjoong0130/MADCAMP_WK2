@@ -118,6 +118,7 @@ const toFrontendFunding = (fund, options = {}) => ({
 
 const toFrontendComment = (comment, clothingId) => ({
   id: comment.comment_id,
+  user_id: comment.user_id,
   clothing_id: clothingId,
   user: comment.user?.userName || 'unknown',
   rating: comment.rating ?? null,

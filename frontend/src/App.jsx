@@ -1186,6 +1186,27 @@ function App() {
     }
   };
 
+  const canManageComment = useCallback(
+    (comment) => {
+      if (!isLoggedIn) return false;
+      const userIdMatch =
+        currentUserId &&
+        comment.user_id &&
+        Number(comment.user_id) === Number(currentUserId);
+      const profileName = userProfile?.name?.trim();
+      const profileHandle = normalizeHandle(userProfile?.handle || "").replace(
+        /^@/,
+        "",
+      );
+      const authorName = comment.user ? String(comment.user).trim() : "";
+      const nameMatch =
+        authorName &&
+        (authorName === profileName || authorName === profileHandle);
+      return Boolean(userIdMatch || nameMatch);
+    },
+    [currentUserId, isLoggedIn, normalizeHandle, userProfile?.handle, userProfile?.name],
+  );
+
   const detailProgress = detailItem
     ? clamp(
       Math.round(
@@ -4414,14 +4435,16 @@ function App() {
                                           comment.clothing_id ===
                                           detailItem.clothing?.id,
                                       )
-                                      .map((comment) => (
-                                        <div
-                                          key={comment.id}
-                                          className={`comment compact ${comment.parent_id && comment.is_creator
-                                            ? "reply"
-                                            : ""
-                                            }`}
-                                        >
+                                      .map((comment) => {
+                                        const canManage = canManageComment(comment);
+                                        return (
+                                          <div
+                                            key={comment.id}
+                                            className={`comment compact ${comment.parent_id && comment.is_creator
+                                              ? "reply"
+                                              : ""
+                                              }`}
+                                          >
                                           {comment.parent_id && (
                                             <span className="reply-icon" aria-hidden="true">
                                               <svg
@@ -4471,72 +4494,72 @@ function App() {
                                                 comment.created_at || new Date(),
                                               )}
                                             </span>
-                                            {currentUserId &&
-                                              comment.user_id === currentUserId && (
-                                                <>
-                                                  <button
-                                                    type="button"
-                                                    className="comment-menu-btn"
-                                                    aria-label="Comment actions"
-                                                    onClick={() =>
-                                                      setCommentMenuId((prev) =>
-                                                        prev === comment.id
-                                                          ? null
-                                                          : comment.id,
-                                                      )
-                                                    }
-                                                  >
-                                                    ...
-                                                  </button>
-                                                  {commentMenuId === comment.id && (
-                                                    <div className="comment-menu-pop">
-                                                      <button
-                                                        type="button"
-                                                        onClick={() => {
-                                                          setCommentDraft({
-                                                            rating: comment.rating,
-                                                            text: comment.text,
-                                                          });
-                                                          setEditingCommentId(comment.id);
+                                            {canManage && (
+                                              <>
+                                                <button
+                                                  type="button"
+                                                  className="comment-menu-btn"
+                                                  aria-label="Comment actions"
+                                                  onClick={() =>
+                                                    setCommentMenuId((prev) =>
+                                                      prev === comment.id
+                                                        ? null
+                                                        : comment.id,
+                                                    )
+                                                  }
+                                                >
+                                                  ...
+                                                </button>
+                                                {commentMenuId === comment.id && (
+                                                  <div className="comment-menu-pop">
+                                                    <button
+                                                      type="button"
+                                                      onClick={() => {
+                                                        setCommentDraft({
+                                                          rating: comment.rating,
+                                                          text: comment.text,
+                                                        });
+                                                        setEditingCommentId(comment.id);
+                                                        setCommentMenuId(null);
+                                                      }}
+                                                    >
+                                                      수정
+                                                    </button>
+                                                    <button
+                                                      type="button"
+                                                      onClick={async () => {
+                                                        if (!detailItem?.funding?.id) return;
+                                                        try {
+                                                          await deleteFundComment(
+                                                            detailItem.funding.id,
+                                                            comment.id,
+                                                          );
+                                                          setComments((prev) =>
+                                                            prev.filter(
+                                                              (item) =>
+                                                                item.id !== comment.id,
+                                                            ),
+                                                          );
                                                           setCommentMenuId(null);
-                                                        }}
-                                                      >
-                                                        수정
-                                                      </button>
-                                                      <button
-                                                        type="button"
-                                                        onClick={async () => {
-                                                          if (!detailItem?.funding?.id) return;
-                                                          try {
-                                                            await deleteFundComment(
-                                                              detailItem.funding.id,
-                                                              comment.id,
-                                                            );
-                                                            setComments((prev) =>
-                                                              prev.filter(
-                                                                (item) =>
-                                                                  item.id !== comment.id,
-                                                              ),
-                                                            );
-                                                            setCommentMenuId(null);
-                                                          } catch (err) {
-                                                            console.error("Comment delete failed", err);
-                                                            alert(
-                                                              err.response?.data?.message ||
-                                                              "댓글 삭제에 실패했습니다.",
-                                                            );
-                                                          }
-                                                        }}
-                                                      >
-                                                        삭제
-                                                      </button>
-                                                    </div>
-                                                  )}
-                                                </>
-                                              )}
+                                                        } catch (err) {
+                                                          console.error("Comment delete failed", err);
+                                                          alert(
+                                                            err.response?.data?.message ||
+                                                            "댓글 삭제에 실패했습니다.",
+                                                          );
+                                                        }
+                                                      }}
+                                                    >
+                                                      삭제
+                                                    </button>
+                                                  </div>
+                                                )}
+                                              </>
+                                            )}
                                           </div>
-                                        </div>
-                                      ))
+                                          </div>
+                                        );
+                                      })
                                   )}
                                 </div>
                                 <div className="comment-form compact feedback-input-container">

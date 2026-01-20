@@ -302,6 +302,64 @@ exports.listComments = async (fundId) => {
   return comments.map((comment) => toFrontendComment(comment, fund.clothing_id));
 };
 
+exports.updateComment = async (userId, fundId, commentId, payload) => {
+  requireFields(payload, ['content']);
+
+  const existing = await prisma.comment.findUnique({
+    where: { comment_id: commentId },
+    include: {
+      fund: { select: { clothing_id: true } },
+      user: { select: { user_id: true, userName: true, profile_img_url: true } },
+    },
+  });
+
+  if (!existing || existing.deleted_at) {
+    throw createError(404, '?“ê???? ì°¾ì„ ???†ìŠµ?ˆë‹¤.');
+  }
+  if (existing.funding_id !== fundId) {
+    throw createError(404, '?“ê???? ì°¾ì„ ???†ìŠµ?ˆë‹¤.');
+  }
+  if (existing.user_id !== userId) {
+    throw createError(403, '?˜ì • ê¶Œí•œ???†ìŠµ?ˆë‹¤.');
+  }
+
+  const updated = await prisma.comment.update({
+    where: { comment_id: commentId },
+    data: {
+      content: payload.content,
+      rating: payload.rating ?? existing.rating,
+    },
+    include: {
+      user: { select: { user_id: true, userName: true, profile_img_url: true } },
+    },
+  });
+
+  return toFrontendComment(updated, existing.fund?.clothing_id);
+};
+
+exports.deleteComment = async (userId, fundId, commentId) => {
+  const existing = await prisma.comment.findUnique({
+    where: { comment_id: commentId },
+  });
+
+  if (!existing || existing.deleted_at) {
+    throw createError(404, '?“ê???? ì°¾ì„ ???†ìŠµ?ˆë‹¤.');
+  }
+  if (existing.funding_id !== fundId) {
+    throw createError(404, '?“ê???? ì°¾ì„ ???†ìŠµ?ˆë‹¤.');
+  }
+  if (existing.user_id !== userId) {
+    throw createError(403, '?˜ì • ê¶Œí•œ???†ìŠµ?ˆë‹¤.');
+  }
+
+  await prisma.comment.update({
+    where: { comment_id: commentId },
+    data: { deleted_at: new Date() },
+  });
+
+  return { deleted: true };
+};
+
 exports.updateProductionNote = async (userId, fundId, payload) => {
   requireFields(payload, ['production_note']);
 
