@@ -17,7 +17,7 @@ const uploadRoutes = require('./uploadRoutes'); // Added
 router.use('/auth', authRoutes);
 router.use('/users', userRoutes);
 router.use('/brands', brandRoutes);
-router.use('/cloths', clothRoutes);
+router.use('/clothes', clothRoutes);
 router.use('/fittings', fittingRoutes);
 router.use('/funds', fundRoutes);
 router.use('/notifications', notificationRoutes);
