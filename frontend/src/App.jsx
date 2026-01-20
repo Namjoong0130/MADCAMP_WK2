@@ -193,11 +193,6 @@ function App() {
   const [designScale, setDesignScale] = useState(0.8); // Initial scale
   const isDraggingDesign = useRef(false);
 
-  // Input Preview Zoom States
-  const [frontInputScale, setFrontInputScale] = useState(1.0);
-  const [backInputScale, setBackInputScale] = useState(1.0);
-  const activeInputDrag = useRef(null); // 'front' or 'back' or null
-
   const lastMouseY = useRef(0);
 
   const frontPhotoInputRef = useRef(null);
