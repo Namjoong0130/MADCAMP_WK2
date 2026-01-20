@@ -21,7 +21,11 @@ import {
   uploadBrandLogo,
   getClothes,
   getFundingFeed,
-  toggleLike
+  toggleLike,
+  getFundComments,
+  createFundComment,
+  updateFundComment,
+  deleteFundComment
 } from "./api/services";
 import Tshirt from "./Tshirt";
 import {
@@ -1124,35 +1128,62 @@ function App() {
     { id: "pro", label: "Pro 30", amount: 30, price: 8900 },
   ];
 
-  const submitComment = () => {
+  const replaceCommentsForClothing = useCallback((clothingId, nextComments) => {
+    setComments((prev) => {
+      const keep = prev.filter((comment) => comment.clothing_id !== clothingId);
+      return [...nextComments, ...keep];
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!detailItem?.funding?.id || !detailItem?.clothing?.id) return;
+    let active = true;
+    (async () => {
+      try {
+        const data = await getFundComments(detailItem.funding.id);
+        if (!active) return;
+        replaceCommentsForClothing(detailItem.clothing.id, data);
+      } catch (err) {
+        console.error("Failed to fetch comments", err);
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [detailItem?.funding?.id, detailItem?.clothing?.id, replaceCommentsForClothing]);
+
+  const submitComment = async () => {
     const trimmed = commentDraft.text.trim();
-    if (!detailItem?.clothing?.id || !trimmed) return;
-    if (editingCommentId) {
-      setComments((prev) =>
-        prev.map((item) =>
-          item.id === editingCommentId
-            ? { ...item, rating: commentDraft.rating, text: trimmed }
-            : item,
-        ),
-      );
-    } else {
-      const nextId = Math.max(0, ...comments.map((item) => item.id)) + 1;
-      setComments((prev) => [
-        {
-          id: nextId,
-          clothing_id: detailItem.clothing.id,
-          user: "test.user",
-          rating: commentDraft.rating,
-          text: trimmed,
-          created_at: formatDate(new Date()),
-          parent_id: null,
-          is_creator: false,
-        },
-        ...prev,
-      ]);
+    if (!detailItem?.funding?.id || !detailItem?.clothing?.id || !trimmed) return;
+    if (!isLoggedIn) {
+      openAuthModal("login-required");
+      return;
     }
-    setCommentDraft((prev) => ({ ...prev, text: "" }));
-    setEditingCommentId(null);
+
+    try {
+      if (editingCommentId) {
+        const updated = await updateFundComment(detailItem.funding.id, editingCommentId, {
+          content: trimmed,
+          rating: commentDraft.rating,
+        });
+        setComments((prev) =>
+          prev.map((item) => (item.id === editingCommentId ? updated : item)),
+        );
+      } else {
+        const created = await createFundComment(detailItem.funding.id, {
+          content: trimmed,
+          rating: commentDraft.rating,
+          parent_id: null,
+        });
+        setComments((prev) => [created, ...prev]);
+      }
+      setCommentDraft({ rating: 5, text: "" });
+      setEditingCommentId(null);
+    } catch (err) {
+      console.error("Comment submit failed", err);
+      alert(err.response?.data?.message || "댓글 등록에 실패했습니다.");
+    }
   };
 
   const detailProgress = detailItem
@@ -4425,12 +4456,11 @@ function App() {
                                             <div className="comment-meta">
                                               <div className="comment-user">
                                                 <strong>{comment.user}</strong>
-                                                {comment.parent_id &&
-                                                  comment.is_creator && (
-                                                    <span className="creator-badge">
-                                                      창작자
-                                                    </span>
-                                                  )}
+                                                {comment.is_creator && (
+                                                  <span className="creator-badge">
+                                                    창작자
+                                                  </span>
+                                                )}
                                               </div>
                                             </div>
                                             <span>{comment.text}</span>
@@ -4441,51 +4471,69 @@ function App() {
                                                 comment.created_at || new Date(),
                                               )}
                                             </span>
-                                            <button
-                                              type="button"
-                                              className="comment-menu-btn"
-                                              aria-label="Comment actions"
-                                              onClick={() =>
-                                                setCommentMenuId((prev) =>
-                                                  prev === comment.id
-                                                    ? null
-                                                    : comment.id,
-                                                )
-                                              }
-                                            >
-                                              ...
-                                            </button>
-                                            {commentMenuId === comment.id && (
-                                              <div className="comment-menu-pop">
-                                                <button
-                                                  type="button"
-                                                  onClick={() => {
-                                                    setCommentDraft({
-                                                      rating: comment.rating,
-                                                      text: comment.text,
-                                                    });
-                                                    setEditingCommentId(comment.id);
-                                                    setCommentMenuId(null);
-                                                  }}
-                                                >
-                                                  수정
-                                                </button>
-                                                <button
-                                                  type="button"
-                                                  onClick={() => {
-                                                    setComments((prev) =>
-                                                      prev.filter(
-                                                        (item) =>
-                                                          item.id !== comment.id,
-                                                      ),
-                                                    );
-                                                    setCommentMenuId(null);
-                                                  }}
-                                                >
-                                                  삭제
-                                                </button>
-                                              </div>
-                                            )}
+                                            {currentUserId &&
+                                              comment.user_id === currentUserId && (
+                                                <>
+                                                  <button
+                                                    type="button"
+                                                    className="comment-menu-btn"
+                                                    aria-label="Comment actions"
+                                                    onClick={() =>
+                                                      setCommentMenuId((prev) =>
+                                                        prev === comment.id
+                                                          ? null
+                                                          : comment.id,
+                                                      )
+                                                    }
+                                                  >
+                                                    ...
+                                                  </button>
+                                                  {commentMenuId === comment.id && (
+                                                    <div className="comment-menu-pop">
+                                                      <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                          setCommentDraft({
+                                                            rating: comment.rating,
+                                                            text: comment.text,
+                                                          });
+                                                          setEditingCommentId(comment.id);
+                                                          setCommentMenuId(null);
+                                                        }}
+                                                      >
+                                                        수정
+                                                      </button>
+                                                      <button
+                                                        type="button"
+                                                        onClick={async () => {
+                                                          if (!detailItem?.funding?.id) return;
+                                                          try {
+                                                            await deleteFundComment(
+                                                              detailItem.funding.id,
+                                                              comment.id,
+                                                            );
+                                                            setComments((prev) =>
+                                                              prev.filter(
+                                                                (item) =>
+                                                                  item.id !== comment.id,
+                                                              ),
+                                                            );
+                                                            setCommentMenuId(null);
+                                                          } catch (err) {
+                                                            console.error("Comment delete failed", err);
+                                                            alert(
+                                                              err.response?.data?.message ||
+                                                              "댓글 삭제에 실패했습니다.",
+                                                            );
+                                                          }
+                                                        }}
+                                                      >
+                                                        삭제
+                                                      </button>
+                                                    </div>
+                                                  )}
+                                                </>
+                                              )}
                                           </div>
                                         </div>
                                       ))

@@ -68,3 +68,24 @@ export const toggleLike = async (fundId) => {
     const response = await axios.post(`/api/funds/${fundId}/like`);
     return response.data.data;
 };
+
+// Comments
+export const getFundComments = async (fundId) => {
+    const response = await axios.get(`/api/funds/${fundId}/comments`);
+    return response.data.data;
+};
+
+export const createFundComment = async (fundId, payload) => {
+    const response = await axios.post(`/api/funds/${fundId}/comments`, payload);
+    return response.data.data;
+};
+
+export const updateFundComment = async (fundId, commentId, payload) => {
+    const response = await axios.patch(`/api/funds/${fundId}/comments/${commentId}`, payload);
+    return response.data.data;
+};
+
+export const deleteFundComment = async (fundId, commentId) => {
+    const response = await axios.delete(`/api/funds/${fundId}/comments/${commentId}`);
+    return response.data.data;
+};
