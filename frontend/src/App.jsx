@@ -2970,30 +2970,7 @@ function App() {
   if (onboardingOpen) {
     return (
       <div className="onboarding-page">
-        <div className="onboarding-actions">
-          <button
-            type="button"
-            className="onboarding-back"
-            onClick={() => {
-              setOnboardingOpen(false);
-              setIntroOpen(true);
-              resetOnboarding();
-            }}
-          >
-            돌아가기
-          </button>
-          <button
-            type="button"
-            className="onboarding-login"
-            onClick={() => {
-              setOnboardingOpen(false);
-              setIntroOpen(false);
-              openAuthModal("login-required");
-            }}
-          >
-            로그인
-          </button>
-        </div>
+
         <video
           className="onboarding-video"
           src="/background.mp4"
@@ -3020,7 +2997,18 @@ function App() {
                 <div className="onboarding-section-inner compact">
                   <span className="onboarding-step">Step 1</span>
                   <div className="onboarding-panel">
-                    <h3>기본 정보</h3>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <h3>기본 정보</h3>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOnboardingOpen(false);
+                          setIntroOpen(true);
+                          resetOnboarding();
+                        }}
+                        style={{ background: 'none', border: 'none', fontSize: '24px', color: '#999', cursor: 'pointer', padding: 0 }}
+                      >×</button>
+                    </div>
                     <div className="onboarding-grid">
                       <div className="profile-photo-upload">
                         <input
@@ -6239,107 +6227,86 @@ function App() {
             justifyContent: 'center',
             zIndex: 10001,
           }}>
-            <div className="onboarding-panel" style={{
-              margin: 0,
-              maxWidth: '400px',
-              width: '90%',
-              padding: '40px',
-              display: 'flex',
-              flexDirection: 'column',
-              background: 'white',
-              borderRadius: '16px',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <h3 style={{ fontSize: '24px', color: '#111', margin: 0 }}>로그인</h3>
-                <button
-                  type="button"
-                  onClick={closeLoginModal}
-                  style={{ background: 'none', border: 'none', fontSize: '24px', color: '#999', cursor: 'pointer', padding: 0 }}
-                >×</button>
-              </div>
-              <p style={{ color: '#666', marginBottom: '32px' }}>Modif에 오신 것을 환영합니다.</p>
+            <section className="onboarding-section is-visible" style={{ minHeight: 'auto', padding: 0 }}>
+              <div className="onboarding-section-inner" style={{ maxWidth: '400px', margin: '0 auto' }}>
+                <div className="onboarding-panel">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <h3 style={{ fontSize: '24px', color: '#111', margin: 0 }}>로그인</h3>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLoginModalOpen(false);
+                        setIntroOpen(true);
+                      }}
+                      style={{ background: 'none', border: 'none', fontSize: '24px', color: '#999', cursor: 'pointer', padding: 0 }}
+                    >×</button>
+                  </div>
+                  <p style={{ color: '#666', marginBottom: '32px' }}>Modif에 오신 것을 환영합니다.</p>
 
-              <div className="auth-modal-form" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', color: '#333', fontSize: '14px', fontWeight: '500' }}>
-                  이메일
-                  <input
-                    style={{
-                      width: '100%',
-                      padding: '12px',
-                      background: '#f9f9f9',
-                      border: '1px solid #e0e0e0',
-                      color: '#333',
-                      borderRadius: '8px',
-                      fontSize: '16px'
-                    }}
-                    value={loginDraft.handle}
-                    onChange={(event) =>
-                      setLoginDraft((prev) => ({
-                        ...prev,
-                        handle: event.target.value,
-                      }))
-                    }
-                    placeholder="name@example.com"
-                  />
-                </label>
-                <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', color: '#333', fontSize: '14px', fontWeight: '500' }}>
-                  비밀번호
-                  <input
-                    type="password"
-                    style={{
-                      width: '100%',
-                      padding: '12px',
-                      background: '#f9f9f9',
-                      border: '1px solid #e0e0e0',
-                      color: '#333',
-                      borderRadius: '8px',
-                      fontSize: '16px'
-                    }}
-                    value={loginDraft.password}
-                    onChange={(event) =>
-                      setLoginDraft((prev) => ({
-                        ...prev,
-                        password: event.target.value,
-                      }))
-                    }
-                    placeholder="비밀번호 입력"
-                  />
-                </label>
+                  <div className="auth-modal-form">
+                    <label className="onboarding-field">
+                      이메일
+                      <input
+                        value={loginDraft.handle}
+                        onChange={(event) =>
+                          setLoginDraft((prev) => ({
+                            ...prev,
+                            handle: event.target.value,
+                          }))
+                        }
+                        placeholder="name@example.com"
+                      />
+                    </label>
+                    <label className="onboarding-field">
+                      비밀번호
+                      <input
+                        type="password"
+                        value={loginDraft.password}
+                        onChange={(event) =>
+                          setLoginDraft((prev) => ({
+                            ...prev,
+                            password: event.target.value,
+                          }))
+                        }
+                        placeholder="비밀번호 입력"
+                      />
+                    </label>
 
-                <button
-                  className="primary"
-                  onClick={submitLogin}
-                  style={{ marginTop: '12px', width: '100%', height: '54px', fontSize: '16px', borderRadius: '8px' }}
-                >
-                  로그인
-                </button>
+                    <button
+                      className="primary"
+                      onClick={submitLogin}
+                      style={{ marginTop: '12px', width: '100%', height: '54px', fontSize: '16px', borderRadius: '8px' }}
+                    >
+                      로그인
+                    </button>
 
-                <div style={{ marginTop: '16px', textAlign: 'center', fontSize: '14px', color: '#666' }}>
-                  계정이 없으신가요?{" "}
-                  <button
-                    type="button"
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: '#111',
-                      fontWeight: '600',
-                      textDecoration: 'underline',
-                      cursor: 'pointer',
-                      padding: 0,
-                      fontFamily: 'inherit'
-                    }}
-                    onClick={() => {
-                      setLoginModalOpen(false);
-                      resetOnboarding();
-                      setOnboardingOpen(true);
-                    }}
-                  >
-                    회원가입하기
-                  </button>
+                    <div style={{ marginTop: '16px', textAlign: 'center', fontSize: '14px', color: '#666' }}>
+                      계정이 없으신가요?{" "}
+                      <button
+                        type="button"
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: '#111',
+                          fontWeight: '600',
+                          textDecoration: 'underline',
+                          cursor: 'pointer',
+                          padding: 0,
+                          fontFamily: 'inherit'
+                        }}
+                        onClick={() => {
+                          setLoginModalOpen(false);
+                          resetOnboarding();
+                          setOnboardingOpen(true);
+                        }}
+                      >
+                        회원가입하기
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
+            </section>
           </div>
         </div>
       )}
