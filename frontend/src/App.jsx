@@ -204,7 +204,7 @@ function App() {
   const [myBrandDetails, setMyBrandDetails] = useState(() =>
     buildDefaultBrandDetails(brand.name),
   );
-  const [introOpen, setIntroOpen] = useState(false);
+  const [introOpen, setIntroOpen] = useState(true);
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState(0);
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
@@ -1334,11 +1334,23 @@ function App() {
         brand_story: myBrandDetails.bio.trim(),
         is_public: true,
       };
+      console.log("Updating brand...", brandId, payload);
       await updateBrand(brandId, payload);
+
+      // Update local state to reflect changes immediately without waiting for fetch
+      setMyBrandDetails(prev => ({
+        ...prev,
+        brand: payload.brand_name,
+        logoUrl: payload.brand_logo,
+        bio: payload.brand_story
+      }));
+
       setBrandEditing(false);
       setBrandPageReady(true);
+      setHasBrandPage(true); // Ensure this is true
       setSelectedBrandKey("my-brand");
 
+      // Refetch in background
       const profiles = await getBrandProfiles();
       const normalized = profiles.map((profile) => ({
         ...profile,
@@ -1346,9 +1358,17 @@ function App() {
         bio: profile.bio || "",
       }));
       setBrandProfiles(normalized);
+      alert("브랜드 정보가 수정되었습니다.");
     } catch (err) {
-      console.error(err);
-      alert(err.response?.data?.message || "브랜드 저장에 실패했습니다.");
+      console.error("Brand Update Error:", err);
+      let msg = "브랜드 저장에 실패했습니다.";
+      if (err.response) {
+        msg += `\nStatus: ${err.response.status}`;
+        msg += `\nMessage: ${err.response.data?.message || JSON.stringify(err.response.data)}`;
+      } else {
+        msg += `\nError: ${err.message}`;
+      }
+      alert(msg);
     }
   };
 
@@ -2147,8 +2167,10 @@ function App() {
 
   const startOnboarding = () => {
     setIntroOpen(false);
-    resetOnboarding();
-    setOnboardingOpen(true);
+    if (!isLoggedIn) {
+      resetOnboarding();
+      setOnboardingOpen(true);
+    }
   };
 
   const openLoginFlow = () => {
@@ -2611,7 +2633,7 @@ function App() {
     return () => {
       active = false;
     };
-  }, [applyUserProfile, isLoggedIn]);
+  }, [applyUserProfile, isLoggedIn, currentUserId]);
 
   useEffect(() => {
     let active = true;
@@ -2805,15 +2827,42 @@ function App() {
       openAuthModal("login-required");
       return;
     }
+
+    // Direct lookup for robustness with Type Safety
+    // backend sends numbers, but ensure we compare safely
+    const directProfile = brandProfiles.find(p => Number(p.owner_id) === Number(currentUserId));
+    const brandExists = !!directProfile || hasBrandPage || (myBrandId !== null && myBrandId !== "my-brand");
+
     setSelectedBrandKey("my-brand");
     setActiveTab("brand");
     setDetailItem(null);
-    if (!hasBrandPage) {
+
+    if (brandExists) {
+      // Brand exists -> Show brand profile
+      const profile = directProfile || myBrandProfile;
+
+      // Sync state if needed
+      if (directProfile && myBrandId !== directProfile.id) {
+        setMyBrandId(directProfile.id);
+        setHasBrandPage(true);
+        setBrandPageReady(true);
+        setMyBrandDetails(prev => ({
+          ...prev,
+          brand: directProfile.brand,
+          logoUrl: directProfile.logoUrl,
+          bio: directProfile.bio
+        }));
+      }
+
+      if (profile) {
+        openBrandProfile(profile);
+      }
+      setBrandCreatePromptOpen(false);
+    } else {
+      // Brand does not exist -> Show Create Prompt
       setBrandCreatePromptOpen(true);
       setBrandEditing(false);
-      return;
     }
-    openBrandProfile(myBrandProfile);
   };
 
   const openBrandProfile = (profile) => {
@@ -5506,7 +5555,7 @@ function App() {
                       {!brandPageReady ? (
                         "생성"
                       ) : brandEditing ? (
-                        "저장"
+                        "수정"
                       ) : (
                         <Pencil size={16} strokeWidth={1.6} />
                       )}
@@ -6137,8 +6186,8 @@ function App() {
               {savedDesignTab === "design"
                 ? tempDesigns.length === 0
                 : generatedDesigns.length === 0 ? (
-                <p className="empty">아직 생성된 디자인이 없습니다.</p>
-              ) : null}
+                  <p className="empty">아직 생성된 디자인이 없습니다.</p>
+                ) : null}
               {(savedDesignTab === "design" ? tempDesigns : generatedDesigns)
                 .slice(0, 10)
                 .map((item, index) => (
