@@ -123,6 +123,30 @@
   object-fit: contain;
 }
 
+.detail-media-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  background: rgba(255, 255, 255, 0.9);
+  color: #111111;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.detail-media-nav.prev {
+  left: 16px;
+}
+
+.detail-media-nav.next {
+  right: 16px;
+}
+
 .floating-tryon {
   position: absolute;
   right: 20px;

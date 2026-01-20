@@ -109,6 +109,7 @@ function App() {
   const [comments, setComments] = useState(initialComments);
   const [detailItem, setDetailItem] = useState(null);
   const [detailTab, setDetailTab] = useState("overview");
+  const [detailImageIndex, setDetailImageIndex] = useState(0);
   const [darkMode, setDarkMode] = useState(false);
   const [prompt, setPrompt] = useState("");
   const [fabric, setFabric] = useState({ stretch: 5, weight: 5, stiffness: 5 });
@@ -125,7 +126,9 @@ function App() {
   const [isComposing, setIsComposing] = useState(false);
   const [fittingView, setFittingView] = useState("3d");
   const [fittingZoom, setFittingZoom] = useState(0.9);
-  const [fittingRealBaseUrl, setFittingRealBaseUrl] = useState("/image7.png");
+  const [fittingRealBaseUrl, setFittingRealBaseUrl] = useState(
+    userBase.base_photo_url || "/image7.png",
+  );
   const [userProfile, setUserProfile] = useState(userBase);
   const [brands, setBrands] = useState(initialBrands);
   const [notificationOpen, setNotificationOpen] = useState(false);
@@ -254,6 +257,9 @@ function App() {
   const [designTool, setDesignTool] = useState("brush");
   const [designColor, setDesignColor] = useState("#111111");
   const [designSize, setDesignSize] = useState(6);
+  const [sizeRange, setSizeRange] = useState([2, 5]);
+  const [sizeDetailSelected, setSizeDetailSelected] = useState("M");
+  const [sizeDetailInputs, setSizeDetailInputs] = useState({});
   const [showClearBubble, setShowClearBubble] = useState(false);
   const [studioSide, setStudioSide] = useState("front");
   const [studioSideImages, setStudioSideImages] = useState({
@@ -264,9 +270,15 @@ function App() {
   const [tempDesigns, setTempDesigns] = useState([]);
   const [profilePhotoMode, setProfilePhotoMode] = useState("profile");
   const designCanvasRef = useRef(null);
+  const frontCanvasRef = useRef(null);
+  const backCanvasRef = useRef(null);
+  const activeCanvasSideRef = useRef("front");
   const canvasPopupRef = useRef(null);
   const drawMetaRef = useRef({ moved: false });
+  const slideTimerRef = useRef(null);
   const [fittingHistory, setFittingHistory] = useState(initialFittingHistory);
+  const [hoveredCardId, setHoveredCardId] = useState(null);
+  const [slideIndexMap, setSlideIndexMap] = useState({});
 
   const fundingsFeed = useMemo(() => {
     return [...fundings]
@@ -356,6 +368,116 @@ function App() {
     }),
     [],
   );
+  const sizeLabels = useMemo(
+    () => ["XS", "S", "M", "L", "XL", "2XL", "3XL"],
+    [],
+  );
+  const sizeDetailFields = useMemo(() => {
+    const base = {
+      neckCircum: "목둘레",
+      shoulderWidth: "어깨너비",
+      chestCircum: "가슴둘레",
+      armLength: "팔길이",
+      waistCircum: "허리둘레",
+      hipCircum: "엉덩이 둘레",
+      legLength: "다리길이",
+    };
+    if (designCategory === "상의") {
+      return ["neckCircum", "shoulderWidth", "chestCircum", "armLength"].map(
+        (key) => ({ key, label: base[key] }),
+      );
+    }
+    if (designCategory === "하의") {
+      return ["waistCircum", "hipCircum", "legLength"].map((key) => ({
+        key,
+        label: base[key],
+      }));
+    }
+    if (designCategory === "원피스") {
+      return [
+        "neckCircum",
+        "shoulderWidth",
+        "chestCircum",
+        "armLength",
+        "waistCircum",
+        "hipCircum",
+        "legLength",
+      ].map((key) => ({ key, label: base[key] }));
+    }
+    if (designCategory === "아우터") {
+      const needsFull = ["하프", "롱"].includes(designLength);
+      const fields = needsFull
+        ? [
+          "neckCircum",
+          "shoulderWidth",
+          "chestCircum",
+          "armLength",
+          "waistCircum",
+          "hipCircum",
+          "legLength",
+        ]
+        : ["neckCircum", "shoulderWidth", "chestCircum", "armLength"];
+      return fields.map((key) => ({ key, label: base[key] }));
+    }
+    return [];
+  }, [designCategory, designLength]);
+  const sizeRangeLabels = useMemo(() => {
+    const min = Math.min(sizeRange[0], sizeRange[1]);
+    const max = Math.max(sizeRange[0], sizeRange[1]);
+    return sizeLabels.slice(min, max + 1);
+  }, [sizeLabels, sizeRange]);
+  const activeSizeKey = useMemo(() => {
+    if (sizeRangeLabels.length === 0) return "M";
+    return sizeRangeLabels.includes(sizeDetailSelected)
+      ? sizeDetailSelected
+      : sizeRangeLabels[0];
+  }, [sizeRangeLabels, sizeDetailSelected]);
+  const sizeRangeStyle = useMemo(() => {
+    const maxIndex = Math.max(1, sizeLabels.length - 1);
+    const min = Math.min(sizeRange[0], sizeRange[1]);
+    const max = Math.max(sizeRange[0], sizeRange[1]);
+    const minPct = (min / maxIndex) * 100;
+    const maxPct = (max / maxIndex) * 100;
+    return {
+      background: `linear-gradient(90deg, #d9d9d9 ${minPct}%, #111111 ${minPct}%, #111111 ${maxPct}%, #d9d9d9 ${maxPct}%)`,
+    };
+  }, [sizeLabels.length, sizeRange]);
+  const fabricFields = useMemo(
+    () => [
+      { key: "stretch", label: "신축성" },
+      { key: "weight", label: "두께감" },
+      { key: "stiffness", label: "탄탄함" },
+    ],
+    [],
+  );
+
+  const getClothImages = useCallback((cloth) => {
+    if (!cloth) return [];
+    const candidates = [
+      cloth.design_img_url,
+      cloth.final_result_front_url,
+      cloth.final_result_back_url,
+      cloth.thumbnail_url,
+    ];
+    if (Array.isArray(cloth.input_images)) {
+      candidates.push(...cloth.input_images);
+    }
+    if (Array.isArray(cloth.images)) {
+      candidates.push(...cloth.images);
+    }
+    if (typeof cloth.ai_result_url === "string") {
+      candidates.push(cloth.ai_result_url);
+    } else if (Array.isArray(cloth.ai_result_url)) {
+      candidates.push(...cloth.ai_result_url);
+    }
+    const unique = [];
+    candidates.forEach((url) => {
+      if (!url) return;
+      if (unique.includes(url)) return;
+      unique.push(url);
+    });
+    return unique;
+  }, []);
 
   const formatTimestamp = (date) => {
     const hours = String(date.getHours()).padStart(2, "0");
@@ -718,7 +840,25 @@ function App() {
     setSelectedBrandKey("my-brand");
   };
 
+  const latestDesignPreview = useMemo(
+    () => generatedDesigns[0] || tempDesigns[0] || null,
+    [generatedDesigns, tempDesigns],
+  );
+  const openUploadPreview = () => {
+    if (!latestDesignPreview) {
+      alert("먼저 디자인을 생성하세요.");
+      return;
+    }
+    setAiDesignModal({ open: true, design: latestDesignPreview });
+    setDetailTab("overview");
+    setAiDesignEditMode(false);
+  };
+
   const handleTryOn = (clothingId) => {
+    if (!isLoggedIn) {
+      alert("로그인이 필요합니다.");
+      return;
+    }
     setActiveTab("fitting");
     setFocusClothingId(clothingId);
     setFittingLayers((prev) =>
@@ -1273,11 +1413,7 @@ function App() {
     window.addEventListener("mouseup", stop);
   };
 
-  const openCanvasZoom = () => {
-    if (designPhoto?.url) {
-      setImagePreview(designPhoto.url);
-      return;
-    }
+  const openCanvasZoom = (side = studioSide) => {
     if (canvasPopupRef.current && !canvasPopupRef.current.closed) {
       canvasPopupRef.current.focus();
       return;
@@ -1293,8 +1429,9 @@ function App() {
     canvasPopupRef.current = popup;
     popup.moveTo(0, 0);
     popup.resizeTo(width, height);
+    activeCanvasSideRef.current = side;
     const source = designCanvasRef.current;
-    const dataUrl = source ? source.toDataURL("image/png") : "";
+    const dataUrl = studioSideImages[side] || (source ? source.toDataURL("image/png") : "");
     const payload = {
       dataUrl,
       color: designColor,
@@ -1827,6 +1964,32 @@ function App() {
     popup.document.close();
   };
 
+  const openCanvasForSide = (side) => {
+    setStudioSide(side);
+    openCanvasZoom(side);
+  };
+
+  const drawPreviewCanvas = useCallback((canvas, dataUrl) => {
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (!dataUrl) return;
+    const image = new Image();
+    image.onload = () => {
+      const scale = Math.min(
+        canvas.width / image.width,
+        canvas.height / image.height,
+      );
+      const drawWidth = image.width * scale;
+      const drawHeight = image.height * scale;
+      const offsetX = (canvas.width - drawWidth) / 2;
+      const offsetY = (canvas.height - drawHeight) / 2;
+      ctx.drawImage(image, offsetX, offsetY, drawWidth, drawHeight);
+    };
+    image.src = dataUrl;
+  }, []);
+
   const saveTempDesign = (name) => {
     const totalDesignCount = generatedDesigns.length + tempDesigns.length;
     if (totalDesignCount >= 10) {
@@ -1836,8 +1999,9 @@ function App() {
       return;
     }
     const canvas = designCanvasRef.current;
-    if (!canvas) return;
-    const dataUrl = canvas.toDataURL("image/png");
+    const dataUrl = studioSideImages[studioSide] ||
+      (canvas ? canvas.toDataURL("image/png") : "");
+    if (!dataUrl) return;
     const nextId = `temp-${Date.now()}`;
     setTempDesigns((prev) => [
       {
@@ -1860,7 +2024,24 @@ function App() {
     setGeneratedDesigns((prev) => prev.filter((item) => item.id !== designId));
   };
 
+  const removeBrandDesign = (clothingId) => {
+    if (!clothingId) return;
+    setFundings((prev) =>
+      prev.filter(
+        (entry) =>
+          entry.clothing_id !== clothingId ||
+          entry.brand !== myBrandDetails.brand,
+      ),
+    );
+    setClothing((prev) => prev.filter((item) => item.id !== clothingId));
+    setGeneratedDesigns((prev) => prev.filter((item) => item.id !== clothingId));
+    setDetailItem((current) =>
+      current?.clothing?.id === clothingId ? null : current,
+    );
+  };
+
   const clearDesignCanvas = () => {
+    setStudioSideImages({ front: null, back: null });
     const canvas = designCanvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
@@ -2200,7 +2381,45 @@ function App() {
     );
   };
 
+  const validateSignupRequired = () => {
+    if (!signupDraft.base_photo_url) {
+      alert("전신 사진을 업로드해주세요.");
+      return false;
+    }
+    if (!signupDraft.handle.trim()) {
+      alert("이메일을 입력해주세요.");
+      return false;
+    }
+    if (!signupDraft.name.trim()) {
+      alert("실명을 입력해주세요.");
+      return false;
+    }
+    if (!passwordReady) {
+      alert("비밀번호를 확인해주세요.");
+      return false;
+    }
+    if (measurementMode === "ai") {
+      if (!aiFileName) {
+        alert("전신 사진을 업로드해 신체 수치를 측정해주세요.");
+        return false;
+      }
+    } else if (
+      !signupMeasurementFields.every(
+        (field) => Number(signupDraft.measurements[field.key]) > 0,
+      )
+    ) {
+      alert("신체 수치를 모두 입력해주세요.");
+      return false;
+    }
+    if (selectedStyleIds.length < requiredStyleCount) {
+      alert(`취향을 최소 ${requiredStyleCount}개 이상 선택해주세요.`);
+      return false;
+    }
+    return true;
+  };
+
   const finalizeOnboarding = async () => {
+    if (!validateSignupRequired()) return;
     try {
       const email = signupDraft.handle;
       const password = signupDraft.password;
@@ -2364,21 +2583,45 @@ function App() {
       if (!payload || typeof payload !== "object") return;
       if (payload.type !== "modif-canvas-save") return;
       if (!payload.dataUrl) return;
-      const target = designCanvasRef.current;
-      if (!target) return;
-      const ctx = target.getContext("2d");
-      if (!ctx) return;
-      const image = new Image();
-      image.onload = () => {
-        ctx.clearRect(0, 0, target.width, target.height);
-        ctx.drawImage(image, 0, 0, target.width, target.height);
-      };
-      image.src = payload.dataUrl;
+      const side = activeCanvasSideRef.current || "front";
+      setStudioSideImages((prev) => ({ ...prev, [side]: payload.dataUrl }));
     };
 
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
   }, []);
+
+  useEffect(() => {
+    drawPreviewCanvas(frontCanvasRef.current, studioSideImages.front);
+    drawPreviewCanvas(backCanvasRef.current, studioSideImages.back);
+  }, [drawPreviewCanvas, studioSideImages]);
+
+  useEffect(() => {
+    setDetailImageIndex(0);
+  }, [detailItem?.clothing?.id]);
+
+  useEffect(() => {
+    if (!hoveredCardId) return undefined;
+    const cloth = clothingMap[hoveredCardId];
+    if (!cloth) return undefined;
+    const images = getClothImages(cloth);
+    if (images.length < 2) return undefined;
+
+    slideTimerRef.current = window.setInterval(() => {
+      setSlideIndexMap((prev) => {
+        const current = prev[hoveredCardId] ?? 0;
+        const next = (current + 1) % images.length;
+        return { ...prev, [hoveredCardId]: next };
+      });
+    }, 1200);
+
+    return () => {
+      if (slideTimerRef.current) {
+        window.clearInterval(slideTimerRef.current);
+        slideTimerRef.current = null;
+      }
+    };
+  }, [clothingMap, getClothImages, hoveredCardId]);
 
   useEffect(() => {
     document.body.classList.toggle("intro-open", introOpen);
@@ -2443,6 +2686,18 @@ function App() {
       observer.disconnect();
     };
   }, [introOpen]);
+
+  useEffect(() => {
+    if (fittingView !== "real") return;
+    if (!userProfile.base_photo_url) return;
+    setFittingRealBaseUrl(userProfile.base_photo_url);
+  }, [fittingView, userProfile.base_photo_url]);
+
+  useEffect(() => {
+    if (sizeRangeLabels.length === 0) return;
+    if (sizeRangeLabels.includes(sizeDetailSelected)) return;
+    setSizeDetailSelected(sizeRangeLabels[0]);
+  }, [sizeDetailSelected, sizeRangeLabels]);
 
   const openClothingDetail = (clothingId) => {
     const funding = fundings.find((entry) => entry.clothing_id === clothingId);
@@ -2520,10 +2775,18 @@ function App() {
     signupDraft.password === signupDraft.passwordConfirm;
   const showPasswordHint =
     signupDraft.passwordConfirm.trim().length > 0 && !passwordReady;
+  const measurementsReady =
+    measurementMode === "ai"
+      ? Boolean(aiFileName)
+      : signupMeasurementFields.every(
+        (field) => Number(signupDraft.measurements[field.key]) > 0,
+      );
   const canProceedProfile =
+    Boolean(signupDraft.base_photo_url) &&
     signupDraft.handle.trim().length > 0 &&
     signupDraft.name.trim().length > 0 &&
-    passwordReady;
+    passwordReady &&
+    measurementsReady;
   const canFinishOnboarding =
     canProceedProfile && selectedStyleIds.length >= requiredStyleCount;
 
@@ -3373,6 +3636,11 @@ function App() {
             <div className="feed-grid">
               {filteredFundings.map((item, index) => {
                 const cloth = clothingMap[item.clothing_id];
+                const slideshowImages = getClothImages(cloth);
+                const slideshowIndex =
+                  slideIndexMap[cloth?.id] ?? 0;
+                const slideshowSrc =
+                  slideshowImages[slideshowIndex] || cloth?.design_img_url;
                 const progress = clamp(
                   Math.round((item.current_amount / item.goal_amount) * 100),
                   0,
@@ -3389,6 +3657,32 @@ function App() {
                       className="card-media"
                       role="button"
                       tabIndex={0}
+                      onMouseEnter={() => {
+                        if (!cloth?.id) return;
+                        if (slideshowImages.length < 2) return;
+                        setHoveredCardId(cloth.id);
+                      }}
+                      onMouseLeave={() => {
+                        if (!cloth?.id) return;
+                        setHoveredCardId(null);
+                        setSlideIndexMap((prev) => ({
+                          ...prev,
+                          [cloth.id]: 0,
+                        }));
+                      }}
+                      onFocus={() => {
+                        if (!cloth?.id) return;
+                        if (slideshowImages.length < 2) return;
+                        setHoveredCardId(cloth.id);
+                      }}
+                      onBlur={() => {
+                        if (!cloth?.id) return;
+                        setHoveredCardId(null);
+                        setSlideIndexMap((prev) => ({
+                          ...prev,
+                          [cloth.id]: 0,
+                        }));
+                      }}
                       onClick={() => {
                         openClothingDetail(cloth.id);
                       }}
@@ -3399,7 +3693,7 @@ function App() {
                         }
                       }}
                     >
-                      <img src={cloth?.design_img_url} alt={cloth?.name} />
+                      <img src={slideshowSrc} alt={cloth?.name} />
                       <div className="card-like">
                         <button
                           type="button"
@@ -3524,19 +3818,56 @@ function App() {
                     </div>
                     <div className="modal-body">
                       <div className="detail-media">
-                        <button
-                          type="button"
-                          className="detail-media-btn"
-                          onClick={() =>
-                            setImagePreview(detailItem.clothing?.design_img_url)
-                          }
-                          aria-label="Expand image"
-                        >
-                          <img
-                            src={detailItem.clothing?.design_img_url}
-                            alt="detail"
-                          />
-                        </button>
+                        {(() => {
+                          const detailImages = getClothImages(detailItem.clothing);
+                          const detailImageSrc =
+                            detailImages[detailImageIndex] ||
+                            detailItem.clothing?.design_img_url;
+                          return (
+                            <>
+                              {detailImages.length > 1 && (
+                                <>
+                                  <button
+                                    type="button"
+                                    className="detail-media-nav prev"
+                                    aria-label="Previous image"
+                                    onClick={() =>
+                                      setDetailImageIndex((prev) =>
+                                        (prev - 1 + detailImages.length) %
+                                        detailImages.length,
+                                      )
+                                    }
+                                  >
+                                    &lt;
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="detail-media-nav next"
+                                    aria-label="Next image"
+                                    onClick={() =>
+                                      setDetailImageIndex((prev) =>
+                                        (prev + 1) % detailImages.length,
+                                      )
+                                    }
+                                  >
+                                    &gt;
+                                  </button>
+                                </>
+                              )}
+                              <button
+                                type="button"
+                                className="detail-media-btn"
+                                onClick={() => setImagePreview(detailImageSrc)}
+                                aria-label="Expand image"
+                              >
+                                <img
+                                  src={detailImageSrc}
+                                  alt={detailItem.clothing?.name || "detail"}
+                                />
+                              </button>
+                            </>
+                          );
+                        })()}
                         <button
                           type="button"
                           className="floating-tryon"
@@ -3939,20 +4270,6 @@ function App() {
                       <span className="design-coin-count">{designCoins}</span>
                     </button>
                     <button
-                      className="secondary temp-save-btn"
-                      type="button"
-                      onClick={() =>
-                        setNameModal({
-                          open: true,
-                          type: "temp-design",
-                          value: prompt.trim() || "임시 스케치",
-                          view: null,
-                        })
-                      }
-                    >
-                      임시 저장
-                    </button>
-                    <button
                       className="primary"
                       type="button"
                       onClick={() => {
@@ -3963,6 +4280,13 @@ function App() {
                       disabled={designCoins <= 0}
                     >
                       디자인 생성
+                    </button>
+                    <button
+                      className="secondary"
+                      type="button"
+                      onClick={openUploadPreview}
+                    >
+                      업로드
                     </button>
                   </div>
                 </div>
@@ -4044,6 +4368,20 @@ function App() {
                       </label>
                       <div className="canvas-photo-actions">
                         <button
+                          className="secondary temp-save-btn"
+                          type="button"
+                          onClick={() =>
+                            setNameModal({
+                              open: true,
+                              type: "temp-design",
+                              value: prompt.trim() || "임시 스케치",
+                              view: null,
+                            })
+                          }
+                        >
+                          임시 저장
+                        </button>
+                        <button
                           type="button"
                           className="canvas-photo-btn"
                           onClick={() => designPhotoInputRef.current?.click()}
@@ -4085,24 +4423,13 @@ function App() {
                       </div>
                     </div>
                     <div className="design-canvas-wrap">
-                      <div className="design-canvas-area">
-                        <div className="design-canvas-frame">
-                          <div className="studio-side-toggle">
-                            <button
-                              type="button"
-                              className={studioSide === "front" ? "active" : ""}
-                              onClick={() => switchStudioSide("front")}
-                            >
-                              앞면
-                            </button>
-                            <button
-                              type="button"
-                              className={studioSide === "back" ? "active" : ""}
-                              onClick={() => switchStudioSide("back")}
-                            >
-                              뒷면
-                            </button>
-                          </div>
+                      <div className="design-canvas-grid">
+                        <button
+                          type="button"
+                          className="design-canvas-card"
+                          onClick={() => openCanvasForSide("front")}
+                        >
+                          <span className="design-canvas-label">앞면</span>
                           {designPhoto?.url && (
                             <img
                               className="design-photo-preview"
@@ -4111,15 +4438,27 @@ function App() {
                             />
                           )}
                           <canvas
-                            ref={designCanvasRef}
-                            className="design-canvas"
-                            style={{ cursor: "crosshair" }}
-                            width="720"
-                            height="420"
-                            onMouseDown={handleCanvasDraw}
-                            aria-label="Design canvas"
+                            ref={frontCanvasRef}
+                            className="design-canvas-preview"
+                            width="320"
+                            height="200"
+                            aria-label="Front canvas preview"
                           />
-                        </div>
+                        </button>
+                        <button
+                          type="button"
+                          className="design-canvas-card"
+                          onClick={() => openCanvasForSide("back")}
+                        >
+                          <span className="design-canvas-label">뒷면</span>
+                          <canvas
+                            ref={backCanvasRef}
+                            className="design-canvas-preview"
+                            width="320"
+                            height="200"
+                            aria-label="Back canvas preview"
+                          />
+                        </button>
                         <input
                           ref={designPhotoInputRef}
                           type="file"
@@ -4128,97 +4467,8 @@ function App() {
                           className="canvas-photo-input"
                         />
                       </div>
-                      <p className="design-hint">
-                        {designCategory} 실루엣을 드로잉하세요. 클릭하면 전체
-                        화면으로 이동합니다.
-                      </p>
                     </div>
-                  </div>
-                  <div className="workbench-prompt">
-                    <div className="design-selects">
-                      <label className="field">
-                        성별
-                        <select
-                          value={designGender}
-                          onChange={(event) =>
-                            setDesignGender(event.target.value)
-                          }
-                        >
-                          {[
-                            { value: "Mens", label: "남자" },
-                            { value: "Womens", label: "여자" },
-                            { value: "Unisex", label: "공용" },
-                          ].map((item) => (
-                            <option key={item.value} value={item.value}>
-                              {item.label}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <label className="field">
-                        옷 종류
-                        <select
-                          value={designCategory}
-                          onChange={(event) => {
-                            const nextCategory = event.target.value;
-                            setDesignCategory(nextCategory);
-                            const nextOptions =
-                              designLengthOptions[nextCategory] || [];
-                            if (
-                              nextOptions.length &&
-                              !nextOptions.includes(designLength)
-                            ) {
-                              setDesignLength(nextOptions[0]);
-                            }
-                          }}
-                        >
-                          {["상의", "하의", "아우터", "원피스"].map((item) => (
-                            <option key={item} value={item}>
-                              {item}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <label className="field">
-                        기장
-                        <select
-                          value={designLength}
-                          onChange={(event) =>
-                            setDesignLength(event.target.value)
-                          }
-                        >
-                          {(designLengthOptions[designCategory] || []).map(
-                            (item) => (
-                              <option key={item} value={item}>
-                                {item}
-                              </option>
-                            ),
-                          )}
-                        </select>
-                      </label>
-                    </div>
-                    <div className="subsection">
-                      <h4>원단 특성</h4>
-                      {["신축성", "두께감", "탄탄함"].map((key) => (
-                        <label key={key} className="slider">
-                          <span>{key}</span>
-                          <input
-                            type="range"
-                            min="1"
-                            max="10"
-                            value={fabric[key]}
-                            onChange={(event) =>
-                              setFabric((prev) => ({
-                                ...prev,
-                                [key]: Number(event.target.value),
-                              }))
-                            }
-                          />
-                          <span>{fabric[key]}/10</span>
-                        </label>
-                      ))}
-                    </div>
-                    <label className="field">
+                    <label className="field prompt-field">
                       디자인 프롬프트
                       <textarea
                         value={prompt}
@@ -4226,6 +4476,205 @@ function App() {
                         placeholder="미니멀한 오버사이즈 코트, 대칭적인 라펠과 깊은 블랙 톤"
                       />
                     </label>
+                  </div>
+                  <div className="workbench-result">
+                    <div className="ai-result-card">
+                      <h4>디자인 결과</h4>
+                      <div className="ai-result-frame large">
+                        {latestDesignPreview ? (
+                          <img
+                            src={latestDesignPreview.design_img_url}
+                            alt={latestDesignPreview.name}
+                          />
+                        ) : (
+                          <span>아직 생성된 디자인이 없습니다.</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="studio-spec-panel">
+                  <div className="spec-left">
+                    <div className="spec-box">
+                      <h4>옷 세부정보</h4>
+                      <div className="design-selects">
+                        <label className="field">
+                          성별
+                          <select
+                            value={designGender}
+                            onChange={(event) =>
+                              setDesignGender(event.target.value)
+                            }
+                          >
+                            {[
+                              { value: "Mens", label: "남자" },
+                              { value: "Womens", label: "여자" },
+                              { value: "Unisex", label: "공용" },
+                            ].map((item) => (
+                              <option key={item.value} value={item.value}>
+                                {item.label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="field">
+                          옷 종류
+                          <select
+                            value={designCategory}
+                            onChange={(event) => {
+                              const nextCategory = event.target.value;
+                              setDesignCategory(nextCategory);
+                              const nextOptions =
+                                designLengthOptions[nextCategory] || [];
+                              if (
+                                nextOptions.length &&
+                                !nextOptions.includes(designLength)
+                              ) {
+                                setDesignLength(nextOptions[0]);
+                              }
+                            }}
+                          >
+                            {["상의", "하의", "아우터", "원피스"].map((item) => (
+                              <option key={item} value={item}>
+                                {item}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="field">
+                          기장
+                          <select
+                            value={designLength}
+                            onChange={(event) =>
+                              setDesignLength(event.target.value)
+                            }
+                          >
+                            {(designLengthOptions[designCategory] || []).map(
+                              (item) => (
+                                <option key={item} value={item}>
+                                  {item}
+                                </option>
+                              ),
+                            )}
+                          </select>
+                        </label>
+                      </div>
+                    </div>
+                    <div className="spec-box">
+                      <h4>원단 특성</h4>
+                      {fabricFields.map((field) => (
+                        <label key={field.key} className="slider">
+                          <span>{field.label}</span>
+                          <input
+                            type="range"
+                            min="1"
+                            max="10"
+                            value={fabric[field.key]}
+                            onChange={(event) =>
+                              setFabric((prev) => ({
+                                ...prev,
+                                [field.key]: Number(event.target.value),
+                              }))
+                            }
+                          />
+                          <span>{fabric[field.key]}/10</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="spec-right">
+                    <div className="spec-box size-box">
+                      <h4>사이즈</h4>
+                      <div className="size-slider">
+                        <div className="size-range">
+                          <div className="size-range-track" style={sizeRangeStyle} />
+                          <input
+                            type="range"
+                            min="0"
+                            max={sizeLabels.length - 1}
+                            value={sizeRange[0]}
+                            className="range-min"
+                            onChange={(event) => {
+                              const next = Math.min(
+                                Number(event.target.value),
+                                sizeRange[1],
+                              );
+                              setSizeRange([next, sizeRange[1]]);
+                            }}
+                          />
+                          <input
+                            type="range"
+                            min="0"
+                            max={sizeLabels.length - 1}
+                            value={sizeRange[1]}
+                            className="range-max"
+                            onChange={(event) => {
+                              const next = Math.max(
+                                Number(event.target.value),
+                                sizeRange[0],
+                              );
+                              setSizeRange([sizeRange[0], next]);
+                            }}
+                          />
+                        </div>
+                        <div className="size-labels">
+                          {sizeLabels.map((label, index) => (
+                            <span
+                              key={label}
+                              className={
+                                index >= sizeRange[0] && index <= sizeRange[1]
+                                  ? "active"
+                                  : ""
+                              }
+                            >
+                              {label}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="size-detail-panel">
+                        <div className="size-detail-title">상세 사이즈</div>
+                        <div className="size-detail-controls">
+                          <label className="size-detail-select">
+                            사이즈
+                            <select
+                              value={activeSizeKey}
+                              onChange={(event) =>
+                                setSizeDetailSelected(event.target.value)
+                              }
+                            >
+                              {sizeRangeLabels.map((label) => (
+                                <option key={label} value={label}>
+                                  {label}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          {sizeDetailFields.map((field) => (
+                            <label key={field.key} className="size-detail-input">
+                              {field.label}
+                              <input
+                                type="number"
+                                value={
+                                  sizeDetailInputs?.[activeSizeKey]?.[field.key] ||
+                                  ""
+                                }
+                                onChange={(event) => {
+                                  const value = event.target.value;
+                                  setSizeDetailInputs((prev) => ({
+                                    ...prev,
+                                    [activeSizeKey]: {
+                                      ...prev?.[activeSizeKey],
+                                      [field.key]: value,
+                                    },
+                                  }));
+                                }}
+                              />
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -5033,12 +5482,33 @@ function App() {
                 <p className="empty empty-brand">등록된 디자인이 없습니다.</p>
               ) : (
                 brandFeed.map((entry) => (
-                  <button
+                  <div
                     key={entry.clothing.id}
-                    type="button"
                     className="brand-feed-card"
+                    role="button"
+                    tabIndex={0}
                     onClick={() => openClothingDetail(entry.clothing.id)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        openClothingDetail(entry.clothing.id);
+                      }
+                    }}
                   >
+                    {brandEditing &&
+                      selectedBrandProfile.handle === myBrandDetails.handle && (
+                        <button
+                          type="button"
+                          className="brand-feed-remove"
+                          aria-label="Remove design"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            removeBrandDesign(entry.clothing.id);
+                          }}
+                        >
+                          ×
+                        </button>
+                      )}
                     <img
                       src={entry.clothing.design_img_url}
                       alt={entry.clothing.name}
@@ -5050,7 +5520,7 @@ function App() {
                         {entry.funding.participant_count}명 참여
                       </span>
                     </div>
-                  </button>
+                  </div>
                 ))
               )}
             </div>
