@@ -338,5 +338,5 @@ exports.generateDesignImage = async (userId, clothId, prompt, inputImages = []) 
   });
 
   // Return combined info
-  return { ...updatedAttempt, front: images.front, back: images.back };
+  return { ...updatedAttempt, front: images.front, back: images.back, all: images.all };
 };
