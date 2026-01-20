@@ -1153,6 +1153,16 @@ function App() {
     };
   }, [detailItem?.funding?.id, detailItem?.clothing?.id, replaceCommentsForClothing]);
 
+  const refreshDetailComments = useCallback(async () => {
+    if (!detailItem?.funding?.id || !detailItem?.clothing?.id) return;
+    try {
+      const data = await getFundComments(detailItem.funding.id);
+      replaceCommentsForClothing(detailItem.clothing.id, data);
+    } catch (err) {
+      console.error("Failed to refresh comments", err);
+    }
+  }, [detailItem?.clothing?.id, detailItem?.funding?.id, replaceCommentsForClothing]);
+
   const submitComment = async () => {
     const trimmed = commentDraft.text.trim();
     if (!detailItem?.funding?.id || !detailItem?.clothing?.id || !trimmed) return;
@@ -1163,21 +1173,18 @@ function App() {
 
     try {
       if (editingCommentId) {
-        const updated = await updateFundComment(detailItem.funding.id, editingCommentId, {
+        await updateFundComment(detailItem.funding.id, editingCommentId, {
           content: trimmed,
           rating: commentDraft.rating,
         });
-        setComments((prev) =>
-          prev.map((item) => (item.id === editingCommentId ? updated : item)),
-        );
       } else {
-        const created = await createFundComment(detailItem.funding.id, {
+        await createFundComment(detailItem.funding.id, {
           content: trimmed,
           rating: commentDraft.rating,
           parent_id: null,
         });
-        setComments((prev) => [created, ...prev]);
       }
+      await refreshDetailComments();
       setCommentDraft({ rating: 5, text: "" });
       setEditingCommentId(null);
     } catch (err) {
@@ -4525,33 +4532,28 @@ function App() {
                                                     >
                                                       수정
                                                     </button>
-                                                    <button
-                                                      type="button"
-                                                      onClick={async () => {
-                                                        if (!detailItem?.funding?.id) return;
-                                                        try {
-                                                          await deleteFundComment(
-                                                            detailItem.funding.id,
-                                                            comment.id,
-                                                          );
-                                                          setComments((prev) =>
-                                                            prev.filter(
-                                                              (item) =>
-                                                                item.id !== comment.id,
-                                                            ),
-                                                          );
-                                                          setCommentMenuId(null);
-                                                        } catch (err) {
-                                                          console.error("Comment delete failed", err);
-                                                          alert(
-                                                            err.response?.data?.message ||
-                                                            "댓글 삭제에 실패했습니다.",
-                                                          );
-                                                        }
-                                                      }}
-                                                    >
-                                                      삭제
-                                                    </button>
+                                                      <button
+                                                        type="button"
+                                                        onClick={async () => {
+                                                          if (!detailItem?.funding?.id) return;
+                                                          try {
+                                                            await deleteFundComment(
+                                                              detailItem.funding.id,
+                                                              comment.id,
+                                                            );
+                                                            await refreshDetailComments();
+                                                            setCommentMenuId(null);
+                                                          } catch (err) {
+                                                            console.error("Comment delete failed", err);
+                                                            alert(
+                                                              err.response?.data?.message ||
+                                                              "댓글 삭제에 실패했습니다.",
+                                                            );
+                                                          }
+                                                        }}
+                                                      >
+                                                        삭제
+                                                      </button>
                                                   </div>
                                                 )}
                                               </>

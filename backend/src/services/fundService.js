@@ -342,7 +342,7 @@ exports.deleteComment = async (userId, fundId, commentId) => {
     where: { comment_id: commentId },
   });
 
-  if (!existing || existing.deleted_at) {
+  if (!existing) {
     throw createError(404, '?“ê???? ì°¾ì„ ???†ìŠµ?ˆë‹¤.');
   }
   if (existing.funding_id !== fundId) {
@@ -352,9 +352,8 @@ exports.deleteComment = async (userId, fundId, commentId) => {
     throw createError(403, '?˜ì • ê¶Œí•œ???†ìŠµ?ˆë‹¤.');
   }
 
-  await prisma.comment.update({
+  await prisma.comment.delete({
     where: { comment_id: commentId },
-    data: { deleted_at: new Date() },
   });
 
   return { deleted: true };
