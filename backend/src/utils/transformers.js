@@ -93,6 +93,7 @@ const toFrontendCloth = (cloth) => ({
   price: cloth.price,
   design_img_url: normalizeUrl(cloth.final_result_front_url || cloth.thumbnail_url),
   final_result_all_url: normalizeUrl(cloth.final_result_all_url),
+  final_result_back_url: normalizeUrl(cloth.final_result_back_url),
   size_specs: cloth.size_specs || {},
   brand_id: cloth.brand_id,
   brand_name: cloth.brand?.brand_name,

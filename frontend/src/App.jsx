@@ -335,6 +335,7 @@ function App() {
             design_img_url: cloth.design_img_url,
             final_result_all_url: cloth.final_result_all_url,
             final_result_front_url: cloth.final_result_front_url,
+            final_result_back_url: cloth.final_result_back_url,
             description: cloth.description,
             price: cloth.price,
             category: cloth.category,
@@ -2333,11 +2334,10 @@ function App() {
     ]);
   };
 
-  const loadSavedDesign = (item) => {
+  const loadSavedDesign = async (item) => {
+    // Use saved state if available (for temp designs)
     if (item?.studioState) {
       const state = item.studioState;
-      const nextSide = state.activeSide || "front";
-      const nextImages = state.sideImages || { front: null, back: null };
       setPrompt(state.prompt || "");
       setDesignGender(state.designGender || "Unisex");
       setDesignCategory(state.designCategory || "상의");
@@ -2347,27 +2347,63 @@ function App() {
       setSizeDetailInputs(state.sizeDetailInputs || {});
       setFabric(state.fabric || { stretch: 5, weight: 5, stiffness: 5 });
       setStudioSidePhotos(state.sidePhotos || { front: null, back: null });
-      setStudioSideImages(nextImages);
-      setStudioSide(nextSide);
-      const nextUrl = nextImages?.[nextSide];
+      setStudioSideImages(state.sideImages || { front: null, back: null });
+      setStudioSide(state.activeSide || "front");
+
+      const nextUrl = state.sideImages?.[state.activeSide || "front"];
       if (nextUrl) {
         loadDesignToCanvas(nextUrl);
       } else {
         const canvas = designCanvasRef.current;
-        const ctx = canvas?.getContext("2d");
-        if (canvas && ctx) {
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
+        if (canvas) {
+          const ctx = canvas.getContext("2d");
+          if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
         }
       }
       setIsGalleryOpen(false);
       return;
     }
 
-    setStudioSideImages((prev) => ({
-      ...prev,
-      [studioSide]: item.design_img_url,
-    }));
-    loadDesignToCanvas(item.design_img_url);
+    // Load from Backend Data
+    const frontUrl = item.final_result_front_url || item.design_img_url;
+    const backUrl = item.final_result_back_url;
+
+    try {
+      let frontData = null;
+      let backData = null;
+
+      if (frontUrl) {
+        const res = await fetch(frontUrl);
+        const blob = await res.blob();
+        const file = new File([blob], "front_design.png", { type: "image/png" });
+        frontData = { url: frontUrl, file, name: "front_design.png" };
+      }
+
+      if (backUrl) {
+        const res = await fetch(backUrl);
+        const blob = await res.blob();
+        const file = new File([blob], "back_design.png", { type: "image/png" });
+        backData = { url: backUrl, file, name: "back_design.png" };
+      }
+
+      setStudioSidePhotos({
+        front: frontData,
+        back: backData
+      });
+
+    } catch (err) {
+      console.error("Failed to load design images", err);
+    }
+
+    setPrompt(item.description || "");
+    if (item.category) setDesignCategory(item.category);
+    // Try to clear canvas as we are loading photos
+    const canvas = designCanvasRef.current;
+    if (canvas) {
+      const ctx = canvas.getContext("2d");
+      if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
     setIsGalleryOpen(false);
   };
 
