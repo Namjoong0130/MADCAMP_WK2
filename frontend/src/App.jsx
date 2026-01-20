@@ -4517,86 +4517,86 @@ function App() {
                                               : ""
                                               }`}
                                           >
-                                          {comment.parent_id && (
-                                            <span className="reply-icon" aria-hidden="true">
-                                              <svg
-                                                viewBox="0 0 24 24"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                strokeWidth="2"
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                              >
-                                                <path d="M9 14l-4-4 4-4" />
-                                                <path d="M5 10h8a6 6 0 0 1 6 6v1" />
-                                              </svg>
-                                            </span>
-                                          )}
-                                          <div className="comment-rating">
-                                            {Array.from({ length: 5 }).map(
-                                              (_, index) => (
-                                                <span
-                                                  key={index}
-                                                  className={`star-icon ${index < comment.rating
-                                                    ? "active"
-                                                    : ""
-                                                    }`}
+                                            {comment.parent_id && (
+                                              <span className="reply-icon" aria-hidden="true">
+                                                <svg
+                                                  viewBox="0 0 24 24"
+                                                  fill="none"
+                                                  stroke="currentColor"
+                                                  strokeWidth="2"
+                                                  strokeLinecap="round"
+                                                  strokeLinejoin="round"
                                                 >
-                                                  ★
-                                                </span>
-                                              ),
+                                                  <path d="M9 14l-4-4 4-4" />
+                                                  <path d="M5 10h8a6 6 0 0 1 6 6v1" />
+                                                </svg>
+                                              </span>
                                             )}
-                                          </div>
-                                          <div className="comment-body">
-                                            <div className="comment-meta">
-                                              <div className="comment-user">
-                                                <strong>{comment.user}</strong>
-                                                {comment.is_creator && (
-                                                  <span className="creator-badge">
-                                                    창작자
+                                            <div className="comment-rating">
+                                              {Array.from({ length: 5 }).map(
+                                                (_, index) => (
+                                                  <span
+                                                    key={index}
+                                                    className={`star-icon ${index < comment.rating
+                                                      ? "active"
+                                                      : ""
+                                                      }`}
+                                                  >
+                                                    ★
                                                   </span>
-                                                )}
-                                              </div>
-                                            </div>
-                                            <span>{comment.text}</span>
-                                          </div>
-                                          <div className="comment-menu">
-                                            <span className="comment-time">
-                                              {formatRelative(
-                                                comment.created_at || new Date(),
+                                                ),
                                               )}
-                                            </span>
-                                            {canManage && (
-                                              <>
-                                                <button
-                                                  type="button"
-                                                  className="comment-menu-btn"
-                                                  aria-label="Comment actions"
-                                                  onClick={() =>
-                                                    setCommentMenuId((prev) =>
-                                                      prev === comment.id
-                                                        ? null
-                                                        : comment.id,
-                                                    )
-                                                  }
-                                                >
-                                                  ...
-                                                </button>
-                                                {commentMenuId === comment.id && (
-                                                  <div className="comment-menu-pop">
-                                                    <button
-                                                      type="button"
-                                                      onClick={() => {
-                                                        setCommentDraft({
-                                                          rating: comment.rating,
-                                                          text: comment.text,
-                                                        });
-                                                        setEditingCommentId(comment.id);
-                                                        setCommentMenuId(null);
-                                                      }}
-                                                    >
-                                                      수정
-                                                    </button>
+                                            </div>
+                                            <div className="comment-body">
+                                              <div className="comment-meta">
+                                                <div className="comment-user">
+                                                  <strong>{comment.user}</strong>
+                                                  {comment.is_creator && (
+                                                    <span className="creator-badge">
+                                                      창작자
+                                                    </span>
+                                                  )}
+                                                </div>
+                                              </div>
+                                              <span>{comment.text}</span>
+                                            </div>
+                                            <div className="comment-menu">
+                                              <span className="comment-time">
+                                                {formatRelative(
+                                                  comment.created_at || new Date(),
+                                                )}
+                                              </span>
+                                              {canManage && (
+                                                <>
+                                                  <button
+                                                    type="button"
+                                                    className="comment-menu-btn"
+                                                    aria-label="Comment actions"
+                                                    onClick={() =>
+                                                      setCommentMenuId((prev) =>
+                                                        prev === comment.id
+                                                          ? null
+                                                          : comment.id,
+                                                      )
+                                                    }
+                                                  >
+                                                    ...
+                                                  </button>
+                                                  {commentMenuId === comment.id && (
+                                                    <div className="comment-menu-pop">
+                                                      <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                          setCommentDraft({
+                                                            rating: comment.rating,
+                                                            text: comment.text,
+                                                          });
+                                                          setEditingCommentId(comment.id);
+                                                          setCommentMenuId(null);
+                                                        }}
+                                                      >
+                                                        수정
+                                                      </button>
                                                       <button
                                                         type="button"
                                                         onClick={async () => {
@@ -4619,11 +4619,11 @@ function App() {
                                                       >
                                                         삭제
                                                       </button>
-                                                  </div>
-                                                )}
-                                              </>
-                                            )}
-                                          </div>
+                                                    </div>
+                                                  )}
+                                                </>
+                                              )}
+                                            </div>
                                           </div>
                                         );
                                       })
