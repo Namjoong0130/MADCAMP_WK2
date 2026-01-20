@@ -230,6 +230,12 @@ exports.generateDesignImage = async (clothId, userPrompt, attemptId, inputImages
     saveLocalFile(backBuffer, 'designs', `${fileNameBase}_back.png`); // Overwrite
   }
 
+  // Background Removal for ALL (Combined)
+  const allBuffer = await exports.removeBackground(allUrl);
+  if (allBuffer) {
+    saveLocalFile(allBuffer, 'designs', `${fileNameBase}_all.png`); // Overwrite
+  }
+
   return {
     all: allUrl,
     front: frontUrl,

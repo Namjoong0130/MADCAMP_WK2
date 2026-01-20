@@ -199,6 +199,8 @@ function App() {
   const frontPhotoInputRef = useRef(null);
   const backPhotoInputRef = useRef(null);
   const [savedDesignTab, setSavedDesignTab] = useState("design");
+  const [galleryScales, setGalleryScales] = useState({});
+  const [activeGalleryDrag, setActiveGalleryDrag] = useState(null);
   const prevTabRef = useRef(activeTab);
   const aiPhotoInputRef = useRef(null);
   const fittingCanvasRef = useRef(null);
@@ -2670,13 +2672,59 @@ function App() {
     isDraggingDesign.current = false;
   };
 
+  const handleGalleryMouseDown = (e, id) => {
+    e.preventDefault();
+    setActiveGalleryDrag(id);
+    lastMouseY.current = e.clientY;
+  };
+
+  const handleGalleryMouseMove = (e) => {
+    if (activeGalleryDrag) {
+      const deltaY = lastMouseY.current - e.clientY;
+      lastMouseY.current = e.clientY;
+      setGalleryScales((prev) => {
+        const currentScale = prev[activeGalleryDrag] || 1;
+        const newScale = clamp(currentScale + deltaY * 0.005, 0.5, 3.0);
+        return { ...prev, [activeGalleryDrag]: newScale };
+      });
+    }
+  };
+
+  const handleGalleryMouseUp = () => {
+    setActiveGalleryDrag(null);
+  };
+
   useEffect(() => {
     const handleGlobalMouseUp = () => {
       isDraggingDesign.current = false;
+      setActiveGalleryDrag(null);
     };
+
+    const handleGlobalMouseMove = (e) => {
+      // We can call the handlers directly here if state is accessible
+      // But handleGalleryMouseMove relies on state.
+      // Since this useEffect has empty dependency array [], it handles refs well but not state closures unless we use refs for everything.
+      // However, setActiveGalleryDrag is state setter, so it works.
+      // But reading activeGalleryDrag inside handleGlobalMouseMove defined in useEffect might be stale if not in deps.
+      // Better approach: Add onMouseMove to the main App div or the Modal div.
+      // But for 'drag outside' we need window.
+      // Let's use a ref for activeGalleryDragId to avoid stale closure issues in global listener, or just add activeGalleryDrag to dependency array (but that resets listener often).
+      // Alternative: Just rely on the Modal's onMouseMove which covers the whole screen usually? No, modal might be small.
+      // Let's use the 'activeGalleryDrag' state in the render logic (attach to window event listener inside a separate useEffect that depends on activeGalleryDrag).
+    };
+
     window.addEventListener('mouseup', handleGlobalMouseUp);
     return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
   }, []);
+
+  // Dedicated effect for Gallery Dragging to avoid stale closures
+  useEffect(() => {
+    if (activeGalleryDrag) {
+      const onMove = (e) => handleGalleryMouseMove(e);
+      window.addEventListener('mousemove', onMove);
+      return () => window.removeEventListener('mousemove', onMove);
+    }
+  }, [activeGalleryDrag]); // Re-binds when drag starts/stops or ID changes (rare during drag)
 
   const loadImage = (src) =>
     new Promise((resolve, reject) => {
@@ -6771,11 +6819,24 @@ function App() {
                     >
                       ×
                     </button>
-                    <img
-                      src={item.final_result_all_url || item.design_img_url}
-                      alt={item.name}
-                      style={{ objectFit: 'contain', background: '#f5f5f5' }}
-                    />
+                    <div style={{ overflow: 'hidden', width: '100%', height: '240px', borderRadius: '4px', background: '#f5f5f5', position: 'relative' }}>
+                      <img
+                        src={item.final_result_all_url || item.design_img_url}
+                        alt={item.name}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'contain',
+                          transform: `scale(${galleryScales[item.id] || 1})`,
+                          transformOrigin: 'center',
+                          transition: activeGalleryDrag === item.id ? 'none' : 'transform 0.1s ease-out',
+                          cursor: activeGalleryDrag === item.id ? 'grabbing' : 'grab',
+                          userSelect: 'none'
+                        }}
+                        onMouseDown={(e) => handleGalleryMouseDown(e, item.id)}
+                        onDragStart={(e) => e.preventDefault()}
+                      />
+                    </div>
                     <div className="album-meta">
                       <div className="album-meta-row">
                         <strong>{item.name}</strong>
