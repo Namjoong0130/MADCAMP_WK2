@@ -479,6 +479,12 @@
   gap: 10px;
 }
 
+.album-meta-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .album-meta strong {
   font-size: 14px;
   color: #111111;
