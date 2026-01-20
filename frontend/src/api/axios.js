@@ -16,7 +16,7 @@ const getBaseURL = () => {
 
 const instance = axios.create({
     baseURL: getBaseURL(),
-    timeout: 30000, // 30 seconds timeout
+    timeout: 300000, // 5 minutes timeout for all requests
     headers: {
         'Content-Type': 'application/json',
     },

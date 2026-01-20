@@ -26,7 +26,12 @@ import {
   getFundComments,
   createFundComment,
   updateFundComment,
-  deleteFundComment
+  deleteFundComment,
+  uploadGarment,
+  getGarments,
+  getGarmentStatus,
+  createCloth,
+  generateDesign as apiGenerateDesign,
 } from "./api/services";
 import Tshirt from "./Tshirt";
 import {
@@ -756,9 +761,22 @@ function App() {
     try {
       console.log('Calling generateDesign API with:', { prompt: trimmed, fileCount: files.length });
 
-      const dummyClothId = clothing.length > 0 ? clothing[0].id : 1;
+      // 1. Create a placeholder cloth to attach the design to
+      const placeholderCloth = {
+        name: trimmed || "AI Concept Design",
+        category: "TOP",
+        layer_order: 1,
+        description: "AI Generated Design Concept",
+        is_public: false,
+      };
 
-      const result = await apiGenerateDesign(dummyClothId, trimmed, files);
+      console.log('Creating placeholder cloth...');
+      const createdCloth = await createCloth(placeholderCloth);
+      const clothId = createdCloth.clothing_id || createdCloth.id;
+      console.log('Placeholder cloth created, ID:', clothId);
+
+      // 2. Generate Design for this cloth
+      const result = await apiGenerateDesign(clothId, trimmed, files);
 
       console.log('API Result:', result);
 

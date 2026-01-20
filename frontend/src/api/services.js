@@ -41,6 +41,11 @@ export const getClothes = async () => {
     return response.data.data;
 };
 
+export const createCloth = async (payload) => {
+    const response = await axios.post('/api/clothes', payload);
+    return response.data.data;
+};
+
 export const generateDesign = async (clothId, prompt, images) => {
     const formData = new FormData();
     formData.append('prompt', prompt);
