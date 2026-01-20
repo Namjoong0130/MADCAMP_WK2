@@ -203,6 +203,7 @@ function App() {
   const [activeGalleryDrag, setActiveGalleryDrag] = useState(null);
   const [previewImage, setPreviewImage] = useState(null);
   const [showResult, setShowResult] = useState(false);
+  const [modalViewSide, setModalViewSide] = useState("front");
 
   // Reset result view when entering Studio tab
   useEffect(() => {
@@ -2416,6 +2417,14 @@ function App() {
     }
 
     setIsGalleryOpen(false);
+
+    // Sync the result view to show the loaded design
+    const index = generatedDesigns.findIndex(d => d.id === item.id);
+    if (index !== -1) {
+      setDesignResultIndex(index);
+      setShowResult(true);
+      setDesignViewSide("front");
+    }
   };
 
   const removeDesign = async (designId, isTemp) => {
@@ -7014,7 +7023,7 @@ function App() {
               ×
             </button>
             <div className="ai-design-header">
-              <h3>AI Design</h3>
+              <h3>Upload #{aiDesignModal.design?.id}</h3>
               <div className="ai-design-actions">
                 <button
                   type="button"
@@ -7069,10 +7078,62 @@ function App() {
                   </div>
                 </div>
                 <div className="modal-body">
-                  <div className="detail-media">
-                    <div className="image-placeholder" aria-label="Image area">
-                      이미지 영역
-                    </div>
+                  <div className="detail-media" style={{ position: 'relative', minHeight: '300px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                    <img
+                      src={
+                        modalViewSide === "front"
+                          ? aiDesignModal.design.final_result_front_url || aiDesignModal.design.design_img_url || aiDesignModal.design.url
+                          : aiDesignModal.design.final_result_back_url || aiDesignModal.design.design_img_url || aiDesignModal.design.url
+                      }
+                      alt="Design Detail"
+                      style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain', width: '100%', height: '100%' }}
+                    />
+                    <button
+                      type="button"
+                      className="ai-result-arrow left"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setModalViewSide("front");
+                      }}
+                      style={{
+                        position: "absolute",
+                        left: "10px",
+                        zIndex: 10,
+                        opacity: modalViewSide === "front" ? 0.5 : 1,
+                        pointerEvents: "auto",
+                        background: 'rgba(255,255,255,0.8)',
+                        border: '1px solid #ddd',
+                        borderRadius: '50%',
+                        width: '32px',
+                        height: '32px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      &lt;
+                    </button>
+                    <button
+                      type="button"
+                      className="ai-result-arrow right"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setModalViewSide("back");
+                      }}
+                      style={{
+                        position: "absolute",
+                        right: "10px",
+                        zIndex: 10,
+                        opacity: modalViewSide === "back" ? 0.5 : 1,
+                        pointerEvents: "auto",
+                        background: 'rgba(255,255,255,0.8)',
+                        border: '1px solid #ddd',
+                        borderRadius: '50%',
+                        width: '32px',
+                        height: '32px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      &gt;
+                    </button>
                   </div>
                   <div
                     className={`detail-scroll ${detailTab === "feedback" ? "detail-scroll-feedback" : ""
