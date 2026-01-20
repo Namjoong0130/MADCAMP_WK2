@@ -3967,7 +3967,7 @@ function App() {
                         </button>
                         <p>{detailItem.clothing?.name}</p>
                       </div>
-                      <div className="pill-group">
+                      <div className="pill-group detail-tabs">
                         {["overview", "story", "feedback"].map((tab) => (
                           <button
                             key={tab}
@@ -4048,7 +4048,7 @@ function App() {
                           }`}
                       >
                         {detailTab === "overview" && (
-                          <div className="detail-block">
+                          <div className="detail-block detail-tab-panel">
                             <div className="price-row">
                               <div className="price-main">
                                 <span className="price-label">Price</span>
@@ -4140,7 +4140,7 @@ function App() {
                           </div>
                         )}
                         {detailTab === "story" && (
-                          <div className="detail-block">
+                          <div className="detail-block detail-tab-panel">
                             <h4>브랜드 스토리</h4>
                             <p>
                               {detailItem.clothing?.story ||
@@ -4173,7 +4173,7 @@ function App() {
                           </div>
                         )}
                         {detailTab === "feedback" && (
-                          <div className="detail-block feedback-block">
+                          <div className="detail-block feedback-block detail-tab-panel">
                             <div className="detail-title-row">
                               <h4>소셜 피드백</h4>
                               <div className="rating-summary">
@@ -4181,171 +4181,175 @@ function App() {
                                 <strong>{detailAverageRating}</strong>
                               </div>
                             </div>
-                            <div className="comment-list compact">
-                              {comments.filter(
-                                (comment) =>
-                                  comment.clothing_id ===
-                                  detailItem.clothing?.id,
-                              ).length === 0 ? (
-                                <div className="comment-empty">
-                                  첫 피드백을 등록해보세요
-                                </div>
-                              ) : (
-                                comments
-                                  .filter(
+                            <div className="card feedback-card">
+                              <div className="card-body feedback-card-body">
+                                <div className="comment-list compact feedback-list">
+                                  {comments.filter(
                                     (comment) =>
                                       comment.clothing_id ===
                                       detailItem.clothing?.id,
-                                  )
-                                  .map((comment) => (
-                                    <div
-                                      key={comment.id}
-                                      className={`comment compact ${comment.parent_id && comment.is_creator
-                                        ? "reply"
-                                        : ""
-                                        }`}
-                                    >
-                                      {comment.parent_id && (
-                                        <span className="reply-icon" aria-hidden="true">
-                                          <svg
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            strokeWidth="2"
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                          >
-                                            <path d="M9 14l-4-4 4-4" />
-                                            <path d="M5 10h8a6 6 0 0 1 6 6v1" />
-                                          </svg>
-                                        </span>
-                                      )}
-                                      <div className="comment-rating">
-                                        {Array.from({ length: 5 }).map(
-                                          (_, index) => (
-                                            <span
-                                              key={index}
-                                              className={`star-icon ${index < comment.rating
-                                                ? "active"
-                                                : ""
-                                                }`}
-                                            >
-                                              ★
+                                  ).length === 0 ? (
+                                    <div className="comment-empty">
+                                      첫 피드백을 등록해보세요
+                                    </div>
+                                  ) : (
+                                    comments
+                                      .filter(
+                                        (comment) =>
+                                          comment.clothing_id ===
+                                          detailItem.clothing?.id,
+                                      )
+                                      .map((comment) => (
+                                        <div
+                                          key={comment.id}
+                                          className={`comment compact ${comment.parent_id && comment.is_creator
+                                            ? "reply"
+                                            : ""
+                                            }`}
+                                        >
+                                          {comment.parent_id && (
+                                            <span className="reply-icon" aria-hidden="true">
+                                              <svg
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                strokeWidth="2"
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                              >
+                                                <path d="M9 14l-4-4 4-4" />
+                                                <path d="M5 10h8a6 6 0 0 1 6 6v1" />
+                                              </svg>
                                             </span>
-                                          ),
-                                        )}
-                                      </div>
-                                      <div className="comment-body">
-                                        <div className="comment-meta">
-                                          <div className="comment-user">
-                                            <strong>{comment.user}</strong>
-                                            {comment.parent_id &&
-                                              comment.is_creator && (
-                                                <span className="creator-badge">
-                                                  창작자
+                                          )}
+                                          <div className="comment-rating">
+                                            {Array.from({ length: 5 }).map(
+                                              (_, index) => (
+                                                <span
+                                                  key={index}
+                                                  className={`star-icon ${index < comment.rating
+                                                    ? "active"
+                                                    : ""
+                                                    }`}
+                                                >
+                                                  ★
                                                 </span>
+                                              ),
+                                            )}
+                                          </div>
+                                          <div className="comment-body">
+                                            <div className="comment-meta">
+                                              <div className="comment-user">
+                                                <strong>{comment.user}</strong>
+                                                {comment.parent_id &&
+                                                  comment.is_creator && (
+                                                    <span className="creator-badge">
+                                                      창작자
+                                                    </span>
+                                                  )}
+                                              </div>
+                                            </div>
+                                            <span>{comment.text}</span>
+                                          </div>
+                                          <div className="comment-menu">
+                                            <span className="comment-time">
+                                              {formatRelative(
+                                                comment.created_at || new Date(),
                                               )}
+                                            </span>
+                                            <button
+                                              type="button"
+                                              className="comment-menu-btn"
+                                              aria-label="Comment actions"
+                                              onClick={() =>
+                                                setCommentMenuId((prev) =>
+                                                  prev === comment.id
+                                                    ? null
+                                                    : comment.id,
+                                                )
+                                              }
+                                            >
+                                              ...
+                                            </button>
+                                            {commentMenuId === comment.id && (
+                                              <div className="comment-menu-pop">
+                                                <button
+                                                  type="button"
+                                                  onClick={() => {
+                                                    setCommentDraft({
+                                                      rating: comment.rating,
+                                                      text: comment.text,
+                                                    });
+                                                    setEditingCommentId(comment.id);
+                                                    setCommentMenuId(null);
+                                                  }}
+                                                >
+                                                  수정
+                                                </button>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => {
+                                                    setComments((prev) =>
+                                                      prev.filter(
+                                                        (item) =>
+                                                          item.id !== comment.id,
+                                                      ),
+                                                    );
+                                                    setCommentMenuId(null);
+                                                  }}
+                                                >
+                                                  삭제
+                                                </button>
+                                              </div>
+                                            )}
                                           </div>
                                         </div>
-                                        <span>{comment.text}</span>
-                                      </div>
-                                      <div className="comment-menu">
-                                        <span className="comment-time">
-                                          {formatRelative(
-                                            comment.created_at || new Date(),
-                                          )}
-                                        </span>
+                                      ))
+                                  )}
+                                </div>
+                                <div className="comment-form compact feedback-input-container">
+                                  <div className="comment-input-row">
+                                    <div className="comment-rating-input">
+                                      {Array.from({ length: 5 }).map((_, index) => (
                                         <button
+                                          key={index}
                                           type="button"
-                                          className="comment-menu-btn"
-                                          aria-label="Comment actions"
+                                          className={`star-btn ${index < commentDraft.rating
+                                            ? "active"
+                                            : ""
+                                            }`}
+                                          aria-label={`Rate ${index + 1} stars`}
                                           onClick={() =>
-                                            setCommentMenuId((prev) =>
-                                              prev === comment.id
-                                                ? null
-                                                : comment.id,
-                                            )
+                                            setCommentDraft((prev) => ({
+                                              ...prev,
+                                              rating: index + 1,
+                                            }))
                                           }
                                         >
-                                          ...
+                                          ★
                                         </button>
-                                        {commentMenuId === comment.id && (
-                                          <div className="comment-menu-pop">
-                                            <button
-                                              type="button"
-                                              onClick={() => {
-                                                setCommentDraft({
-                                                  rating: comment.rating,
-                                                  text: comment.text,
-                                                });
-                                                setEditingCommentId(comment.id);
-                                                setCommentMenuId(null);
-                                              }}
-                                            >
-                                              수정
-                                            </button>
-                                            <button
-                                              type="button"
-                                              onClick={() => {
-                                                setComments((prev) =>
-                                                  prev.filter(
-                                                    (item) =>
-                                                      item.id !== comment.id,
-                                                  ),
-                                                );
-                                                setCommentMenuId(null);
-                                              }}
-                                            >
-                                              삭제
-                                            </button>
-                                          </div>
-                                        )}
-                                      </div>
+                                      ))}
                                     </div>
-                                  ))
-                              )}
-                            </div>
-                            <div className="comment-form compact">
-                              <div className="comment-input-row">
-                                <div className="comment-rating-input">
-                                  {Array.from({ length: 5 }).map((_, index) => (
-                                    <button
-                                      key={index}
-                                      type="button"
-                                      className={`star-btn ${index < commentDraft.rating
-                                        ? "active"
-                                        : ""
-                                        }`}
-                                      aria-label={`Rate ${index + 1} stars`}
-                                      onClick={() =>
+                                    <input
+                                      value={commentDraft.text}
+                                      onChange={(event) =>
                                         setCommentDraft((prev) => ({
                                           ...prev,
-                                          rating: index + 1,
+                                          text: event.target.value,
                                         }))
                                       }
-                                    >
-                                      ★
-                                    </button>
-                                  ))}
+                                      placeholder="한 줄 피드백을 남겨주세요."
+                                    />
+                                  </div>
+                                  <button
+                                    type="button"
+                                    className="primary"
+                                    onClick={submitComment}
+                                  >
+                                    {editingCommentId ? "댓글 수정" : "댓글 등록"}
+                                  </button>
                                 </div>
-                                <input
-                                  value={commentDraft.text}
-                                  onChange={(event) =>
-                                    setCommentDraft((prev) => ({
-                                      ...prev,
-                                      text: event.target.value,
-                                    }))
-                                  }
-                                  placeholder="한 줄 피드백을 남겨주세요."
-                                />
                               </div>
-                              <button
-                                type="button"
-                                className="primary"
-                                onClick={submitComment}
-                              >
-                                {editingCommentId ? "댓글 수정" : "댓글 등록"}
-                              </button>
                             </div>
                           </div>
                         )}
@@ -6400,7 +6404,7 @@ function App() {
                       <p>{aiDesignModal.design.name}</p>
                     )}
                   </div>
-                  <div className="pill-group">
+                  <div className="pill-group detail-tabs">
                     {["overview", "story", "feedback"].map((tab) => (
                       <button
                         key={tab}
@@ -6426,7 +6430,7 @@ function App() {
                       }`}
                   >
                     {detailTab === "overview" && (
-                      <div className="detail-block">
+                      <div className="detail-block detail-tab-panel">
                         <div className="price-row">
                           <div className="price-main">
                             <span className="price-label">Price</span>
@@ -6559,7 +6563,7 @@ function App() {
                       </div>
                     )}
                     {detailTab === "story" && (
-                      <div className="detail-block">
+                      <div className="detail-block detail-tab-panel">
                         <h4>브랜드 스토리</h4>
                         {aiDesignEditMode ? (
                           <textarea
@@ -6581,7 +6585,7 @@ function App() {
                       </div>
                     )}
                     {detailTab === "feedback" && (
-                      <div className="detail-block">
+                      <div className="detail-block detail-tab-panel">
                         <h4>소셜 피드백</h4>
                         <p className="comment-empty">
                           아직 생성된 피드백이 없습니다.

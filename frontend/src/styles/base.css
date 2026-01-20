@@ -89,6 +89,11 @@
   color: var(--ink);
 }
 
+.app.dark .feedback-input-container {
+  background: #151515;
+  border-color: var(--border);
+}
+
 .app.dark .like-btn svg,
 .app.dark .icon-btn svg,
 .app.dark .menu-btn svg,
