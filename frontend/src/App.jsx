@@ -202,6 +202,15 @@ function App() {
   const [galleryScales, setGalleryScales] = useState({});
   const [activeGalleryDrag, setActiveGalleryDrag] = useState(null);
   const [previewImage, setPreviewImage] = useState(null);
+  const [showResult, setShowResult] = useState(false);
+
+  // Reset result view when entering Studio tab
+  useEffect(() => {
+    if (activeTab === "studio" || activeTab === "design") {
+      setShowResult(false);
+    }
+  }, [activeTab]);
+
   const prevTabRef = useRef(activeTab);
   const aiPhotoInputRef = useRef(null);
   const fittingCanvasRef = useRef(null);
@@ -853,6 +862,7 @@ function App() {
         story: newDesign.story || "",
       });
       setAiDesignEditMode(false);
+      setShowResult(true);
 
     } catch (error) {
       console.error("Design Generation Failed:", error);
@@ -5216,7 +5226,7 @@ function App() {
                             <Sparkles className="ai-loading-icon" size={32} />
                             <p>AI가 디자인을 생성하고 있습니다...</p>
                           </div>
-                        ) : currentDesignPreview ? (
+                        ) : showResult && currentDesignPreview ? (
                           <div
                             className="ai-result-content"
                             onMouseDown={handleDesignMouseDown}
