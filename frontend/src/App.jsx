@@ -2550,7 +2550,7 @@ function App() {
     const url = URL.createObjectURL(file);
     setStudioSidePhotos((prev) => ({
       ...prev,
-      [side]: { url, name: file.name },
+      [side]: { url, name: file.name, file },
     }));
   };
 
