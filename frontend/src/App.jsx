@@ -13,17 +13,11 @@ import {
   uploadProfilePhoto
 } from "./api/auth";
 import {
-  getPublicBrands,
   getBrandProfiles,
   createBrand,
   updateBrand,
   deleteBrand,
-  uploadBrandLogo,
-  getClothes,
-  getFundingFeed,
-  getUserInvestments,
-  getMyFittings,
-  getDesignHistory
+  uploadBrandLogo
 } from "./api/services";
 import Tshirt from "./Tshirt";
 import {
@@ -52,7 +46,6 @@ import {
   Filter,
   User,
   Pencil,
-  Eraser,
   Trash2,
 } from "lucide-react";
 
@@ -176,8 +169,14 @@ function App() {
   const [designCoinAlertClosing, setDesignCoinAlertClosing] = useState(false);
   const [designGenerateConfirmOpen, setDesignGenerateConfirmOpen] =
     useState(false);
-  const [designPhoto, setDesignPhoto] = useState(null);
-  const designPhotoInputRef = useRef(null);
+  const [studioSidePhotos, setStudioSidePhotos] = useState({
+    front: null,
+    back: null,
+  });
+  const frontPhotoInputRef = useRef(null);
+  const backPhotoInputRef = useRef(null);
+  const [savedDesignTab, setSavedDesignTab] = useState("design");
+  const prevTabRef = useRef(activeTab);
   const aiPhotoInputRef = useRef(null);
   const fittingCanvasRef = useRef(null);
   const [alreadyFundedAlertOpen, setAlreadyFundedAlertOpen] = useState(false);
@@ -260,7 +259,6 @@ function App() {
   const [sizeRange, setSizeRange] = useState([2, 5]);
   const [sizeDetailSelected, setSizeDetailSelected] = useState("M");
   const [sizeDetailInputs, setSizeDetailInputs] = useState({});
-  const [showClearBubble, setShowClearBubble] = useState(false);
   const [studioSide, setStudioSide] = useState("front");
   const [studioSideImages, setStudioSideImages] = useState({
     front: null,
@@ -274,7 +272,6 @@ function App() {
   const backCanvasRef = useRef(null);
   const activeCanvasSideRef = useRef("front");
   const canvasPopupRef = useRef(null);
-  const drawMetaRef = useRef({ moved: false });
   const slideTimerRef = useRef(null);
   const [fittingHistory, setFittingHistory] = useState(initialFittingHistory);
   const [hoveredCardId, setHoveredCardId] = useState(null);
@@ -534,6 +531,7 @@ function App() {
     followingCount,
     hasBrandPage,
     myBrandDetails,
+    myBrandId,
     selectedBrandKey,
   ]);
 
@@ -700,7 +698,6 @@ function App() {
 
   const ensureBrandForDesign = () => {
     if (hasBrandPage) return true;
-    alert("브랜드 페이지를 먼저 만들어야 합니다.");
     return false;
   };
 
@@ -840,19 +837,78 @@ function App() {
     setSelectedBrandKey("my-brand");
   };
 
-  const latestDesignPreview = useMemo(
-    () => generatedDesigns[0] || tempDesigns[0] || null,
-    [generatedDesigns, tempDesigns],
+  const designResultItems = useMemo(
+    () => [...generatedDesigns],
+    [generatedDesigns],
+  );
+  const [designResultIndex, setDesignResultIndex] = useState(0);
+
+  useEffect(() => {
+    setDesignResultIndex((prev) => {
+      if (designResultItems.length === 0) return 0;
+      return Math.min(prev, designResultItems.length - 1);
+    });
+  }, [designResultItems.length]);
+
+  const currentDesignPreview = useMemo(
+    () => designResultItems[designResultIndex] || null,
+    [designResultItems, designResultIndex],
   );
   const openUploadPreview = () => {
-    if (!latestDesignPreview) {
+    if (!currentDesignPreview) {
       alert("먼저 디자인을 생성하세요.");
       return;
     }
-    setAiDesignModal({ open: true, design: latestDesignPreview });
+    setAiDesignModal({ open: true, design: currentDesignPreview });
     setDetailTab("overview");
     setAiDesignEditMode(false);
   };
+
+  const moveDesignResult = (direction) => {
+    if (designResultItems.length < 2) return;
+    setDesignResultIndex((prev) => {
+      const total = designResultItems.length;
+      return (prev + direction + total) % total;
+    });
+  };
+
+  const resetStudioState = () => {
+    setPrompt("");
+    setStudioSide("front");
+    setStudioSideImages({ front: null, back: null });
+    setStudioSidePhotos({ front: null, back: null });
+    setDesignTool("brush");
+    setDesignColor("#111111");
+    setDesignSize(6);
+    setDesignGender("Unisex");
+    setDesignCategory("상의");
+    setDesignLength("민소매");
+    setSizeRange([2, 5]);
+    setSizeDetailSelected("M");
+    setSizeDetailInputs({});
+    setFabric({ stretch: 5, weight: 5, stiffness: 5 });
+    setDesignResultIndex(0);
+    setSavedDesignTab("design");
+    setIsGalleryOpen(false);
+    if (frontPhotoInputRef.current) {
+      frontPhotoInputRef.current.value = "";
+    }
+    if (backPhotoInputRef.current) {
+      backPhotoInputRef.current.value = "";
+    }
+    const canvas = designCanvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (canvas && ctx) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  };
+
+  useEffect(() => {
+    if (prevTabRef.current === "studio" && activeTab !== "studio") {
+      resetStudioState();
+    }
+    prevTabRef.current = activeTab;
+  }, [activeTab]);
 
   const handleTryOn = (clothingId) => {
     if (!isLoggedIn) {
@@ -1328,6 +1384,10 @@ function App() {
     setActiveTab("portfolio");
   };
 
+  const resetMyBrandState = useCallback(() => {
+    resetMyBrandState();
+  }, []);
+
   const followerProfiles = useMemo(
     () => [
       { handle: "@atelier.sen", name: "Atelier Sen" },
@@ -1362,56 +1422,6 @@ function App() {
       }))
       .filter((entry) => entry.clothing);
   }, [clothingMap, fundings, selectedBrandProfile]);
-
-  const handleCanvasDraw = (event) => {
-    const canvas = event.currentTarget;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    drawMetaRef.current.moved = false;
-    ctx.lineWidth = designSize;
-    ctx.lineCap = "round";
-    if (designTool === "eraser") {
-      ctx.globalCompositeOperation = "destination-out";
-      ctx.strokeStyle = "rgba(0, 0, 0, 1)";
-    } else {
-      ctx.globalCompositeOperation = "source-over";
-      ctx.strokeStyle = designColor;
-    }
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    const startX = (event.clientX - rect.left) * scaleX;
-    const startY = (event.clientY - rect.top) * scaleY;
-    drawMetaRef.current.startX = startX;
-    drawMetaRef.current.startY = startY;
-    ctx.beginPath();
-    ctx.moveTo(startX, startY);
-
-    const draw = (moveEvent) => {
-      drawMetaRef.current.moved = true;
-      const x = (moveEvent.clientX - rect.left) * scaleX;
-      const y = (moveEvent.clientY - rect.top) * scaleY;
-      const dx = x - drawMetaRef.current.startX;
-      const dy = y - drawMetaRef.current.startY;
-      if (Math.hypot(dx, dy) < 3) {
-        return;
-      }
-      ctx.lineTo(x, y);
-      ctx.stroke();
-    };
-
-    const stop = () => {
-      ctx.globalCompositeOperation = "source-over";
-      window.removeEventListener("mousemove", draw);
-      window.removeEventListener("mouseup", stop);
-      if (!drawMetaRef.current.moved) {
-        openCanvasZoom();
-      }
-    };
-
-    window.addEventListener("mousemove", draw);
-    window.addEventListener("mouseup", stop);
-  };
 
   const openCanvasZoom = (side = studioSide) => {
     if (canvasPopupRef.current && !canvasPopupRef.current.closed) {
@@ -1999,9 +2009,12 @@ function App() {
       return;
     }
     const canvas = designCanvasRef.current;
-    const dataUrl = studioSideImages[studioSide] ||
+    const dataUrl =
+      studioSideImages[studioSide] ||
       (canvas ? canvas.toDataURL("image/png") : "");
-    if (!dataUrl) return;
+    const previewUrl =
+      studioSideImages.front || studioSideImages.back || dataUrl;
+    if (!previewUrl) return;
     const nextId = `temp-${Date.now()}`;
     setTempDesigns((prev) => [
       {
@@ -2009,11 +2022,69 @@ function App() {
         name: name || "임시 스케치",
         savedAt: formatTimestamp(new Date()),
         design_prompt: name || prompt.trim() || "임시 스케치",
-        design_img_url: dataUrl,
+        design_img_url: previewUrl,
+        resultDesign: currentDesignPreview
+          ? {
+            id: currentDesignPreview.id,
+            name: currentDesignPreview.name,
+            design_img_url: currentDesignPreview.design_img_url,
+          }
+          : null,
+        studioState: {
+          activeSide: studioSide,
+          sideImages: { ...studioSideImages },
+          sidePhotos: { ...studioSidePhotos },
+          prompt,
+          designGender,
+          designCategory,
+          designLength,
+          sizeRange: [...sizeRange],
+          sizeDetailSelected,
+          sizeDetailInputs: { ...sizeDetailInputs },
+          fabric: { ...fabric },
+        },
         isTemp: true,
       },
       ...prev,
     ]);
+  };
+
+  const loadSavedDesign = (item) => {
+    if (item?.studioState) {
+      const state = item.studioState;
+      const nextSide = state.activeSide || "front";
+      const nextImages = state.sideImages || { front: null, back: null };
+      setPrompt(state.prompt || "");
+      setDesignGender(state.designGender || "Unisex");
+      setDesignCategory(state.designCategory || "상의");
+      setDesignLength(state.designLength || "민소매");
+      setSizeRange(state.sizeRange || [2, 5]);
+      setSizeDetailSelected(state.sizeDetailSelected || "M");
+      setSizeDetailInputs(state.sizeDetailInputs || {});
+      setFabric(state.fabric || { stretch: 5, weight: 5, stiffness: 5 });
+      setStudioSidePhotos(state.sidePhotos || { front: null, back: null });
+      setStudioSideImages(nextImages);
+      setStudioSide(nextSide);
+      const nextUrl = nextImages?.[nextSide];
+      if (nextUrl) {
+        loadDesignToCanvas(nextUrl);
+      } else {
+        const canvas = designCanvasRef.current;
+        const ctx = canvas?.getContext("2d");
+        if (canvas && ctx) {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+      }
+      setIsGalleryOpen(false);
+      return;
+    }
+
+    setStudioSideImages((prev) => ({
+      ...prev,
+      [studioSide]: item.design_img_url,
+    }));
+    loadDesignToCanvas(item.design_img_url);
+    setIsGalleryOpen(false);
   };
 
   const removeDesign = (designId, isTemp) => {
@@ -2038,15 +2109,6 @@ function App() {
     setDetailItem((current) =>
       current?.clothing?.id === clothingId ? null : current,
     );
-  };
-
-  const clearDesignCanvas = () => {
-    setStudioSideImages({ front: null, back: null });
-    const canvas = designCanvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
   };
 
   const resetFilters = () => {
@@ -2141,6 +2203,7 @@ function App() {
       window.localStorage.setItem("token", token);
 
       const loginUser = result?.data?.user;
+      resetMyBrandState();
       if (loginUser?.userName) {
         applyUserProfile({ name: loginUser.userName, handle: loginUser.userName });
       }
@@ -2247,17 +2310,22 @@ function App() {
     }
   };
 
-  const handleDesignPhotoChange = (event) => {
+  const handleStudioSidePhotoChange = (side, event) => {
     const file = event.target.files[0];
     if (!file) return;
     const url = URL.createObjectURL(file);
-    setDesignPhoto({ url, name: file.name });
+    setStudioSidePhotos((prev) => ({
+      ...prev,
+      [side]: { url, name: file.name },
+    }));
   };
 
-  const clearDesignPhoto = () => {
-    setDesignPhoto(null);
-    if (designPhotoInputRef.current) {
-      designPhotoInputRef.current.value = "";
+  const clearStudioSidePhoto = (side) => {
+    setStudioSidePhotos((prev) => ({ ...prev, [side]: null }));
+    const targetRef =
+      side === "front" ? frontPhotoInputRef.current : backPhotoInputRef.current;
+    if (targetRef) {
+      targetRef.value = "";
     }
   };
 
@@ -2282,22 +2350,6 @@ function App() {
       ctx.drawImage(image, offsetX, offsetY, drawWidth, drawHeight);
     };
     image.src = src;
-  };
-
-  const switchStudioSide = (nextSide) => {
-    if (nextSide === studioSide) return;
-    const canvas = designCanvasRef.current;
-    if (canvas) {
-      const currentUrl = canvas.toDataURL("image/png");
-      setStudioSideImages((prev) => ({ ...prev, [studioSide]: currentUrl }));
-    }
-    const nextUrl = studioSideImages[nextSide];
-    setStudioSide(nextSide);
-    if (nextUrl) {
-      loadDesignToCanvas(nextUrl);
-    } else {
-      clearDesignCanvas();
-    }
   };
 
   const loadImage = (src) =>
@@ -2541,6 +2593,13 @@ function App() {
         }));
         setBrandProfiles(normalized);
 
+        if (!isLoggedIn || brandEditing) {
+          if (!isLoggedIn) {
+            resetMyBrandState();
+          }
+          return;
+        }
+
         const myProfile = normalized.find(
           (profile) => profile.handle === userProfile.handle,
         );
@@ -2568,7 +2627,7 @@ function App() {
     return () => {
       active = false;
     };
-  }, [brandEditing, isLoggedIn, userProfile.handle]);
+  }, [brandEditing, isLoggedIn, resetMyBrandState, userProfile.handle]);
 
   useEffect(() => {
     if (!userProfile.handle) return;
@@ -4232,57 +4291,21 @@ function App() {
                   </div>
                   <div className="studio-workbench-actions">
                     <button
+                      className="secondary temp-save-btn"
                       type="button"
-                      className="design-coin"
-                      onClick={() => setDesignCoinModal(true)}
+                      onClick={() =>
+                        setNameModal({
+                          open: true,
+                          type: "temp-design",
+                          value: prompt.trim() || "임시 스케치",
+                          view: null,
+                        })
+                      }
                     >
-                      <span className="design-coin-icon" aria-hidden="true">
-                        <svg
-                          className="design-coin-brush"
-                          viewBox="0 0 24 24"
-                          aria-hidden="true"
-                        >
-                          <path
-                            d="M4 20c2.2 0 4-1.8 4-4 0-1.1.9-2 2-2h4"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                          <path
-                            d="M12 4l8 8-6 6-8-8z"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                          <path
-                            d="M10 6l8 8"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                          />
-                        </svg>
-                      </span>
-                      <span className="design-coin-count">{designCoins}</span>
+                      임시 저장
                     </button>
                     <button
-                      className="primary"
-                      type="button"
-                      onClick={() => {
-                        if (!ensureBrandForDesign()) return;
-                        if (designCoins <= 0) return;
-                        setDesignGenerateConfirmOpen(true);
-                      }}
-                      disabled={designCoins <= 0}
-                    >
-                      디자인 생성
-                    </button>
-                    <button
-                      className="secondary"
+                      className="secondary upload-dark"
                       type="button"
                       onClick={openUploadPreview}
                     >
@@ -4292,180 +4315,228 @@ function App() {
                 </div>
                 <div className="workbench-body">
                   <div className="workbench-canvas">
-                    <div className="design-toolbar">
-                      <div className="tool-group">
-                        <button
-                          type="button"
-                          className={`tool-btn ${designTool === "brush" ? "active" : ""
-                            }`}
-                          onClick={() => {
-                            setDesignTool("brush");
-                            setShowClearBubble(false);
-                          }}
-                          aria-label="Brush"
-                          title="Brush"
-                        >
-                          <Pencil size={16} strokeWidth={1.6} />
-                        </button>
-                        <div className="tool-anchor">
-                          <button
-                            type="button"
-                            className={`tool-btn ${designTool === "eraser" ? "active" : ""
-                              }`}
-                            onClick={() => {
-                              if (designTool === "eraser") {
-                                setShowClearBubble((prev) => !prev);
-                              } else {
-                                setDesignTool("eraser");
-                                setShowClearBubble(false);
-                              }
-                            }}
-                            aria-label="Eraser"
-                            title="Eraser"
-                          >
-                            <Eraser size={16} strokeWidth={1.6} />
-                          </button>
-                          <div
-                            className={`tool-sub ${designTool === "eraser" && showClearBubble
-                              ? "is-visible"
-                              : ""
-                              }`}
-                          >
-                            <div className="bubble">
-                              <button
-                                type="button"
-                                className="clear-btn"
-                                onClick={clearDesignCanvas}
-                              >
-                                모두 지우기
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      <label className="color-picker">
-                        색상
-                        <input
-                          type="color"
-                          value={designColor}
-                          onChange={(event) =>
-                            setDesignColor(event.target.value)
-                          }
-                          aria-label="Brush color"
-                        />
-                      </label>
-                      <label className="size-control">
-                        굵기
-                        <input
-                          type="range"
-                          min="2"
-                          max="14"
-                          value={designSize}
-                          onChange={(event) =>
-                            setDesignSize(Number(event.target.value))
-                          }
-                        />
-                      </label>
-                      <div className="canvas-photo-actions">
-                        <button
-                          className="secondary temp-save-btn"
-                          type="button"
-                          onClick={() =>
-                            setNameModal({
-                              open: true,
-                              type: "temp-design",
-                              value: prompt.trim() || "임시 스케치",
-                              view: null,
-                            })
-                          }
-                        >
-                          임시 저장
-                        </button>
-                        <button
-                          type="button"
-                          className="canvas-photo-btn"
-                          onClick={() => designPhotoInputRef.current?.click()}
-                          aria-label="Upload photo"
-                        >
+                    <div className="workbench-canvas-actions">
+                      <button
+                        type="button"
+                        className="design-coin"
+                        onClick={() => setDesignCoinModal(true)}
+                      >
+                        <span className="design-coin-icon" aria-hidden="true">
                           <svg
+                            className="design-coin-brush"
                             viewBox="0 0 24 24"
                             aria-hidden="true"
-                            focusable="false"
                           >
                             <path
-                              d="M7 7l1.5-2h7L17 7h2a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h2z"
+                              d="M4 20c2.2 0 4-1.8 4-4 0-1.1.9-2 2-2h4"
                               fill="none"
                               stroke="currentColor"
-                              strokeWidth="1.6"
+                              strokeWidth="2"
                               strokeLinecap="round"
                               strokeLinejoin="round"
                             />
-                            <circle
-                              cx="12"
-                              cy="13"
-                              r="3.2"
+                            <path
+                              d="M12 4l8 8-6 6-8-8z"
                               fill="none"
                               stroke="currentColor"
-                              strokeWidth="1.6"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                            <path
+                              d="M10 6l8 8"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
                             />
                           </svg>
-                        </button>
-                        {designPhoto?.url && (
-                          <button
-                            type="button"
-                            className="canvas-photo-clear"
-                            onClick={clearDesignPhoto}
-                            aria-label="Remove photo"
-                          >
-                            ×
-                          </button>
-                        )}
-                      </div>
+                        </span>
+                        <span className="design-coin-count">{designCoins}</span>
+                      </button>
+                      <button
+                        className="primary"
+                        type="button"
+                        onClick={() => {
+                          if (!ensureBrandForDesign()) return;
+                          if (designCoins <= 0) return;
+                          setDesignGenerateConfirmOpen(true);
+                        }}
+                        disabled={designCoins <= 0}
+                      >
+                        디자인 생성
+                      </button>
                     </div>
                     <div className="design-canvas-wrap">
                       <div className="design-canvas-grid">
-                        <button
-                          type="button"
-                          className="design-canvas-card"
-                          onClick={() => openCanvasForSide("front")}
-                        >
-                          <span className="design-canvas-label">앞면</span>
-                          {designPhoto?.url && (
-                            <img
-                              className="design-photo-preview"
-                              src={designPhoto.url}
-                              alt={designPhoto.name || "Design reference"}
+                        <div className="design-canvas-card">
+                          <div className="design-canvas-title">
+                            <span className="design-canvas-label">앞면</span>
+                            <div className="canvas-side-actions">
+                              <button
+                                type="button"
+                                className="canvas-photo-btn"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  frontPhotoInputRef.current?.click();
+                                }}
+                                aria-label="Upload front photo"
+                              >
+                                <svg
+                                  viewBox="0 0 24 24"
+                                  aria-hidden="true"
+                                  focusable="false"
+                                >
+                                  <path
+                                    d="M7 7l1.5-2h7L17 7h2a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h2z"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="1.6"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  />
+                                  <circle
+                                    cx="12"
+                                    cy="13"
+                                    r="3.2"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="1.6"
+                                  />
+                                </svg>
+                              </button>
+                              {studioSidePhotos.front?.url && (
+                                <button
+                                  type="button"
+                                  className="canvas-photo-clear"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    clearStudioSidePhoto("front");
+                                  }}
+                                  aria-label="Remove front photo"
+                                >
+                                  ×
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            className="design-canvas-surface"
+                            onClick={() => openCanvasForSide("front")}
+                          >
+                            {studioSidePhotos.front?.url && (
+                              <img
+                                className="design-photo-preview"
+                                src={studioSidePhotos.front.url}
+                                alt={
+                                  studioSidePhotos.front.name ||
+                                  "Front reference"
+                                }
+                              />
+                            )}
+                            <canvas
+                              ref={frontCanvasRef}
+                              className="design-canvas-preview"
+                              width="320"
+                              height="200"
+                              aria-label="Front canvas preview"
                             />
-                          )}
-                          <canvas
-                            ref={frontCanvasRef}
-                            className="design-canvas-preview"
-                            width="320"
-                            height="200"
-                            aria-label="Front canvas preview"
+                          </button>
+                          <input
+                            ref={frontPhotoInputRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={(event) =>
+                              handleStudioSidePhotoChange("front", event)
+                            }
+                            className="canvas-photo-input"
                           />
-                        </button>
-                        <button
-                          type="button"
-                          className="design-canvas-card"
-                          onClick={() => openCanvasForSide("back")}
-                        >
-                          <span className="design-canvas-label">뒷면</span>
-                          <canvas
-                            ref={backCanvasRef}
-                            className="design-canvas-preview"
-                            width="320"
-                            height="200"
-                            aria-label="Back canvas preview"
+                        </div>
+                        <div className="design-canvas-card">
+                          <div className="design-canvas-title">
+                            <span className="design-canvas-label">뒷면</span>
+                            <div className="canvas-side-actions">
+                              <button
+                                type="button"
+                                className="canvas-photo-btn"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  backPhotoInputRef.current?.click();
+                                }}
+                                aria-label="Upload back photo"
+                              >
+                                <svg
+                                  viewBox="0 0 24 24"
+                                  aria-hidden="true"
+                                  focusable="false"
+                                >
+                                  <path
+                                    d="M7 7l1.5-2h7L17 7h2a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h2z"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="1.6"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  />
+                                  <circle
+                                    cx="12"
+                                    cy="13"
+                                    r="3.2"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="1.6"
+                                  />
+                                </svg>
+                              </button>
+                              {studioSidePhotos.back?.url && (
+                                <button
+                                  type="button"
+                                  className="canvas-photo-clear"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    clearStudioSidePhoto("back");
+                                  }}
+                                  aria-label="Remove back photo"
+                                >
+                                  ×
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            className="design-canvas-surface"
+                            onClick={() => openCanvasForSide("back")}
+                          >
+                            {studioSidePhotos.back?.url && (
+                              <img
+                                className="design-photo-preview"
+                                src={studioSidePhotos.back.url}
+                                alt={
+                                  studioSidePhotos.back.name ||
+                                  "Back reference"
+                                }
+                              />
+                            )}
+                            <canvas
+                              ref={backCanvasRef}
+                              className="design-canvas-preview"
+                              width="320"
+                              height="200"
+                              aria-label="Back canvas preview"
+                            />
+                          </button>
+                          <input
+                            ref={backPhotoInputRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={(event) =>
+                              handleStudioSidePhotoChange("back", event)
+                            }
+                            className="canvas-photo-input"
                           />
-                        </button>
-                        <input
-                          ref={designPhotoInputRef}
-                          type="file"
-                          accept="image/*"
-                          onChange={handleDesignPhotoChange}
-                          className="canvas-photo-input"
-                        />
+                        </div>
                       </div>
                     </div>
                     <label className="field prompt-field">
@@ -4481,11 +4552,33 @@ function App() {
                     <div className="ai-result-card">
                       <h4>디자인 결과</h4>
                       <div className="ai-result-frame large">
-                        {latestDesignPreview ? (
-                          <img
-                            src={latestDesignPreview.design_img_url}
-                            alt={latestDesignPreview.name}
-                          />
+                        {currentDesignPreview ? (
+                          <>
+                            <img
+                              src={currentDesignPreview.design_img_url}
+                              alt={currentDesignPreview.name}
+                            />
+                            {designResultItems.length > 1 && (
+                              <div className="ai-result-nav">
+                                <button
+                                  type="button"
+                                  className="ai-result-arrow"
+                                  onClick={() => moveDesignResult(-1)}
+                                  aria-label="Previous design"
+                                >
+                                  &lt;
+                                </button>
+                                <button
+                                  type="button"
+                                  className="ai-result-arrow"
+                                  onClick={() => moveDesignResult(1)}
+                                  aria-label="Next design"
+                                >
+                                  &gt;
+                                </button>
+                              </div>
+                            )}
+                          </>
                         ) : (
                           <span>아직 생성된 디자인이 없습니다.</span>
                         )}
@@ -5937,15 +6030,36 @@ function App() {
             <div className="studio-gallery-header">
               <h3>Generated Gallery</h3>
               <span className="studio-gallery-count">
-                현재 디자인 수: {generatedDesigns.length + tempDesigns.length} /
-                10
+                현재 디자인 수:{" "}
+                {savedDesignTab === "design"
+                  ? tempDesigns.length
+                  : generatedDesigns.length}{" "}
+                / 10
               </span>
             </div>
+            <div className="studio-gallery-tabs">
+              <button
+                type="button"
+                className={`studio-gallery-tab ${savedDesignTab === "design" ? "active" : ""}`}
+                onClick={() => setSavedDesignTab("design")}
+              >
+                스케치
+              </button>
+              <button
+                type="button"
+                className={`studio-gallery-tab ${savedDesignTab === "result" ? "active" : ""}`}
+                onClick={() => setSavedDesignTab("result")}
+              >
+                생성 결과
+              </button>
+            </div>
             <div className="gallery-grid">
-              {generatedDesigns.length + tempDesigns.length === 0 && (
+              {savedDesignTab === "design"
+                ? tempDesigns.length === 0
+                : generatedDesigns.length === 0 ? (
                 <p className="empty">아직 생성된 디자인이 없습니다.</p>
-              )}
-              {[...tempDesigns, ...generatedDesigns]
+              ) : null}
+              {(savedDesignTab === "design" ? tempDesigns : generatedDesigns)
                 .slice(0, 10)
                 .map((item, index) => (
                   <div
@@ -5968,14 +6082,7 @@ function App() {
                         <button
                           type="button"
                           className="album-load-btn"
-                          onClick={() => {
-                            setStudioSideImages((prev) => ({
-                              ...prev,
-                              [studioSide]: item.design_img_url,
-                            }));
-                            loadDesignToCanvas(item.design_img_url);
-                            setIsGalleryOpen(false);
-                          }}
+                          onClick={() => loadSavedDesign(item)}
                         >
                           불러오기
                         </button>

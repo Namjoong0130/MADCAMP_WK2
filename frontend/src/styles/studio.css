@@ -19,7 +19,7 @@
 .studio-workbench-actions {
   display: inline-flex;
 
-  gap: 20px;
+  gap: 13px;
 
   align-items: center;
 }
@@ -30,6 +30,12 @@
   padding: 8px 14px;  
   min-width: auto;
   justify-content: center;
+}
+
+.studio-workbench-actions .upload-dark {
+  background: #111111;
+  color: #ffffff;
+  border-color: #111111;
 }
 
 .design-coin {
@@ -94,6 +100,13 @@
   gap: 8px;
 }
 
+.workbench-canvas-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+}
+
 .studio-workbench .design-canvas {
   width: 100%;
   height: 420px;
@@ -115,7 +128,6 @@
   padding: 12px;
   display: grid;
   gap: 10px;
-  cursor: pointer;
   text-align: left;
 }
 
@@ -124,9 +136,31 @@
   outline-offset: 2px;
 }
 
+.design-canvas-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .design-canvas-label {
   font-size: 12px;
   color: var(--muted);
+}
+
+.design-canvas-surface {
+  position: relative;
+  border: none;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.design-canvas-surface:focus-visible {
+  outline: 2px solid #111111;
+  outline-offset: 2px;
+  border-radius: 12px;
 }
 
 .design-canvas-preview {
@@ -136,13 +170,15 @@
   border: 1px solid var(--border);
   background: #fafafa;
   display: block;
+  position: relative;
+  z-index: 0;
 }
 
 .design-photo-preview {
   position: absolute;
-  inset: 34px 12px 12px 12px;
-  width: calc(100% - 24px);
-  height: calc(100% - 46px);
+  inset: 0;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
   border-radius: 12px;
   z-index: 1;
@@ -150,14 +186,11 @@
   opacity: 0.8;
 }
 
-.canvas-photo-actions {
+.canvas-side-actions {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  margin-left: auto;
-  position: relative;
 }
-
 
 .canvas-photo-btn {
   width: 32px;
@@ -179,14 +212,13 @@
 }
 
 .canvas-photo-clear {
-  position: absolute;
-  top: -4px;
-  right: -4px;
-  border: none;
-  background: transparent;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: #ffffff;
   color: #111111;
-  font-size: 11px;
-  line-height: 1;
+  font-size: 12px;
   display: grid;
   place-items: center;
   cursor: pointer;
@@ -343,7 +375,7 @@
   display: grid;
   gap: 18px;
   align-content: start;
-  margin-top: 50px;
+  margin-top: 69px;
 }
 
 .ai-result-card,
@@ -372,6 +404,7 @@
   overflow: hidden;
   color: var(--muted);
   font-size: 12px;
+  position: relative;
 }
 
 .ai-result-frame.large {
@@ -382,6 +415,30 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.ai-result-nav {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  pointer-events: none;
+}
+
+.ai-result-arrow {
+  pointer-events: auto;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.9);
+  color: #111111;
+  font-size: 14px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
 }
 
 .ai-history-scroll {
@@ -655,9 +712,9 @@
 
 .size-detail-controls {
   display: grid;
-  grid-template-columns: repeat(4, 62px);
-  justify-content: center;
-  column-gap: 34px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  justify-content: stretch;
+  column-gap: 16px;
   row-gap: 12px;
 }
 
@@ -746,7 +803,7 @@
 }
 
 .studio-gallery-content {
-  max-width: 600px;
+  max-width: 760px;
   width: 100%;
   max-height: 80vh;
   background: #ffffff;
@@ -758,11 +815,11 @@
   gap: 12px;
   box-shadow: 0 24px 48px rgba(0, 0, 0, 0.24);
   overflow: hidden;
-  height: 520px;
+  height: 620px;
 }
 
 .studio-gallery-content.compact {
-  height: 320px;
+  height: 420px;
 }
 
 .studio-gallery-header {
@@ -771,6 +828,30 @@
   align-items: baseline;
   gap: 12px;
   padding-right: 40px;
+}
+
+.studio-gallery-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  align-self: flex-end;
+  margin-right: 16px;
+}
+
+.studio-gallery-tab {
+  border: 1px solid var(--border);
+  background: #ffffff;
+  color: #111111;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.studio-gallery-tab.active {
+  background: #111111;
+  color: #ffffff;
+  border-color: #111111;
 }
 
 .studio-gallery-count {
