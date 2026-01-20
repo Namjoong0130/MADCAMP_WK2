@@ -2629,34 +2629,9 @@ function App() {
     isDraggingDesign.current = false;
   };
 
-  // Handlers for Input Preview Zoom
-  const handleInputMouseDown = (e, side) => {
-    e.preventDefault();
-    e.stopPropagation();
-    activeInputDrag.current = side;
-    lastMouseY.current = e.clientY;
-  };
-
-  const handleInputMouseMove = (e) => {
-    if (!activeInputDrag.current) return;
-    const deltaY = lastMouseY.current - e.clientY;
-    lastMouseY.current = e.clientY;
-
-    if (activeInputDrag.current === 'front') {
-      setFrontInputScale(prev => clamp(prev + deltaY * 0.005, 0.5, 3.0));
-    } else if (activeInputDrag.current === 'back') {
-      setBackInputScale(prev => clamp(prev + deltaY * 0.005, 0.5, 3.0));
-    }
-  };
-
-  const handleInputMouseUp = () => {
-    activeInputDrag.current = null;
-  };
-
   useEffect(() => {
     const handleGlobalMouseUp = () => {
       isDraggingDesign.current = false;
-      activeInputDrag.current = null;
     };
     window.addEventListener('mouseup', handleGlobalMouseUp);
     return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
@@ -4966,21 +4941,10 @@ function App() {
                               )}
                             </div>
                           </div>
-                          <div
+                          <button
+                            type="button"
                             className="design-canvas-surface"
-                            onMouseDown={(e) => handleInputMouseDown(e, "front")}
-                            onMouseMove={handleInputMouseMove}
-                            onMouseUp={handleInputMouseUp}
-                            onMouseLeave={handleInputMouseUp}
-                            onClick={() => !activeInputDrag.current && openCanvasForSide("front")}
-                            style={{
-                              cursor: activeInputDrag.current === "front" ? "grabbing" : "grab",
-                              overflow: "hidden",
-                              position: "relative",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center"
-                            }}
+                            onClick={() => openCanvasForSide("front")}
                           >
                             {studioSidePhotos.front?.url && (
                               <img
@@ -4990,14 +4954,6 @@ function App() {
                                   studioSidePhotos.front.name ||
                                   "Front reference"
                                 }
-                                style={{
-                                  transform: `scale(${frontInputScale})`,
-                                  transition: activeInputDrag.current === "front" ? "none" : "transform 0.1s ease-out",
-                                  pointerEvents: "none",
-                                  userSelect: "none",
-                                  maxHeight: "100%",
-                                  maxWidth: "100%"
-                                }}
                               />
                             )}
                             <canvas
@@ -5006,9 +4962,8 @@ function App() {
                               width="320"
                               height="200"
                               aria-label="Front canvas preview"
-                              style={{ display: studioSidePhotos.front?.url ? 'none' : 'block' }}
                             />
-                          </div>
+                          </button>
                           <input
                             ref={frontPhotoInputRef}
                             type="file"
@@ -5070,21 +5025,10 @@ function App() {
                               )}
                             </div>
                           </div>
-                          <div
+                          <button
+                            type="button"
                             className="design-canvas-surface"
-                            onMouseDown={(e) => handleInputMouseDown(e, "back")}
-                            onMouseMove={handleInputMouseMove}
-                            onMouseUp={handleInputMouseUp}
-                            onMouseLeave={handleInputMouseUp}
-                            onClick={() => !activeInputDrag.current && openCanvasForSide("back")}
-                            style={{
-                              cursor: activeInputDrag.current === "back" ? "grabbing" : "grab",
-                              overflow: "hidden",
-                              position: "relative",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center"
-                            }}
+                            onClick={() => openCanvasForSide("back")}
                           >
                             {studioSidePhotos.back?.url && (
                               <img
@@ -5094,14 +5038,6 @@ function App() {
                                   studioSidePhotos.back.name ||
                                   "Back reference"
                                 }
-                                style={{
-                                  transform: `scale(${backInputScale})`,
-                                  transition: activeInputDrag.current === "back" ? "none" : "transform 0.1s ease-out",
-                                  pointerEvents: "none",
-                                  userSelect: "none",
-                                  maxHeight: "100%",
-                                  maxWidth: "100%"
-                                }}
                               />
                             )}
                             <canvas
@@ -5110,9 +5046,8 @@ function App() {
                               width="320"
                               height="200"
                               aria-label="Back canvas preview"
-                              style={{ display: studioSidePhotos.back?.url ? 'none' : 'block' }}
                             />
-                          </div>
+                          </button>
                           <input
                             ref={backPhotoInputRef}
                             type="file"
