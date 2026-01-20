@@ -189,6 +189,11 @@ function App() {
     front: null,
     back: null,
   });
+  const [designViewSide, setDesignViewSide] = useState("front");
+  const [designScale, setDesignScale] = useState(0.8); // Initial scale
+  const isDraggingDesign = useRef(false);
+  const lastMouseY = useRef(0);
+
   const frontPhotoInputRef = useRef(null);
   const backPhotoInputRef = useRef(null);
   const [savedDesignTab, setSavedDesignTab] = useState("design");
@@ -2586,7 +2591,9 @@ function App() {
     if (!canvas || !src) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+
     const image = new Image();
+    image.crossOrigin = "anonymous";
     image.onload = () => {
       const canvasWidth = canvas.width;
       const canvasHeight = canvas.height;
@@ -2603,6 +2610,31 @@ function App() {
     };
     image.src = src;
   };
+
+  const handleDesignMouseDown = (e) => {
+    e.preventDefault();
+    isDraggingDesign.current = true;
+    lastMouseY.current = e.clientY;
+  };
+
+  const handleDesignMouseMove = (e) => {
+    if (!isDraggingDesign.current) return;
+    const deltaY = lastMouseY.current - e.clientY;
+    lastMouseY.current = e.clientY;
+    setDesignScale((prev) => clamp(prev + deltaY * 0.005, 0.4, 3.0));
+  };
+
+  const handleDesignMouseUp = () => {
+    isDraggingDesign.current = false;
+  };
+
+  useEffect(() => {
+    const handleGlobalMouseUp = () => {
+      isDraggingDesign.current = false;
+    };
+    window.addEventListener('mouseup', handleGlobalMouseUp);
+    return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
+  }, []);
 
   const loadImage = (src) =>
     new Promise((resolve, reject) => {
@@ -5046,32 +5078,80 @@ function App() {
                             <p>AI가 디자인을 생성하고 있습니다...</p>
                           </div>
                         ) : currentDesignPreview ? (
-                          <>
+                          <div
+                            className="ai-result-content"
+                            onMouseDown={handleDesignMouseDown}
+                            onMouseMove={handleDesignMouseMove}
+                            onMouseUp={handleDesignMouseUp}
+                            onMouseLeave={handleDesignMouseUp}
+                            style={{
+                              cursor: isDraggingDesign.current ? "grabbing" : "grab",
+                              overflow: "hidden",
+                              height: "100%",
+                              width: "100%",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              position: "relative"
+                            }}
+                          >
                             <img
-                              src={currentDesignPreview.design_img_url}
+                              src={
+                                designViewSide === "front"
+                                  ? currentDesignPreview.final_result_front_url || currentDesignPreview.design_img_url
+                                  : currentDesignPreview.final_result_back_url || currentDesignPreview.design_img_url
+                              }
                               alt={currentDesignPreview.name}
+                              style={{
+                                transform: `scale(${designScale})`,
+                                transition: isDraggingDesign.current ? "none" : "transform 0.1s ease-out",
+                                maxHeight: "90%",
+                                maxWidth: "90%",
+                                pointerEvents: "none", // Let container handle events
+                                userSelect: "none"
+                              }}
                             />
-                            {designResultItems.length > 1 && (
-                              <div className="ai-result-nav">
+
+                            {/* Navigation Buttons - Only show if not generating */}
+                            {!isGenerating && (
+                              <>
                                 <button
                                   type="button"
-                                  className="ai-result-arrow"
-                                  onClick={() => moveDesignResult(-1)}
-                                  aria-label="Previous design"
+                                  className="ai-result-arrow left"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setDesignViewSide("front");
+                                  }}
+                                  style={{
+                                    position: "absolute",
+                                    left: "10px",
+                                    zIndex: 10,
+                                    opacity: designViewSide === "front" ? 0.5 : 1,
+                                    pointerEvents: "auto"
+                                  }}
                                 >
                                   &lt;
                                 </button>
                                 <button
                                   type="button"
-                                  className="ai-result-arrow"
-                                  onClick={() => moveDesignResult(1)}
-                                  aria-label="Next design"
+                                  className="ai-result-arrow right"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setDesignViewSide("back");
+                                  }}
+                                  style={{
+                                    position: "absolute",
+                                    right: "10px",
+                                    zIndex: 10,
+                                    opacity: designViewSide === "back" ? 0.5 : 1,
+                                    pointerEvents: "auto"
+                                  }}
                                 >
                                   &gt;
                                 </button>
-                              </div>
+                              </>
                             )}
-                          </>
+                          </div>
                         ) : (
                           <span>아직 생성된 디자인이 없습니다.</span>
                         )}

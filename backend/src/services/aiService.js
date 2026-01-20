@@ -51,7 +51,12 @@ exports.removeBackground = async (inputPath) => {
     let fullPath = inputPath;
 
     // Resolve Web URL path (/images/...) to System Path
-    if (inputPath.startsWith('/images/')) {
+    // Resolve Web URL path (/images/...) to System Path
+    if (inputPath.includes('/images/')) {
+      const relativePath = inputPath.split('/images/')[1];
+      fullPath = path.join(UPLOAD_ROOT, relativePath);
+    }
+    else if (inputPath.startsWith('/images/')) {
       fullPath = path.join(UPLOAD_ROOT, inputPath.replace(/^\/images\//, ''));
     }
     // Fallback: If it looks like an absolute system path, check if it exists there
