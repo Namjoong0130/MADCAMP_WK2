@@ -150,10 +150,7 @@ exports.createCloth = async (userId, payload) => {
   return prisma.$transaction(async (tx) => {
     const cloth = await tx.cloth.create({
       data: {
-        ...clothData,
-        brand_id: user.brand.brand_id,
-      },
-    });
+      });
 
     if (attemptPayload?.design_prompt || attemptPayload?.ai_result_url) {
       await tx.designAttempt.create({
@@ -280,6 +277,7 @@ exports.generateDesignImage = async (userId, clothId, prompt, inputImages = []) 
     data: {
       final_result_front_url: images.front,
       final_result_back_url: images.back,
+      final_result_all_url: images.all,
       thumbnail_url: images.front
     }
   });
