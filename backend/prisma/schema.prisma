@@ -57,7 +57,7 @@ model User {
   userName          String
   phoneNumber       String?
   profile_img_url   String?
-  
+
   // 신체 수치 (Unique 제거)
   height            Float
   weight            Float
@@ -78,11 +78,11 @@ model User {
   basePhotoUrl      String?
   pixelRatio        Float?
   shippingAddress   Json?
-  
+
   unread_noti_count Int           @default(0)
   total_liked_count Int           @default(0)
   is_creator        Boolean       @default(false)
-  
+
   updatedAt         DateTime      @updatedAt
   refresh_token     String?
   created_at        DateTime      @default(now())
@@ -95,6 +95,7 @@ model User {
   invests           Invest[]
   comments          Comment[]
   notifications     Notification[]
+  garments          Garment[]
 }
 
 model Brand {
@@ -285,4 +286,24 @@ model Notification {
   deleted_at DateTime?
 
   user       User     @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+}
+
+model Garment {
+  garment_id           Int      @id @default(autoincrement())
+  user_id              Int
+  original_image_url   String   // Original uploaded image
+  processed_image_url  String?  // Background-removed image from fal.ai
+  category             Category?
+  name                 String?
+  description          String?  @db.Text
+  processing_status    String   @default("pending") // pending, processing, completed, failed
+  ai_metadata          Json?    // Store any AI processing metadata
+  created_at           DateTime @default(now())
+  updated_at           DateTime @updatedAt
+  deleted_at           DateTime?
+
+  user                 User     @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([processing_status])
 }

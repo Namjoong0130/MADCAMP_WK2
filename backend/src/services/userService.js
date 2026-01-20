@@ -73,13 +73,19 @@ exports.getUserProfile = async (userId) => {
     user.is_creator = true;
   }
 
+  // Ensure image URLs are properly formatted with full path
+  const profileImgUrl = user.profile_img_url ?
+    (user.profile_img_url.startsWith('http') ? user.profile_img_url : user.profile_img_url) : null;
+  const basePhotoUrl = user.basePhotoUrl ?
+    (user.basePhotoUrl.startsWith('http') ? user.basePhotoUrl : user.basePhotoUrl) : null;
+
   return {
     name: user.userName,
     handle: buildHandle(user.userName),
     followerCount: user.brand?.totalFollowers || 0,
     followingCount: user.follows?.length || 0,
-    profile_img_url: user.profile_img_url || null,
-    base_photo_url: user.basePhotoUrl || user.profile_img_url || null,
+    profile_img_url: profileImgUrl,
+    base_photo_url: basePhotoUrl || profileImgUrl,
     measurements: {
       height: user.height,
       weight: user.weight,

@@ -45,7 +45,8 @@ fal.config({
 
 // ...
 
-const removeBackground = async (inputPath) => {
+// Export removeBackground so it can be used by other services
+exports.removeBackground = async (inputPath) => {
   try {
     let fullPath = inputPath;
 
@@ -202,11 +203,11 @@ exports.generateDesignImage = async (clothId, userPrompt, attemptId, inputImages
   const backUrl = saveLocalFile(rightBuffer, 'designs', `${fileNameBase}_back.png`);
 
   // Background Removal Integration (Design)
-  const frontBuffer = await removeBackground(frontUrl);
+  const frontBuffer = await exports.removeBackground(frontUrl);
   if (frontBuffer) {
     saveLocalFile(frontBuffer, 'designs', `${fileNameBase}_front.png`); // Overwrite
   }
-  const backBuffer = await removeBackground(backUrl);
+  const backBuffer = await exports.removeBackground(backUrl);
   if (backBuffer) {
     saveLocalFile(backBuffer, 'designs', `${fileNameBase}_back.png`); // Overwrite
   }
@@ -298,7 +299,7 @@ exports.generateFittingResult = async (fittingId, basePhotoUrl, clothingList, ex
 
   // Background Removal Integration (Fitting)
   if (imageUrl) { // Only remove bg if AI actually generated something
-    const transparentBuffer = await removeBackground(resultUrl);
+    const transparentBuffer = await exports.removeBackground(resultUrl);
     if (transparentBuffer) {
       saveLocalFile(transparentBuffer, 'fittings', uniqueName); // Overwrite
     }
@@ -334,7 +335,7 @@ exports.generateMannequinResult = async (fittingId, tryOnImageUrl) => {
   // Background Removal Integration (Mannequin)
   if (imageUrl) {
     try {
-      const transparentBuffer = await removeBackground(originalUrl);
+      const transparentBuffer = await exports.removeBackground(originalUrl);
       if (transparentBuffer && transparentBuffer.length > 0) {
         resultUrl = saveLocalFile(transparentBuffer, 'fittings', transparentName);
       } else {

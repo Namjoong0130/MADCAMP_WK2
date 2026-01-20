@@ -89,3 +89,47 @@ export const deleteFundComment = async (fundId, commentId) => {
     const response = await axios.delete(`/api/funds/${fundId}/comments/${commentId}`);
     return response.data.data;
 };
+
+// Garments (fal.ai integration)
+export const uploadGarment = async (file, metadata = {}) => {
+    const formData = new FormData();
+    formData.append('photo', file);
+
+    if (metadata.name) formData.append('name', metadata.name);
+    if (metadata.category) formData.append('category', metadata.category);
+    if (metadata.description) formData.append('description', metadata.description);
+
+    const response = await axios.post('/api/garments', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data.data;
+};
+
+export const getGarments = async (filters = {}) => {
+    const params = new URLSearchParams();
+    if (filters.status) params.append('status', filters.status);
+    if (filters.category) params.append('category', filters.category);
+
+    const response = await axios.get(`/api/garments?${params.toString()}`);
+    return response.data.data;
+};
+
+export const getGarment = async (garmentId) => {
+    const response = await axios.get(`/api/garments/${garmentId}`);
+    return response.data.data;
+};
+
+export const updateGarment = async (garmentId, data) => {
+    const response = await axios.patch(`/api/garments/${garmentId}`, data);
+    return response.data.data;
+};
+
+export const deleteGarment = async (garmentId) => {
+    const response = await axios.delete(`/api/garments/${garmentId}`);
+    return response.data.data;
+};
+
+export const getGarmentStatus = async (garmentId) => {
+    const response = await axios.get(`/api/garments/${garmentId}/status`);
+    return response.data.data;
+};
