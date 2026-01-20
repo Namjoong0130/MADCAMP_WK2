@@ -62,3 +62,8 @@ export const getDesignHistory = async () => {
     const response = await axios.get('/api/clothes/design/history');
     return response.data.data;
 };
+
+export const toggleLike = async (fundId) => {
+    const response = await axios.post(`/api/funds/${fundId}/like`);
+    return response.data.data;
+};

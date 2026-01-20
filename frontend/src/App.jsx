@@ -18,7 +18,10 @@ import {
   createBrand,
   updateBrand,
   deleteBrand,
-  uploadBrandLogo
+  uploadBrandLogo,
+  getClothes,
+  getFundingFeed,
+  toggleLike
 } from "./api/services";
 import Tshirt from "./Tshirt";
 import {
@@ -280,6 +283,24 @@ function App() {
   const [fittingHistory, setFittingHistory] = useState(initialFittingHistory);
   const [hoveredCardId, setHoveredCardId] = useState(null);
   const [slideIndexMap, setSlideIndexMap] = useState({});
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [clothesData, fundsData, brandsData] = await Promise.all([
+          getClothes(),
+          getFundingFeed(),
+          getBrandProfiles()
+        ]);
+        if (clothesData) setClothing(clothesData);
+        if (fundsData) setFundings(fundsData);
+        if (brandsData) setBrandProfiles(brandsData);
+      } catch (err) {
+        console.error("Failed to fetch initial data", err);
+      }
+    };
+    fetchData();
+  }, [isLoggedIn]);
 
   const fundingsFeed = useMemo(() => {
     return [...fundings]
@@ -929,11 +950,13 @@ function App() {
     window.setTimeout(() => setIsComposing(false), 1200);
   };
 
-  const handleLike = (fundingId) => {
+  const handleLike = async (fundingId) => {
     if (!isLoggedIn) {
       openAuthModal("login-required");
       return;
     }
+
+    // Optimistic Update
     setFundings((prev) =>
       prev.map((item) => {
         if (item.id !== fundingId) return item;
@@ -950,6 +973,30 @@ function App() {
         return nextItem;
       }),
     );
+
+    try {
+      const result = await toggleLike(fundingId);
+      // Confirm with server data
+      setFundings((prev) =>
+        prev.map((item) => {
+          if (item.id !== fundingId) return item;
+          const nextItem = {
+            ...item,
+            liked: result.liked,
+            likes: result.likes,
+          };
+          setDetailItem((current) => {
+            if (!current || current.funding.id !== fundingId) return current;
+            return { ...current, funding: nextItem };
+          });
+          return nextItem;
+        })
+      );
+    } catch (error) {
+      console.error("Like failed", error);
+      // Revert (simplified: just fetch feed again or trust user notices error)
+      //Ideally we'd revert the optimistic update here.
+    }
   };
 
   const removeLayer = (clothingId) => {

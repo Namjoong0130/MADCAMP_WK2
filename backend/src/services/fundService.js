@@ -40,6 +40,12 @@ exports.listFundingFeed = async (userId) => {
   return funds.map((fund) => {
     const likedUserIds = fund.cloth?.likedUserIds || [];
     const liked = userId ? likedUserIds.includes(userId) : false;
+
+    // Debug logging
+    if (userId) {
+      // console.log(`[FundService] Checking like for user ${userId} on cloth ${fund.cloth?.clothing_id}. LikedIDs: ${JSON.stringify(likedUserIds)}, Result: ${liked}`);
+    }
+
     const likes = fund.cloth?.likeCount || 0;
     const designerHandle = buildHandle(fund.cloth?.brand?.owner?.userName);
 
