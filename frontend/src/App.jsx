@@ -7,6 +7,7 @@ import { Center, Environment, OrbitControls } from "@react-three/drei";
 import {
   login,
   signup,
+  getMe,
   getProfile,
   updateBodyMetrics,
   deleteAccount,
@@ -123,6 +124,7 @@ function App() {
   const [fittingRealBaseUrl, setFittingRealBaseUrl] = useState(
     userBase.base_photo_url || "/image7.png",
   );
+  const [currentUserId, setCurrentUserId] = useState(null);
   const [userProfile, setUserProfile] = useState(userBase);
   const [brands, setBrands] = useState(initialBrands);
   const [notificationOpen, setNotificationOpen] = useState(false);
@@ -508,6 +510,7 @@ function App() {
       selectedBrandKey === myBrandDetails.handle ||
       selectedBrandKey === myBrandDetails.brand
     ) {
+      if (!hasBrandPage) return null;
       return {
         id: myBrandId || "my-brand",
         brand: myBrandDetails.brand,
@@ -1302,6 +1305,7 @@ function App() {
       setBrandEditing(false);
       setBrandPageReady(true);
       setSelectedBrandKey("my-brand");
+      setActiveTab("studio");
 
       const profiles = await getBrandProfiles();
       const normalized = profiles.map((profile) => ({
@@ -1386,7 +1390,14 @@ function App() {
   };
 
   const resetMyBrandState = useCallback(() => {
-    resetMyBrandState();
+    setHasBrandPage(false);
+    setBrandPageReady(false);
+    setBrandEditing(false);
+    setBrandFollowerOverride(null);
+    setMyBrandDetails(buildEmptyBrandDetails());
+    setMyBrandId(null);
+    setBrandDeleteConfirmOpen(false);
+    setBrandCreatePromptOpen(false);
   }, []);
 
   const followerProfiles = useMemo(
@@ -2240,6 +2251,7 @@ function App() {
     setBrandDeleteConfirmOpen(false);
     setBrandCreatePromptOpen(false);
     setUserProfile(userBase);
+    setCurrentUserId(null);
     setFundings((prev) =>
       prev.map((item) =>
         item.liked
@@ -2488,17 +2500,32 @@ function App() {
 
       await signup(userData);
 
-      const loginResult = await login(email, password);
-      const token = loginResult?.data?.token;
-      if (!token) {
-        throw new Error("로그인 토큰을 받지 못했습니다.");
+      let token = null;
+      try {
+        const loginResult = await login(email, password);
+        token = loginResult?.data?.token || null;
+        if (token) {
+          window.localStorage.setItem("token", token);
+          setIsLoggedIn(true);
+          resetMyBrandState();
+        }
+      } catch (err) {
+        console.error(err);
       }
-      window.localStorage.setItem("token", token);
-      setIsLoggedIn(true);
+
+      if (!token) {
+        alert("회원가입이 완료되었습니다. 로그인에 실패했습니다. 다시 로그인해주세요.");
+        setSignupPhotoFile(null);
+        setOnboardingOpen(false);
+        setIntroOpen(false);
+        setLoginDraft({ handle: email, password: "" });
+        setLoginModalOpen(true);
+        return;
+      }
 
       if (signupPhotoFile) {
         try {
-          await uploadProfilePhoto(signupPhotoFile);
+          await uploadProfilePhoto(signupPhotoFile, "profile");
         } catch (err) {
           console.error(err);
           alert(err.response?.data?.message || "프로필 이미지 업로드에 실패했습니다.");
@@ -2565,11 +2592,16 @@ function App() {
         if (active) {
           applyUserProfile(profile);
         }
+        const me = await getMe();
+        if (active) {
+          setCurrentUserId(me?.user_id ?? null);
+        }
       } catch (err) {
         const status = err.response?.status;
         if (status === 401 || status === 403) {
           window.localStorage.removeItem("token");
           setIsLoggedIn(false);
+          setCurrentUserId(null);
         } else {
           console.error(err);
         }
@@ -2601,21 +2633,10 @@ function App() {
           return;
         }
 
-        const myProfile = normalized.find((profile) => {
-          if (profile.handle && profile.handle === userProfile.handle) {
-            return true;
-          }
-          if (myBrandId && profile.id === myBrandId) {
-            return true;
-          }
-          if (
-            myBrandDetails.brand &&
-            profile.brand?.toLowerCase() === myBrandDetails.brand.toLowerCase()
-          ) {
-            return true;
-          }
-          return false;
-        });
+        const myProfile = normalized.find(
+          (profile) =>
+            currentUserId && profile.owner_id === currentUserId,
+        );
         if (myProfile && !brandEditing) {
           setHasBrandPage(true);
           setBrandPageReady(true);
@@ -2623,14 +2644,12 @@ function App() {
           setMyBrandDetails((prev) => ({
             ...prev,
             brand: myProfile.brand,
+            handle: myProfile.handle,
             bio: myProfile.bio || brandPlaceholders.bio,
             logoUrl: myProfile.logoUrl,
           }));
-        } else if (isLoggedIn && !brandEditing) {
-          setHasBrandPage(false);
-          setBrandPageReady(false);
-          setMyBrandId(null);
-          setMyBrandDetails(buildEmptyBrandDetails());
+        } else if (!brandEditing) {
+          resetMyBrandState();
         }
       } catch (err) {
         console.error(err);
@@ -2640,20 +2659,11 @@ function App() {
     return () => {
       active = false;
     };
-  }, [
-    brandEditing,
-    isLoggedIn,
-    myBrandDetails.brand,
-    myBrandId,
-    resetMyBrandState,
-    userProfile.handle,
-  ]);
+  }, [brandEditing, currentUserId, isLoggedIn, resetMyBrandState]);
 
   useEffect(() => {
     if (!userProfile.handle) return;
-    setMyBrandDetails((prev) =>
-      prev.handle ? prev : { ...prev, handle: userProfile.handle },
-    );
+    setMyBrandDetails((prev) => ({ ...prev, handle: userProfile.handle }));
   }, [userProfile.handle]);
 
   useEffect(() => {
@@ -2793,6 +2803,14 @@ function App() {
       setSelectedBrandKey("my-brand");
       setPendingTab("brand");
       openAuthModal("login-required");
+      return;
+    }
+    setSelectedBrandKey("my-brand");
+    setActiveTab("brand");
+    setDetailItem(null);
+    if (!hasBrandPage) {
+      setBrandCreatePromptOpen(true);
+      setBrandEditing(false);
       return;
     }
     openBrandProfile(myBrandProfile);

@@ -112,6 +112,7 @@ exports.listBrandProfiles = async () => {
 
       return {
         id: brand.brand_id,
+        owner_id: brand.owner_id,
         brand: brand.brand_name,
         brand_logo: brand.brand_logo,
         handle: buildHandle(brand.owner?.userName),
