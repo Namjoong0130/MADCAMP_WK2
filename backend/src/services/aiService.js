@@ -13,7 +13,7 @@ const path = require('path');
 const UPLOAD_ROOT = path.join(__dirname, '../../public/images'); // Align with fileHandler
 
 // Helper to convert local file or URL to appropriate format for FAL
-const resolveImageUrl = async (imgUrl) => {
+exports.resolveImageUrl = async (imgUrl) => {
   if (!imgUrl) return null;
 
   // If it's a web URL, return as is
@@ -86,7 +86,7 @@ exports.removeBackground = async (inputPath) => {
   return null;
 };
 
-const callFalAi = async (prompt, imageUrls = []) => {
+exports.callFalAi = async (prompt, imageUrls = []) => {
   if (!FAL_KEY) {
     console.warn('FAL_KEY is missing. Using mock generation.');
     return null; // Trigger mock
@@ -95,7 +95,7 @@ const callFalAi = async (prompt, imageUrls = []) => {
   try {
     // Resolve all image URLs (convert local to base64 if needed)
     // Map usage to resolve all, handling promises
-    const imagePromises = imageUrls.map(url => resolveImageUrl(url));
+    const imagePromises = imageUrls.map(url => exports.resolveImageUrl(url));
     const processedImages = (await Promise.all(imagePromises)).filter(img => img !== null);
 
     // Fallback: If array is empty but we need input, generate blank?
@@ -171,7 +171,7 @@ exports.generateDesignImage = async (clothId, userPrompt, attemptId, inputImages
 
   console.log(`[AI] Generating Design for Cloth #${clothId}, Attempt #${attemptId} with Prompt:`, finalPrompt);
 
-  let imageUrl = await callFalAi(finalPrompt, inputImages);
+  let imageUrl = await exports.callFalAi(finalPrompt, inputImages);
   let buffer;
 
   if (imageUrl) {
@@ -283,7 +283,7 @@ exports.generateFittingResult = async (fittingId, basePhotoUrl, clothingList, ex
 
   console.log(`[AI] Generating Fitting #${fittingId}`);
 
-  let imageUrl = await callFalAi(finalPrompt, allInputImages);
+  let imageUrl = await exports.callFalAi(finalPrompt, allInputImages);
   let buffer;
 
   if (imageUrl) {
@@ -313,7 +313,7 @@ exports.generateMannequinResult = async (fittingId, tryOnImageUrl) => {
 
   console.log(`[AI] Generating Mannequin #${fittingId}`);
 
-  let imageUrl = await callFalAi(finalPrompt, [tryOnImageUrl]);
+  let imageUrl = await exports.callFalAi(finalPrompt, [tryOnImageUrl]);
   let buffer;
 
   if (imageUrl) {

@@ -96,6 +96,7 @@ model User {
   comments          Comment[]
   notifications     Notification[]
   garments          Garment[]
+  studio_photos     StudioPhoto[]
 }
 
 model Brand {
@@ -303,6 +304,25 @@ model Garment {
   deleted_at           DateTime?
 
   user                 User     @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([processing_status])
+}
+
+model StudioPhoto {
+  studio_photo_id       Int      @id @default(autoincrement())
+  user_id               Int
+  front_photo_url       String   // Original front photo
+  back_photo_url        String   // Original back photo
+  combined_image_url    String?  // Side-by-side image (front | back)
+  processed_image_url   String?  // Background-removed combined image
+  processing_status     String   @default("pending") // pending, processing, completed, failed
+  ai_metadata           Json?    // Store AI processing metadata
+  created_at            DateTime @default(now())
+  updated_at            DateTime @updatedAt
+  deleted_at            DateTime?
+
+  user                  User     @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
 
   @@index([user_id])
   @@index([processing_status])

@@ -13,6 +13,7 @@ const fundRoutes = require('./fundRoutes');
 const notificationRoutes = require('./notificationRoutes');
 const uploadRoutes = require('./uploadRoutes');
 const garmentRoutes = require('./garmentRoutes');
+const studioRoutes = require('./studioRoutes');
 
 // /api/auth 로 들어오는 모든 요청은 authRoutes에서 처리
 router.use('/auth', authRoutes);
@@ -24,5 +25,6 @@ router.use('/funds', fundRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/upload', uploadRoutes);
 router.use('/garments', garmentRoutes); // Garment management with fal.ai integration
+router.use('/studio', studioRoutes); // Studio photo processing with fal.ai
 
 module.exports = router;

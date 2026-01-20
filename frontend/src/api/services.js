@@ -133,3 +133,38 @@ export const getGarmentStatus = async (garmentId) => {
     const response = await axios.get(`/api/garments/${garmentId}/status`);
     return response.data.data;
 };
+
+// Studio photo processing (fal.ai integration)
+export const uploadStudioPhotos = async (frontPhoto, backPhoto) => {
+    const formData = new FormData();
+    formData.append('front_photo', frontPhoto);
+    formData.append('back_photo', backPhoto);
+
+    const response = await axios.post('/api/studio', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data.data;
+};
+
+export const getStudioPhotos = async (filters = {}) => {
+    const params = new URLSearchParams();
+    if (filters.status) params.append('status', filters.status);
+
+    const response = await axios.get(`/api/studio?${params.toString()}`);
+    return response.data.data;
+};
+
+export const getStudioPhoto = async (studioPhotoId) => {
+    const response = await axios.get(`/api/studio/${studioPhotoId}`);
+    return response.data.data;
+};
+
+export const deleteStudioPhoto = async (studioPhotoId) => {
+    const response = await axios.delete(`/api/studio/${studioPhotoId}`);
+    return response.data.data;
+};
+
+export const getStudioPhotoStatus = async (studioPhotoId) => {
+    const response = await axios.get(`/api/studio/${studioPhotoId}/status`);
+    return response.data.data;
+};
