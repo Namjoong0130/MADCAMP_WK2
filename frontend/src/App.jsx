@@ -794,6 +794,7 @@ function App() {
         savedAt: formatTimestamp(new Date()),
         category: "Concept",
         design_img_url: result.front || result.all,
+        final_result_all_url: result.all,
         final_result_front_url: result.front,
         final_result_back_url: result.back,
         gender: "Unisex",
@@ -6705,36 +6706,15 @@ function App() {
             <div className="studio-gallery-header">
               <h3>Generated Gallery</h3>
               <span className="studio-gallery-count">
-                현재 디자인 수:{" "}
-                {savedDesignTab === "design"
-                  ? tempDesigns.length
-                  : generatedDesigns.length}{" "}
-                / 10
+                현재 디자인 수: {generatedDesigns.length} / 10
               </span>
             </div>
-            <div className="studio-gallery-tabs">
-              <button
-                type="button"
-                className={`studio-gallery-tab ${savedDesignTab === "design" ? "active" : ""}`}
-                onClick={() => setSavedDesignTab("design")}
-              >
-                스케치
-              </button>
-              <button
-                type="button"
-                className={`studio-gallery-tab ${savedDesignTab === "result" ? "active" : ""}`}
-                onClick={() => setSavedDesignTab("result")}
-              >
-                생성 결과
-              </button>
-            </div>
+
             <div className="gallery-grid">
-              {savedDesignTab === "design"
-                ? tempDesigns.length === 0
-                : generatedDesigns.length === 0 ? (
-                  <p className="empty">아직 생성된 디자인이 없습니다.</p>
-                ) : null}
-              {(savedDesignTab === "design" ? tempDesigns : generatedDesigns)
+              {generatedDesigns.length === 0 ? (
+                <p className="empty">아직 생성된 디자인이 없습니다.</p>
+              ) : null}
+              {generatedDesigns
                 .slice(0, 10)
                 .map((item, index) => (
                   <div
@@ -6750,7 +6730,11 @@ function App() {
                     >
                       ×
                     </button>
-                    <img src={item.design_img_url} alt={item.name} />
+                    <img
+                      src={item.final_result_all_url || item.design_img_url}
+                      alt={item.name}
+                      style={{ objectFit: 'contain', background: '#f5f5f5' }}
+                    />
                     <div className="album-meta">
                       <div className="album-meta-row">
                         <strong>{item.name}</strong>

@@ -158,6 +158,7 @@ model Cloth {
   layer_order           Int
   size_specs            Json
   
+  final_result_all_url   String?
   final_result_front_url String?
   final_result_back_url  String?
   
