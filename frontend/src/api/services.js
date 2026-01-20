@@ -36,8 +36,13 @@ export const uploadBrandLogo = async (file) => {
 };
 
 // Clothes
-export const getClothes = async () => {
-    const response = await axios.get('/api/clothes');
+export const getClothes = async (params) => {
+    const response = await axios.get('/api/clothes', { params });
+    return response.data.data;
+};
+
+export const deleteCloth = async (clothId) => {
+    const response = await axios.delete(`/api/clothes/${clothId}`);
     return response.data.data;
 };
 

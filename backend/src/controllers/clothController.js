@@ -113,3 +113,12 @@ exports.generateDesign = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.deleteCloth = async (req, res, next) => {
+  try {
+    await clothService.deleteCloth(req.user.userId, Number(req.params.clothId));
+    return success(res, null, '디자인이 삭제되었습니다.');
+  } catch (error) {
+    next(error);
+  }
+};

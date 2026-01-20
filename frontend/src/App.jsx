@@ -31,6 +31,7 @@ import {
   getGarments,
   getGarmentStatus,
   createCloth,
+  deleteCloth,
   generateDesign as apiGenerateDesign,
 } from "./api/services";
 import Tshirt from "./Tshirt";
@@ -318,6 +319,33 @@ function App() {
     };
     fetchData();
   }, [isLoggedIn]);
+
+  // Fetch My Designs (Persistence)
+  useEffect(() => {
+    const fetchMyDesigns = async () => {
+      if (isLoggedIn && myBrandId) {
+        try {
+          const myClothes = await getClothes({ brand_id: myBrandId });
+          const designs = myClothes.map(cloth => ({
+            id: cloth.id,
+            name: cloth.name || `Design ${cloth.id}`,
+            savedAt: formatTimestamp(new Date(cloth.created_at)),
+            design_img_url: cloth.design_img_url,
+            final_result_all_url: cloth.final_result_all_url,
+            final_result_front_url: cloth.final_result_front_url,
+            description: cloth.description,
+            price: cloth.price,
+            category: cloth.category,
+            style: cloth.style
+          }));
+          setGeneratedDesigns(designs);
+        } catch (error) {
+          console.error("Failed to fetch my designs", error);
+        }
+      }
+    };
+    fetchMyDesigns();
+  }, [isLoggedIn, myBrandId]);
 
   const fundingsFeed = useMemo(() => {
     return [...fundings]
@@ -2341,12 +2369,25 @@ function App() {
     setIsGalleryOpen(false);
   };
 
-  const removeDesign = (designId, isTemp) => {
+  const removeDesign = async (designId, isTemp) => {
     if (isTemp) {
       setTempDesigns((prev) => prev.filter((item) => item.id !== designId));
       return;
     }
-    setGeneratedDesigns((prev) => prev.filter((item) => item.id !== designId));
+
+    // Confirmation Dialog
+    if (window.confirm("디자인이 영구적으로 삭제됩니다. 계속하시겠습니까?")) {
+      try {
+        await deleteCloth(designId);
+        setGeneratedDesigns((prev) => prev.filter((item) => item.id !== designId));
+
+        // Also update brand count locally if possible
+        setBrand((prev) => ({ ...prev, clothes_count: Math.max(0, prev.clothes_count - 1) }));
+      } catch (error) {
+        console.error("Failed to delete design", error);
+        alert("디자인 삭제에 실패했습니다.");
+      }
+    }
   };
 
   const removeBrandDesign = (clothingId) => {
