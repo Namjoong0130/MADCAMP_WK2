@@ -204,9 +204,6 @@ function App() {
   const [myBrandDetails, setMyBrandDetails] = useState(() =>
     buildDefaultBrandDetails(brand.name),
   );
-  const [introOpen, setIntroOpen] = useState(true);
-  const [onboardingOpen, setOnboardingOpen] = useState(false);
-  const [onboardingStep, setOnboardingStep] = useState(0);
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     try {
       return window.localStorage.getItem("modifLoggedIn") === "true";
@@ -214,6 +211,10 @@ function App() {
       return false;
     }
   });
+  const [introOpen, setIntroOpen] = useState(!isLoggedIn);
+  const [authSelectionOpen, setAuthSelectionOpen] = useState(false);
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
+  const [onboardingStep, setOnboardingStep] = useState(0);
   const [pendingTab, setPendingTab] = useState(null);
   const [measurementMode, setMeasurementMode] = useState("manual");
   const [signupDraft, setSignupDraft] = useState(() => ({
@@ -2166,10 +2167,11 @@ function App() {
   };
 
   const startOnboarding = () => {
-    setIntroOpen(false);
-    if (!isLoggedIn) {
-      resetOnboarding();
-      setOnboardingOpen(true);
+    if (isLoggedIn) {
+      setIntroOpen(false);
+    } else {
+      setIntroOpen(false);
+      setAuthSelectionOpen(true);
     }
   };
 
@@ -2799,6 +2801,16 @@ function App() {
   }, [introOpen]);
 
   useEffect(() => {
+    if (!authSelectionOpen) return;
+    // Force visibility for auth selection elements since the observer might not run
+    const timer = setTimeout(() => {
+      const elements = document.querySelectorAll(".intro-overlay .intro-heading, .intro-overlay .intro-actions");
+      elements.forEach(el => el.classList.add("is-visible"));
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [authSelectionOpen]);
+
+  useEffect(() => {
     if (fittingView !== "real") return;
     if (!userProfile.base_photo_url) return;
     setFittingRealBaseUrl(userProfile.base_photo_url);
@@ -3050,7 +3062,9 @@ function App() {
                           )}
                         </div>
                       </div>
+
                       <div className="name-fields">
+
                         <label className="onboarding-field">
                           이메일
                           <input
@@ -3223,15 +3237,38 @@ function App() {
                         </div>
                       )}
                     </div>
-                    <div className="onboarding-submit">
+                    <div className="onboarding-submit" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                       <button
                         type="button"
                         className="primary"
                         disabled={!canProceedProfile}
                         onClick={() => setOnboardingStep(1)}
+                        style={{ width: '100%' }}
                       >
                         다음
                       </button>
+                      <div style={{ marginTop: '16px', fontSize: '14px', color: '#666' }}>
+                        이미 계정이 있으신가요?{" "}
+                        <button
+                          type="button"
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: '#111',
+                            fontWeight: '600',
+                            textDecoration: 'underline',
+                            cursor: 'pointer',
+                            padding: 0,
+                            fontFamily: 'inherit'
+                          }}
+                          onClick={() => {
+                            setOnboardingOpen(false);
+                            setLoginModalOpen(true);
+                          }}
+                        >
+                          로그인하기
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -3379,6 +3416,94 @@ function App() {
               </div>
             </div>
           </section>
+        </div>
+      )}
+      {authSelectionOpen && (
+        <div className="intro-overlay" role="dialog" aria-modal="true">
+          <section className="intro-hero">
+            <video
+              className="intro-video"
+              src="/background.mp4"
+              autoPlay
+              muted
+              loop
+              playsInline
+            />
+            <div className="intro-fade" />
+          </section>
+
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+          }}>
+            <div className="onboarding-panel" style={{
+              margin: 0,
+              maxWidth: '400px',
+              width: '90%',
+              padding: '40px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              background: 'white',
+              borderRadius: '16px',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+            }}>
+              <h3 className="intro-heading" style={{ color: '#111', marginBottom: '8px', fontSize: '24px' }}>Modif 시작하기</h3>
+              <p style={{ color: '#666', marginBottom: '32px' }}>AI와 함께하는 새로운 패션의 시작</p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
+                <button
+                  type="button"
+                  className="primary"
+                  style={{ width: '100%', height: '54px', fontSize: '16px' }}
+                  onClick={() => {
+                    setAuthSelectionOpen(false);
+                    setLoginModalOpen(true);
+                  }}
+                >
+                  로그인
+                </button>
+                <button
+                  type="button"
+                  className="secondary"
+                  style={{ width: '100%', height: '54px', fontSize: '16px' }}
+                  onClick={() => {
+                    setAuthSelectionOpen(false);
+                    resetOnboarding();
+                    setOnboardingOpen(true);
+                  }}
+                >
+                  회원가입
+                </button>
+              </div>
+
+              <button
+                type="button"
+                style={{
+                  marginTop: '24px',
+                  background: 'none',
+                  border: 'none',
+                  color: '#999',
+                  textDecoration: 'underline',
+                  cursor: 'pointer',
+                  fontSize: '14px'
+                }}
+                onClick={() => {
+                  setAuthSelectionOpen(false);
+                  setIntroOpen(true);
+                }}
+              >
+                돌아가기
+              </button>
+            </div>
+          </div>
         </div>
       )}
       <aside className="sidebar">
@@ -6090,914 +6215,1022 @@ function App() {
         </div>
       )}
       {loginModalOpen && (
-        <div className="auth-modal" role="dialog" aria-modal="true">
-          <div className="auth-modal-content">
-            <button
-              type="button"
-              className="auth-modal-close"
-              aria-label="Close"
-              onClick={closeLoginModal}
-            >
-              ×
-            </button>
-            <h3>로그인</h3>
-            <div className="auth-modal-form">
-              <label>
-                이메일
-                <input
-                  value={loginDraft.handle}
-                  onChange={(event) =>
-                    setLoginDraft((prev) => ({
-                      ...prev,
-                      handle: event.target.value,
-                    }))
-                  }
-                  placeholder="name@example.com"
-                />
-              </label>
-              <label>
-                비밀번호
-                <input
-                  type="password"
-                  value={loginDraft.password}
-                  onChange={(event) =>
-                    setLoginDraft((prev) => ({
-                      ...prev,
-                      password: event.target.value,
-                    }))
-                  }
-                  placeholder="비밀번호 입력"
-                />
-              </label>
-            </div>
-            <div className="auth-modal-actions">
-              <button
-                type="button"
-                className="secondary"
-                onClick={startOnboarding}
-              >
-                회원가입
-              </button>
-              <button type="button" className="primary" onClick={submitLogin}>
-                로그인
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {isGalleryOpen && (
-        <div
-          className="studio-gallery-modal"
-          role="dialog"
-          aria-modal="true"
-          onClick={() => setIsGalleryOpen(false)}
-        >
-          <div
-            className={`studio-gallery-content ${generatedDesigns.length + tempDesigns.length <= 2 ? "compact" : ""
-              }`}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <button
-              type="button"
-              className="auth-modal-close"
-              aria-label="Close"
-              onClick={() => setIsGalleryOpen(false)}
-            >
-              ×
-            </button>
-            <div className="studio-gallery-header">
-              <h3>Generated Gallery</h3>
-              <span className="studio-gallery-count">
-                현재 디자인 수:{" "}
-                {savedDesignTab === "design"
-                  ? tempDesigns.length
-                  : generatedDesigns.length}{" "}
-                / 10
-              </span>
-            </div>
-            <div className="studio-gallery-tabs">
-              <button
-                type="button"
-                className={`studio-gallery-tab ${savedDesignTab === "design" ? "active" : ""}`}
-                onClick={() => setSavedDesignTab("design")}
-              >
-                스케치
-              </button>
-              <button
-                type="button"
-                className={`studio-gallery-tab ${savedDesignTab === "result" ? "active" : ""}`}
-                onClick={() => setSavedDesignTab("result")}
-              >
-                생성 결과
-              </button>
-            </div>
-            <div className="gallery-grid">
-              {savedDesignTab === "design"
-                ? tempDesigns.length === 0
-                : generatedDesigns.length === 0 ? (
-                  <p className="empty">아직 생성된 디자인이 없습니다.</p>
-                ) : null}
-              {(savedDesignTab === "design" ? tempDesigns : generatedDesigns)
-                .slice(0, 10)
-                .map((item, index) => (
-                  <div
-                    key={item.id}
-                    className="gallery-card"
-                    style={{ animationDelay: `${index * 60}ms` }}
-                  >
-                    <button
-                      type="button"
-                      className="album-remove"
-                      aria-label="Remove design"
-                      onClick={() => removeDesign(item.id, item.isTemp)}
-                    >
-                      ×
-                    </button>
-                    <img src={item.design_img_url} alt={item.name} />
-                    <div className="album-meta">
-                      <div className="album-meta-row">
-                        <strong>{item.name}</strong>
-                        <button
-                          type="button"
-                          className="album-load-btn"
-                          onClick={() => loadSavedDesign(item)}
-                        >
-                          불러오기
-                        </button>
-                      </div>
-                      <span>{item.savedAt}</span>
-                    </div>
-                  </div>
-                ))}
-            </div>
-          </div>
-        </div>
-      )}
-      {brandFundingOpen && (
-        <div className="auth-modal" role="dialog" aria-modal="true">
-          <div className="auth-modal-content brand-funding-modal">
-            <button
-              type="button"
-              className="auth-modal-close"
-              aria-label="Close"
-              onClick={() => setBrandFundingOpen(false)}
-            >
-              ×
-            </button>
-            <h3>펀딩 현황</h3>
-            <div className="brand-list">
-              {brands.map((item) => (
-                <div key={item.id} className="brand-card">
-                  <div>
-                    <strong>{item.brand}</strong>
-                    <p>
-                      참여 {item.participantCount}명 · ₩
-                      {currency.format(item.currentCoin)}
-                    </p>
-                  </div>
-                  <textarea
-                    value={item.production_note}
+        <div className="intro-overlay" role="dialog" aria-modal="true">
+          <section className="intro-hero">
+            <video
+              className="intro-video"
+              src="/background.mp4"
+              autoPlay
+              muted
+              loop
+              playsInline
+            />
+            <div className="intro-fade" />
+          </section>
+
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10001,
+          }}>
+            <div className="onboarding-panel" style={{
+              margin: 0,
+              maxWidth: '400px',
+              width: '90%',
+              padding: '40px',
+              display: 'flex',
+              flexDirection: 'column',
+              background: 'white',
+              borderRadius: '16px',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <h3 style={{ fontSize: '24px', color: '#111', margin: 0 }}>로그인</h3>
+                <button
+                  type="button"
+                  onClick={closeLoginModal}
+                  style={{ background: 'none', border: 'none', fontSize: '24px', color: '#999', cursor: 'pointer', padding: 0 }}
+                >×</button>
+              </div>
+              <p style={{ color: '#666', marginBottom: '32px' }}>Modif에 오신 것을 환영합니다.</p>
+
+              <div className="auth-modal-form" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', color: '#333', fontSize: '14px', fontWeight: '500' }}>
+                  이메일
+                  <input
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      background: '#f9f9f9',
+                      border: '1px solid #e0e0e0',
+                      color: '#333',
+                      borderRadius: '8px',
+                      fontSize: '16px'
+                    }}
+                    value={loginDraft.handle}
                     onChange={(event) =>
-                      updateNote(item.id, event.target.value)
+                      setLoginDraft((prev) => ({
+                        ...prev,
+                        handle: event.target.value,
+                      }))
                     }
+                    placeholder="name@example.com"
                   />
+                </label>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', color: '#333', fontSize: '14px', fontWeight: '500' }}>
+                  비밀번호
+                  <input
+                    type="password"
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      background: '#f9f9f9',
+                      border: '1px solid #e0e0e0',
+                      color: '#333',
+                      borderRadius: '8px',
+                      fontSize: '16px'
+                    }}
+                    value={loginDraft.password}
+                    onChange={(event) =>
+                      setLoginDraft((prev) => ({
+                        ...prev,
+                        password: event.target.value,
+                      }))
+                    }
+                    placeholder="비밀번호 입력"
+                  />
+                </label>
+
+                <button
+                  className="primary"
+                  onClick={submitLogin}
+                  style={{ marginTop: '12px', width: '100%', height: '54px', fontSize: '16px', borderRadius: '8px' }}
+                >
+                  로그인
+                </button>
+
+                <div style={{ marginTop: '16px', textAlign: 'center', fontSize: '14px', color: '#666' }}>
+                  계정이 없으신가요?{" "}
+                  <button
+                    type="button"
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#111',
+                      fontWeight: '600',
+                      textDecoration: 'underline',
+                      cursor: 'pointer',
+                      padding: 0,
+                      fontFamily: 'inherit'
+                    }}
+                    onClick={() => {
+                      setLoginModalOpen(false);
+                      resetOnboarding();
+                      setOnboardingOpen(true);
+                    }}
+                  >
+                    회원가입하기
+                  </button>
                 </div>
-              ))}
+              </div>
             </div>
-            <div className="auth-modal-actions">
+          </div>
+        </div>
+      )}
+
+      {
+        isGalleryOpen && (
+          <div
+            className="studio-gallery-modal"
+            role="dialog"
+            aria-modal="true"
+            onClick={() => setIsGalleryOpen(false)}
+          >
+            <div
+              className={`studio-gallery-content ${generatedDesigns.length + tempDesigns.length <= 2 ? "compact" : ""
+                }`}
+              onClick={(event) => event.stopPropagation()}
+            >
               <button
                 type="button"
-                className="secondary"
+                className="auth-modal-close"
+                aria-label="Close"
+                onClick={() => setIsGalleryOpen(false)}
+              >
+                ×
+              </button>
+              <div className="studio-gallery-header">
+                <h3>Generated Gallery</h3>
+                <span className="studio-gallery-count">
+                  현재 디자인 수:{" "}
+                  {savedDesignTab === "design"
+                    ? tempDesigns.length
+                    : generatedDesigns.length}{" "}
+                  / 10
+                </span>
+              </div>
+              <div className="studio-gallery-tabs">
+                <button
+                  type="button"
+                  className={`studio-gallery-tab ${savedDesignTab === "design" ? "active" : ""}`}
+                  onClick={() => setSavedDesignTab("design")}
+                >
+                  스케치
+                </button>
+                <button
+                  type="button"
+                  className={`studio-gallery-tab ${savedDesignTab === "result" ? "active" : ""}`}
+                  onClick={() => setSavedDesignTab("result")}
+                >
+                  생성 결과
+                </button>
+              </div>
+              <div className="gallery-grid">
+                {savedDesignTab === "design"
+                  ? tempDesigns.length === 0
+                  : generatedDesigns.length === 0 ? (
+                    <p className="empty">아직 생성된 디자인이 없습니다.</p>
+                  ) : null}
+                {(savedDesignTab === "design" ? tempDesigns : generatedDesigns)
+                  .slice(0, 10)
+                  .map((item, index) => (
+                    <div
+                      key={item.id}
+                      className="gallery-card"
+                      style={{ animationDelay: `${index * 60}ms` }}
+                    >
+                      <button
+                        type="button"
+                        className="album-remove"
+                        aria-label="Remove design"
+                        onClick={() => removeDesign(item.id, item.isTemp)}
+                      >
+                        ×
+                      </button>
+                      <img src={item.design_img_url} alt={item.name} />
+                      <div className="album-meta">
+                        <div className="album-meta-row">
+                          <strong>{item.name}</strong>
+                          <button
+                            type="button"
+                            className="album-load-btn"
+                            onClick={() => loadSavedDesign(item)}
+                          >
+                            불러오기
+                          </button>
+                        </div>
+                        <span>{item.savedAt}</span>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          </div>
+        )
+      }
+      {
+        brandFundingOpen && (
+          <div className="auth-modal" role="dialog" aria-modal="true">
+            <div className="auth-modal-content brand-funding-modal">
+              <button
+                type="button"
+                className="auth-modal-close"
+                aria-label="Close"
                 onClick={() => setBrandFundingOpen(false)}
               >
-                닫기
+                ×
               </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {cancelFundingModal.open && (
-        <div className="auth-modal" role="dialog" aria-modal="true">
-          <div className="auth-modal-content">
-            <button
-              type="button"
-              className="auth-modal-close"
-              aria-label="Close"
-              onClick={closeCancelFundingModal}
-            >
-              ×
-            </button>
-            <h3>펀딩을 취소할까요?</h3>
-            <p>취소 시 이 작업은 되돌릴 수 없습니다.</p>
-            <div className="auth-modal-actions">
-              <button
-                type="button"
-                className="secondary"
-                onClick={closeCancelFundingModal}
-              >
-                돌아가기
-              </button>
-              <button
-                type="button"
-                className="primary"
-                onClick={() => {
-                  setInvestments((prev) =>
-                    prev.filter(
-                      (entry) => entry.id !== cancelFundingModal.investmentId,
-                    ),
-                  );
-                  setFundingCancelAlertOpen(true);
-                  closeCancelFundingModal();
-                }}
-              >
-                펀딩 취소
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {aiDesignModal.open && aiDesignModal.design && (
-        <div className="auth-modal" role="dialog" aria-modal="true">
-          <div className="auth-modal-content ai-design-modal">
-            <button
-              type="button"
-              className="auth-modal-close"
-              aria-label="Close"
-              onClick={() => {
-                setAiDesignModal({ open: false, design: null });
-                setAiDesignEditMode(false);
-              }}
-            >
-              ×
-            </button>
-            <div className="ai-design-header">
-              <h3>AI Design</h3>
-              <div className="ai-design-actions">
+              <h3>펀딩 현황</h3>
+              <div className="brand-list">
+                {brands.map((item) => (
+                  <div key={item.id} className="brand-card">
+                    <div>
+                      <strong>{item.brand}</strong>
+                      <p>
+                        참여 {item.participantCount}명 · ₩
+                        {currency.format(item.currentCoin)}
+                      </p>
+                    </div>
+                    <textarea
+                      value={item.production_note}
+                      onChange={(event) =>
+                        updateNote(item.id, event.target.value)
+                      }
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="auth-modal-actions">
                 <button
                   type="button"
                   className="secondary"
-                  onClick={handleAiDesignEditToggle}
+                  onClick={() => setBrandFundingOpen(false)}
                 >
-                  {aiDesignEditMode ? "저장" : "수정"}
+                  닫기
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      }
+      {
+        cancelFundingModal.open && (
+          <div className="auth-modal" role="dialog" aria-modal="true">
+            <div className="auth-modal-content">
+              <button
+                type="button"
+                className="auth-modal-close"
+                aria-label="Close"
+                onClick={closeCancelFundingModal}
+              >
+                ×
+              </button>
+              <h3>펀딩을 취소할까요?</h3>
+              <p>취소 시 이 작업은 되돌릴 수 없습니다.</p>
+              <div className="auth-modal-actions">
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={closeCancelFundingModal}
+                >
+                  돌아가기
                 </button>
                 <button
                   type="button"
                   className="primary"
-                  onClick={handleAiDesignUpload}
+                  onClick={() => {
+                    setInvestments((prev) =>
+                      prev.filter(
+                        (entry) => entry.id !== cancelFundingModal.investmentId,
+                      ),
+                    );
+                    setFundingCancelAlertOpen(true);
+                    closeCancelFundingModal();
+                  }}
                 >
-                  업로드
+                  펀딩 취소
                 </button>
               </div>
             </div>
-            <div className="ai-design-preview-container">
-              <div className="modal-stack ai-design-stack">
-                <div className="modal-header">
-                  <div>
-                    <h2>{brand.name}</h2>
-                    {aiDesignEditMode ? (
-                      <input
-                        className="ai-design-input"
-                        value={aiDesignDraft.name}
-                        onChange={(event) =>
-                          setAiDesignDraft((prev) => ({
-                            ...prev,
-                            name: event.target.value,
-                          }))
-                        }
-                        aria-label="Design name"
-                      />
-                    ) : (
-                      <p>{aiDesignModal.design.name}</p>
-                    )}
-                  </div>
-                  <div className="pill-group">
-                    {["overview", "story", "feedback"].map((tab) => (
-                      <button
-                        key={tab}
-                        type="button"
-                        className={`pill ${detailTab === tab ? "active" : ""}`}
-                        onClick={() => setDetailTab(tab)}
-                      >
-                        {tab === "overview" && "Overview"}
-                        {tab === "story" && "Story"}
-                        {tab === "feedback" && "Feedback"}
-                      </button>
-                    ))}
-                  </div>
+          </div>
+        )
+      }
+      {
+        aiDesignModal.open && aiDesignModal.design && (
+          <div className="auth-modal" role="dialog" aria-modal="true">
+            <div className="auth-modal-content ai-design-modal">
+              <button
+                type="button"
+                className="auth-modal-close"
+                aria-label="Close"
+                onClick={() => {
+                  setAiDesignModal({ open: false, design: null });
+                  setAiDesignEditMode(false);
+                }}
+              >
+                ×
+              </button>
+              <div className="ai-design-header">
+                <h3>AI Design</h3>
+                <div className="ai-design-actions">
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={handleAiDesignEditToggle}
+                  >
+                    {aiDesignEditMode ? "저장" : "수정"}
+                  </button>
+                  <button
+                    type="button"
+                    className="primary"
+                    onClick={handleAiDesignUpload}
+                  >
+                    업로드
+                  </button>
                 </div>
-                <div className="modal-body">
-                  <div className="detail-media">
-                    <div className="image-placeholder" aria-label="Image area">
-                      이미지 영역
+              </div>
+              <div className="ai-design-preview-container">
+                <div className="modal-stack ai-design-stack">
+                  <div className="modal-header">
+                    <div>
+                      <h2>{brand.name}</h2>
+                      {aiDesignEditMode ? (
+                        <input
+                          className="ai-design-input"
+                          value={aiDesignDraft.name}
+                          onChange={(event) =>
+                            setAiDesignDraft((prev) => ({
+                              ...prev,
+                              name: event.target.value,
+                            }))
+                          }
+                          aria-label="Design name"
+                        />
+                      ) : (
+                        <p>{aiDesignModal.design.name}</p>
+                      )}
+                    </div>
+                    <div className="pill-group">
+                      {["overview", "story", "feedback"].map((tab) => (
+                        <button
+                          key={tab}
+                          type="button"
+                          className={`pill ${detailTab === tab ? "active" : ""}`}
+                          onClick={() => setDetailTab(tab)}
+                        >
+                          {tab === "overview" && "Overview"}
+                          {tab === "story" && "Story"}
+                          {tab === "feedback" && "Feedback"}
+                        </button>
+                      ))}
                     </div>
                   </div>
-                  <div
-                    className={`detail-scroll ${detailTab === "feedback" ? "detail-scroll-feedback" : ""
-                      }`}
-                  >
-                    {detailTab === "overview" && (
-                      <div className="detail-block">
-                        <div className="price-row">
-                          <div className="price-main">
-                            <span className="price-label">Price</span>
-                            {aiDesignEditMode ? (
-                              <input
-                                className="ai-design-input price"
-                                type="number"
-                                min="0"
-                                value={aiDesignDraft.price}
-                                onChange={(event) =>
-                                  setAiDesignDraft((prev) => ({
-                                    ...prev,
-                                    price: event.target.value,
-                                  }))
-                                }
-                                aria-label="Design price"
-                              />
-                            ) : (
-                              <strong className="price-strong">
-                                {currency.format(
-                                  aiDesignModal.design.price || 0,
-                                )}
-                              </strong>
-                            )}
-                          </div>
-                        </div>
-                        <h4>옷 세부내용</h4>
-                        {aiDesignEditMode ? (
-                          <textarea
-                            className="ai-design-textarea"
-                            value={aiDesignDraft.description}
-                            onChange={(event) =>
-                              setAiDesignDraft((prev) => ({
-                                ...prev,
-                                description: event.target.value,
-                              }))
-                            }
-                          />
-                        ) : (
-                          <p>
-                            {aiDesignModal.design.description ||
-                              "AI가 생성한 컨셉을 기반으로 실루엣과 소재 밸런스를 설계했습니다."}
-                          </p>
-                        )}
-                        <div className="detail-tags">
-                          <span className="detail-tag">#니트</span>
-                          <span className="detail-tag">#미니멀</span>
-                          <span className="detail-tag">#여성</span>
-                        </div>
-                        <div className="spec-grid">
-                          <div>
-                            <span>카테고리</span>
-                            {aiDesignEditMode ? (
-                              <input
-                                className="ai-design-input"
-                                value={aiDesignDraft.category}
-                                onChange={(event) =>
-                                  setAiDesignDraft((prev) => ({
-                                    ...prev,
-                                    category: event.target.value,
-                                  }))
-                                }
-                                aria-label="Design category"
-                              />
-                            ) : (
-                              <strong>{aiDesignModal.design.category}</strong>
-                            )}
-                          </div>
-                          <div>
-                            <span>스타일</span>
-                            {aiDesignEditMode ? (
-                              <input
-                                className="ai-design-input"
-                                value={aiDesignDraft.style}
-                                onChange={(event) =>
-                                  setAiDesignDraft((prev) => ({
-                                    ...prev,
-                                    style: event.target.value,
-                                  }))
-                                }
-                                aria-label="Design style"
-                              />
-                            ) : (
-                              <strong>{aiDesignModal.design.style}</strong>
-                            )}
-                          </div>
-                          <div>
-                            <span>성별</span>
-                            {aiDesignEditMode ? (
-                              <input
-                                className="ai-design-input"
-                                value={aiDesignDraft.gender}
-                                onChange={(event) =>
-                                  setAiDesignDraft((prev) => ({
-                                    ...prev,
-                                    gender: event.target.value,
-                                  }))
-                                }
-                                aria-label="Design gender"
-                              />
-                            ) : (
-                              <strong>{aiDesignModal.design.gender}</strong>
-                            )}
-                          </div>
-                          <div>
-                            <span>사이즈</span>
-                            <strong>XS - XL</strong>
-                          </div>
-                        </div>
-                        <div className="spec-bar">
-                          {[
-                            { label: "신축성", value: 5 },
-                            { label: "두께감", value: 5 },
-                            { label: "탄탄함", value: 5 },
-                          ].map((item) => (
-                            <div className="spec-bar-row" key={item.label}>
-                              <span>{item.label}</span>
-                              <div className="spec-track">
-                                <div
-                                  className="spec-fill"
-                                  style={{
-                                    width: `${(item.value / 10) * 100}%`,
-                                  }}
+                  <div className="modal-body">
+                    <div className="detail-media">
+                      <div className="image-placeholder" aria-label="Image area">
+                        이미지 영역
+                      </div>
+                    </div>
+                    <div
+                      className={`detail-scroll ${detailTab === "feedback" ? "detail-scroll-feedback" : ""
+                        }`}
+                    >
+                      {detailTab === "overview" && (
+                        <div className="detail-block">
+                          <div className="price-row">
+                            <div className="price-main">
+                              <span className="price-label">Price</span>
+                              {aiDesignEditMode ? (
+                                <input
+                                  className="ai-design-input price"
+                                  type="number"
+                                  min="0"
+                                  value={aiDesignDraft.price}
+                                  onChange={(event) =>
+                                    setAiDesignDraft((prev) => ({
+                                      ...prev,
+                                      price: event.target.value,
+                                    }))
+                                  }
+                                  aria-label="Design price"
                                 />
-                              </div>
-                              <strong>{item.value}/10</strong>
+                              ) : (
+                                <strong className="price-strong">
+                                  {currency.format(
+                                    aiDesignModal.design.price || 0,
+                                  )}
+                                </strong>
+                              )}
                             </div>
-                          ))}
+                          </div>
+                          <h4>옷 세부내용</h4>
+                          {aiDesignEditMode ? (
+                            <textarea
+                              className="ai-design-textarea"
+                              value={aiDesignDraft.description}
+                              onChange={(event) =>
+                                setAiDesignDraft((prev) => ({
+                                  ...prev,
+                                  description: event.target.value,
+                                }))
+                              }
+                            />
+                          ) : (
+                            <p>
+                              {aiDesignModal.design.description ||
+                                "AI가 생성한 컨셉을 기반으로 실루엣과 소재 밸런스를 설계했습니다."}
+                            </p>
+                          )}
+                          <div className="detail-tags">
+                            <span className="detail-tag">#니트</span>
+                            <span className="detail-tag">#미니멀</span>
+                            <span className="detail-tag">#여성</span>
+                          </div>
+                          <div className="spec-grid">
+                            <div>
+                              <span>카테고리</span>
+                              {aiDesignEditMode ? (
+                                <input
+                                  className="ai-design-input"
+                                  value={aiDesignDraft.category}
+                                  onChange={(event) =>
+                                    setAiDesignDraft((prev) => ({
+                                      ...prev,
+                                      category: event.target.value,
+                                    }))
+                                  }
+                                  aria-label="Design category"
+                                />
+                              ) : (
+                                <strong>{aiDesignModal.design.category}</strong>
+                              )}
+                            </div>
+                            <div>
+                              <span>스타일</span>
+                              {aiDesignEditMode ? (
+                                <input
+                                  className="ai-design-input"
+                                  value={aiDesignDraft.style}
+                                  onChange={(event) =>
+                                    setAiDesignDraft((prev) => ({
+                                      ...prev,
+                                      style: event.target.value,
+                                    }))
+                                  }
+                                  aria-label="Design style"
+                                />
+                              ) : (
+                                <strong>{aiDesignModal.design.style}</strong>
+                              )}
+                            </div>
+                            <div>
+                              <span>성별</span>
+                              {aiDesignEditMode ? (
+                                <input
+                                  className="ai-design-input"
+                                  value={aiDesignDraft.gender}
+                                  onChange={(event) =>
+                                    setAiDesignDraft((prev) => ({
+                                      ...prev,
+                                      gender: event.target.value,
+                                    }))
+                                  }
+                                  aria-label="Design gender"
+                                />
+                              ) : (
+                                <strong>{aiDesignModal.design.gender}</strong>
+                              )}
+                            </div>
+                            <div>
+                              <span>사이즈</span>
+                              <strong>XS - XL</strong>
+                            </div>
+                          </div>
+                          <div className="spec-bar">
+                            {[
+                              { label: "신축성", value: 5 },
+                              { label: "두께감", value: 5 },
+                              { label: "탄탄함", value: 5 },
+                            ].map((item) => (
+                              <div className="spec-bar-row" key={item.label}>
+                                <span>{item.label}</span>
+                                <div className="spec-track">
+                                  <div
+                                    className="spec-fill"
+                                    style={{
+                                      width: `${(item.value / 10) * 100}%`,
+                                    }}
+                                  />
+                                </div>
+                                <strong>{item.value}/10</strong>
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    )}
-                    {detailTab === "story" && (
-                      <div className="detail-block">
-                        <h4>브랜드 스토리</h4>
-                        {aiDesignEditMode ? (
-                          <textarea
-                            className="ai-design-textarea"
-                            value={aiDesignDraft.story}
-                            onChange={(event) =>
-                              setAiDesignDraft((prev) => ({
-                                ...prev,
-                                story: event.target.value,
-                              }))
-                            }
-                          />
-                        ) : (
-                          <p>
-                            {aiDesignModal.design.story ||
-                              "AI가 트렌드 데이터를 분석해 감각적인 컬렉션 스토리를 구성했습니다. 디자이너가 세부 디테일을 다듬을 수 있도록 여지를 남겨두었습니다."}
+                      )}
+                      {detailTab === "story" && (
+                        <div className="detail-block">
+                          <h4>브랜드 스토리</h4>
+                          {aiDesignEditMode ? (
+                            <textarea
+                              className="ai-design-textarea"
+                              value={aiDesignDraft.story}
+                              onChange={(event) =>
+                                setAiDesignDraft((prev) => ({
+                                  ...prev,
+                                  story: event.target.value,
+                                }))
+                              }
+                            />
+                          ) : (
+                            <p>
+                              {aiDesignModal.design.story ||
+                                "AI가 트렌드 데이터를 분석해 감각적인 컬렉션 스토리를 구성했습니다. 디자이너가 세부 디테일을 다듬을 수 있도록 여지를 남겨두었습니다."}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                      {detailTab === "feedback" && (
+                        <div className="detail-block">
+                          <h4>소셜 피드백</h4>
+                          <p className="comment-empty">
+                            아직 생성된 피드백이 없습니다.
                           </p>
-                        )}
-                      </div>
-                    )}
-                    {detailTab === "feedback" && (
-                      <div className="detail-block">
-                        <h4>소셜 피드백</h4>
-                        <p className="comment-empty">
-                          아직 생성된 피드백이 없습니다.
-                        </p>
-                      </div>
-                    )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
-      {nameModal.open && (
-        <div className="auth-modal" role="dialog" aria-modal="true">
-          <div className="auth-modal-content">
-            <button
-              type="button"
-              className="auth-modal-close"
-              aria-label="Close"
-              onClick={() =>
-                setNameModal({ open: false, type: null, value: "", view: null })
-              }
-            >
-              ×
-            </button>
-            <h3>이름을 입력하세요</h3>
-            <div className="auth-modal-form">
-              <label className="field">
-                이름
-                <input
-                  value={nameModal.value}
-                  onChange={(event) =>
-                    setNameModal((prev) => ({
-                      ...prev,
-                      value: event.target.value,
-                    }))
-                  }
-                  placeholder="이름을 입력하세요"
-                />
-              </label>
-            </div>
-            <div className="auth-modal-actions">
+        )
+      }
+      {
+        nameModal.open && (
+          <div className="auth-modal" role="dialog" aria-modal="true">
+            <div className="auth-modal-content">
               <button
                 type="button"
-                className="secondary"
+                className="auth-modal-close"
+                aria-label="Close"
                 onClick={() =>
-                  setNameModal({
-                    open: false,
-                    type: null,
-                    value: "",
-                    view: null,
-                  })
+                  setNameModal({ open: false, type: null, value: "", view: null })
                 }
               >
-                취소
+                ×
               </button>
-              <button
-                type="button"
-                className="primary"
-                onClick={() => {
-                  const trimmed = nameModal.value.trim();
-                  if (nameModal.type === "temp-design") {
-                    saveTempDesign(trimmed);
+              <h3>이름을 입력하세요</h3>
+              <div className="auth-modal-form">
+                <label className="field">
+                  이름
+                  <input
+                    value={nameModal.value}
+                    onChange={(event) =>
+                      setNameModal((prev) => ({
+                        ...prev,
+                        value: event.target.value,
+                      }))
+                    }
+                    placeholder="이름을 입력하세요"
+                  />
+                </label>
+              </div>
+              <div className="auth-modal-actions">
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() =>
+                    setNameModal({
+                      open: false,
+                      type: null,
+                      value: "",
+                      view: null,
+                    })
                   }
-                  if (nameModal.type === "fitting") {
-                    saveFittingSnapshot(trimmed, nameModal.view);
-                  }
-                  setNameModal({
-                    open: false,
-                    type: null,
-                    value: "",
-                    view: null,
-                  });
-                }}
-              >
-                저장
-              </button>
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={() => {
+                    const trimmed = nameModal.value.trim();
+                    if (nameModal.type === "temp-design") {
+                      saveTempDesign(trimmed);
+                    }
+                    if (nameModal.type === "fitting") {
+                      saveFittingSnapshot(trimmed, nameModal.view);
+                    }
+                    setNameModal({
+                      open: false,
+                      type: null,
+                      value: "",
+                      view: null,
+                    });
+                  }}
+                >
+                  저장
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-      {brandPageRequiredOpen && (
-        <div className="auth-modal" role="dialog" aria-modal="true">
-          <div className="auth-modal-content">
-            <button
-              type="button"
-              className="auth-modal-close"
-              aria-label="Close"
-              onClick={() => setBrandPageRequiredOpen(false)}
-            >
-              ×
-            </button>
-            <h3>브랜드 페이지가 필요합니다</h3>
-            <p>디자인을 업로드하려면 먼저 브랜드 페이지를 만들어야 합니다.</p>
-            <div className="auth-modal-actions">
+        )
+      }
+      {
+        brandPageRequiredOpen && (
+          <div className="auth-modal" role="dialog" aria-modal="true">
+            <div className="auth-modal-content">
               <button
                 type="button"
-                className="secondary"
+                className="auth-modal-close"
+                aria-label="Close"
                 onClick={() => setBrandPageRequiredOpen(false)}
               >
-                나중에
+                ×
               </button>
-              <button type="button" className="primary" onClick={createBrandPage}>
-                브랜드 페이지 만들기
-              </button>
+              <h3>브랜드 페이지가 필요합니다</h3>
+              <p>디자인을 업로드하려면 먼저 브랜드 페이지를 만들어야 합니다.</p>
+              <div className="auth-modal-actions">
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => setBrandPageRequiredOpen(false)}
+                >
+                  나중에
+                </button>
+                <button type="button" className="primary" onClick={createBrandPage}>
+                  브랜드 페이지 만들기
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-      {brandCreatePromptOpen && (
-        <div className="auth-modal" role="dialog" aria-modal="true">
-          <div className="auth-modal-content">
-            <button
-              type="button"
-              className="auth-modal-close"
-              aria-label="Close"
-              onClick={() => setBrandCreatePromptOpen(false)}
-            >
-              ×
-            </button>
-            <h3>브랜드를 생성하시겠습니까?</h3>
-            <p>브랜드 페이지를 만든 뒤 바로 포트폴리오를 시작할 수 있습니다.</p>
-            <div className="auth-modal-actions">
+        )
+      }
+      {
+        brandCreatePromptOpen && (
+          <div className="auth-modal" role="dialog" aria-modal="true">
+            <div className="auth-modal-content">
               <button
                 type="button"
-                className="secondary"
+                className="auth-modal-close"
+                aria-label="Close"
                 onClick={() => setBrandCreatePromptOpen(false)}
               >
-                취소
+                ×
               </button>
-              <button type="button" className="primary" onClick={createBrandPage}>
-                계속
-              </button>
+              <h3>브랜드를 생성하시겠습니까?</h3>
+              <p>브랜드 페이지를 만든 뒤 바로 포트폴리오를 시작할 수 있습니다.</p>
+              <div className="auth-modal-actions">
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => setBrandCreatePromptOpen(false)}
+                >
+                  취소
+                </button>
+                <button type="button" className="primary" onClick={createBrandPage}>
+                  계속
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-      {brandDeleteConfirmOpen && (
-        <div className="auth-modal" role="dialog" aria-modal="true">
-          <div className="auth-modal-content">
-            <button
-              type="button"
-              className="auth-modal-close"
-              aria-label="Close"
-              onClick={() => setBrandDeleteConfirmOpen(false)}
-            >
-              ×
-            </button>
-            <h3>브랜드 페이지를 삭제할까요?</h3>
-            <p>삭제하면 브랜드 정보와 팔로우 상태가 모두 초기화됩니다.</p>
-            <div className="auth-modal-actions">
+        )
+      }
+      {
+        brandDeleteConfirmOpen && (
+          <div className="auth-modal" role="dialog" aria-modal="true">
+            <div className="auth-modal-content">
               <button
                 type="button"
-                className="secondary"
+                className="auth-modal-close"
+                aria-label="Close"
                 onClick={() => setBrandDeleteConfirmOpen(false)}
               >
-                취소
+                ×
               </button>
-              <button
-                type="button"
-                className="primary"
-                onClick={handleDeleteBrandPage}
-              >
-                삭제
-              </button>
+              <h3>브랜드 페이지를 삭제할까요?</h3>
+              <p>삭제하면 브랜드 정보와 팔로우 상태가 모두 초기화됩니다.</p>
+              <div className="auth-modal-actions">
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => setBrandDeleteConfirmOpen(false)}
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={handleDeleteBrandPage}
+                >
+                  삭제
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-      {accountDeleteConfirmOpen && (
-        <div className="auth-modal" role="dialog" aria-modal="true">
-          <div className="auth-modal-content">
-            <button
-              type="button"
-              className="auth-modal-close"
-              aria-label="Close"
-              onClick={() => setAccountDeleteConfirmOpen(false)}
-            >
-              ×
-            </button>
-            <h3>정말 탈퇴하시겠어요?</h3>
-            <p>탈퇴하면 계정 정보가 모두 삭제됩니다.</p>
-            <div className="auth-modal-actions">
+        )
+      }
+      {
+        accountDeleteConfirmOpen && (
+          <div className="auth-modal" role="dialog" aria-modal="true">
+            <div className="auth-modal-content">
               <button
                 type="button"
-                className="secondary"
+                className="auth-modal-close"
+                aria-label="Close"
                 onClick={() => setAccountDeleteConfirmOpen(false)}
               >
-                취소
+                ×
               </button>
-              <button
-                type="button"
-                className="primary"
-                onClick={handleAccountDelete}
-              >
-                탈퇴
-              </button>
+              <h3>정말 탈퇴하시겠어요?</h3>
+              <p>탈퇴하면 계정 정보가 모두 삭제됩니다.</p>
+              <div className="auth-modal-actions">
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => setAccountDeleteConfirmOpen(false)}
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={handleAccountDelete}
+                >
+                  탈퇴
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-      {designCoinModal && (
-        <div className="auth-modal" role="dialog" aria-modal="true">
-          <div className="auth-modal-content design-coin-modal">
-            <button
-              type="button"
-              className="auth-modal-close"
-              aria-label="Close"
-              onClick={() => setDesignCoinModal(false)}
-            >
-              ×
-            </button>
-            <h3>디자인 토큰 구매</h3>
-            <p>디자인 생성에 필요한 토큰을 충전하세요.</p>
-            <div className="design-coin-balance">
-              보유 토큰 <strong>{designCoins}</strong>
-            </div>
-            <div className="design-coin-grid">
-              {designCoinPackages.map((pack) => (
-                <div key={pack.id} className="design-coin-card">
-                  <div>
-                    <strong>{pack.label}</strong>
-                    <span>{pack.amount} 토큰</span>
+        )
+      }
+      {
+        designCoinModal && (
+          <div className="auth-modal" role="dialog" aria-modal="true">
+            <div className="auth-modal-content design-coin-modal">
+              <button
+                type="button"
+                className="auth-modal-close"
+                aria-label="Close"
+                onClick={() => setDesignCoinModal(false)}
+              >
+                ×
+              </button>
+              <h3>디자인 토큰 구매</h3>
+              <p>디자인 생성에 필요한 토큰을 충전하세요.</p>
+              <div className="design-coin-balance">
+                보유 토큰 <strong>{designCoins}</strong>
+              </div>
+              <div className="design-coin-grid">
+                {designCoinPackages.map((pack) => (
+                  <div key={pack.id} className="design-coin-card">
+                    <div>
+                      <strong>{pack.label}</strong>
+                      <span>{pack.amount} 토큰</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() => {
+                        setDesignCoins((prev) => prev + pack.amount);
+                        setDesignCoinAlertOpen(true);
+                        setDesignCoinAlertClosing(false);
+                      }}
+                    >
+                      {currency.format(pack.price)} 구입
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    className="secondary"
-                    onClick={() => {
-                      setDesignCoins((prev) => prev + pack.amount);
-                      setDesignCoinAlertOpen(true);
-                      setDesignCoinAlertClosing(false);
-                    }}
-                  >
-                    {currency.format(pack.price)} 구입
-                  </button>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
-        </div>
-      )}
-      {designCoinAlertOpen && (
-        <div
-          className={`toast-banner ${designCoinAlertClosing ? "is-leaving" : ""
-            }`}
-          role="status"
-        >
-          <div className="toast-content">
-            <strong>토큰이 구매되었습니다.</strong>
-            <span>디자인 토큰이 충전되었습니다.</span>
-          </div>
-          <div className="toast-actions">
-            <button
-              type="button"
-              className="primary"
-              onClick={closeDesignCoinAlert}
-            >
-              확인
-            </button>
-          </div>
-        </div>
-      )}
-      {designGenerateConfirmOpen && (
-        <div className="auth-modal" role="dialog" aria-modal="true">
-          <div className="auth-modal-content design-generate-modal">
-            <button
-              type="button"
-              className="auth-modal-close"
-              aria-label="Close"
-              onClick={() => setDesignGenerateConfirmOpen(false)}
-            >
-              ×
-            </button>
-            <div className="design-generate-top">
-              <h3>디자인 토큰이 소모됩니다.</h3>
-              <button
-                type="button"
-                className="design-coin"
-                aria-label="Design token balance"
-                onClick={() => setDesignCoinModal(true)}
-              >
-                <span className="design-coin-icon" aria-hidden="true">
-                  <svg
-                    className="design-coin-brush"
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                  >
-                    <path
-                      d="M4 20c2.2 0 4-1.8 4-4 0-1.1.9-2 2-2h4"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <path
-                      d="M12 4l8 8-6 6-8-8z"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <path
-                      d="M10 6l8 8"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                </span>
-                <span className="design-coin-count">{designCoins}</span>
-              </button>
+        )
+      }
+      {
+        designCoinAlertOpen && (
+          <div
+            className={`toast-banner ${designCoinAlertClosing ? "is-leaving" : ""
+              }`}
+            role="status"
+          >
+            <div className="toast-content">
+              <strong>토큰이 구매되었습니다.</strong>
+              <span>디자인 토큰이 충전되었습니다.</span>
             </div>
-            <p>확인하면 AI 디자인 생성 페이지로 이동합니다.</p>
-            <div className="auth-modal-actions">
-              <button
-                type="button"
-                className="secondary"
-                onClick={() => setDesignGenerateConfirmOpen(false)}
-              >
-                돌아가기
-              </button>
+            <div className="toast-actions">
               <button
                 type="button"
                 className="primary"
-                onClick={confirmGenerateDesign}
+                onClick={closeDesignCoinAlert}
               >
                 확인
               </button>
             </div>
           </div>
-        </div>
-      )}
-      {fundingConfirmOpen && (
-        <div className="auth-modal" role="dialog" aria-modal="true">
-          <div className="auth-modal-content funding-confirm-modal">
-            <button
-              type="button"
-              className="auth-modal-close"
-              aria-label="Close"
-              onClick={() => setFundingConfirmOpen(false)}
-            >
-              ×
-            </button>
-            <h3>펀딩을 신청할까요?</h3>
-            <p>신청 후에는 포트폴리오에서 관리할 수 있습니다.</p>
-            <div className="auth-modal-actions">
+        )
+      }
+      {
+        designGenerateConfirmOpen && (
+          <div className="auth-modal" role="dialog" aria-modal="true">
+            <div className="auth-modal-content design-generate-modal">
               <button
                 type="button"
-                className="secondary"
+                className="auth-modal-close"
+                aria-label="Close"
+                onClick={() => setDesignGenerateConfirmOpen(false)}
+              >
+                ×
+              </button>
+              <div className="design-generate-top">
+                <h3>디자인 토큰이 소모됩니다.</h3>
+                <button
+                  type="button"
+                  className="design-coin"
+                  aria-label="Design token balance"
+                  onClick={() => setDesignCoinModal(true)}
+                >
+                  <span className="design-coin-icon" aria-hidden="true">
+                    <svg
+                      className="design-coin-brush"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M4 20c2.2 0 4-1.8 4-4 0-1.1.9-2 2-2h4"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <path
+                        d="M12 4l8 8-6 6-8-8z"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <path
+                        d="M10 6l8 8"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  </span>
+                  <span className="design-coin-count">{designCoins}</span>
+                </button>
+              </div>
+              <p>확인하면 AI 디자인 생성 페이지로 이동합니다.</p>
+              <div className="auth-modal-actions">
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => setDesignGenerateConfirmOpen(false)}
+                >
+                  돌아가기
+                </button>
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={confirmGenerateDesign}
+                >
+                  확인
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      }
+      {
+        fundingConfirmOpen && (
+          <div className="auth-modal" role="dialog" aria-modal="true">
+            <div className="auth-modal-content funding-confirm-modal">
+              <button
+                type="button"
+                className="auth-modal-close"
+                aria-label="Close"
                 onClick={() => setFundingConfirmOpen(false)}
               >
-                돌아가기
+                ×
               </button>
+              <h3>펀딩을 신청할까요?</h3>
+              <p>신청 후에는 포트폴리오에서 관리할 수 있습니다.</p>
+              <div className="auth-modal-actions">
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => setFundingConfirmOpen(false)}
+                >
+                  돌아가기
+                </button>
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={finalizeFundNow}
+                >
+                  펀딩 신청
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      }
+      {
+        alreadyFundedAlertOpen && (
+          <div
+            className={`toast-banner ${alreadyFundedClosing ? "is-leaving" : ""}`}
+            role="status"
+          >
+            <div className="toast-content">
+              <strong>이미 펀딩한 옷입니다.</strong>
+              <span>해당 아이템은 포트폴리오에 있습니다.</span>
+            </div>
+            <div className="toast-actions">
               <button
                 type="button"
                 className="primary"
-                onClick={finalizeFundNow}
+                onClick={closeAlreadyFundedAlert}
               >
-                펀딩 신청
+                확인
               </button>
             </div>
           </div>
-        </div>
-      )}
-      {alreadyFundedAlertOpen && (
-        <div
-          className={`toast-banner ${alreadyFundedClosing ? "is-leaving" : ""}`}
-          role="status"
-        >
-          <div className="toast-content">
-            <strong>이미 펀딩한 옷입니다.</strong>
-            <span>해당 아이템은 포트폴리오에 있습니다.</span>
+        )
+      }
+      {
+        fundingAlertOpen && (
+          <div
+            className={`toast-banner ${fundingAlertClosing ? "is-leaving" : ""}`}
+            role="status"
+          >
+            <div className="toast-content">
+              <strong>펀딩이 신청되었습니다.</strong>
+              <span>포트폴리오에서 진행 상황을 확인하세요.</span>
+            </div>
+            <div className="toast-actions">
+              <button
+                type="button"
+                className="primary"
+                onClick={closeFundingAlert}
+              >
+                확인
+              </button>
+            </div>
           </div>
-          <div className="toast-actions">
-            <button
-              type="button"
-              className="primary"
-              onClick={closeAlreadyFundedAlert}
-            >
-              확인
-            </button>
+        )
+      }
+      {
+        fundingCancelAlertOpen && (
+          <div
+            className={`toast-banner ${fundingCancelClosing ? "is-leaving" : ""}`}
+            role="status"
+          >
+            <div className="toast-content">
+              <strong>펀딩이 취소되었습니다.</strong>
+              <span>해당 항목이 포트폴리오에서 삭제되었습니다.</span>
+            </div>
+            <div className="toast-actions">
+              <button
+                type="button"
+                className="primary"
+                onClick={closeFundingCancelAlert}
+              >
+                확인
+              </button>
+            </div>
           </div>
-        </div>
-      )}
-      {fundingAlertOpen && (
-        <div
-          className={`toast-banner ${fundingAlertClosing ? "is-leaving" : ""}`}
-          role="status"
-        >
-          <div className="toast-content">
-            <strong>펀딩이 신청되었습니다.</strong>
-            <span>포트폴리오에서 진행 상황을 확인하세요.</span>
+        )
+      }
+      {
+        limitAlertOpen && (
+          <div className="toast-banner" role="status">
+            <div className="toast-content">
+              <strong>최대 저장 수를 초과했습니다.</strong>
+              <span>{limitAlertMessage}</span>
+            </div>
+            <div className="toast-actions">
+              <button
+                type="button"
+                className="primary"
+                onClick={() => setLimitAlertOpen(false)}
+              >
+                확인
+              </button>
+            </div>
           </div>
-          <div className="toast-actions">
-            <button
-              type="button"
-              className="primary"
-              onClick={closeFundingAlert}
-            >
-              확인
-            </button>
-          </div>
-        </div>
-      )}
-      {fundingCancelAlertOpen && (
-        <div
-          className={`toast-banner ${fundingCancelClosing ? "is-leaving" : ""}`}
-          role="status"
-        >
-          <div className="toast-content">
-            <strong>펀딩이 취소되었습니다.</strong>
-            <span>해당 항목이 포트폴리오에서 삭제되었습니다.</span>
-          </div>
-          <div className="toast-actions">
-            <button
-              type="button"
-              className="primary"
-              onClick={closeFundingCancelAlert}
-            >
-              확인
-            </button>
-          </div>
-        </div>
-      )}
-      {limitAlertOpen && (
-        <div className="toast-banner" role="status">
-          <div className="toast-content">
-            <strong>최대 저장 수를 초과했습니다.</strong>
-            <span>{limitAlertMessage}</span>
-          </div>
-          <div className="toast-actions">
-            <button
-              type="button"
-              className="primary"
-              onClick={() => setLimitAlertOpen(false)}
-            >
-              확인
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
+        )
+      }
+    </div >
   );
 
   return (
