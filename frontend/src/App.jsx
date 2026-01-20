@@ -207,6 +207,7 @@ function App() {
     description: "",
     story: "",
   });
+  const [isGenerating, setIsGenerating] = useState(false);
   const [loginModalOpen, setLoginModalOpen] = useState(false);
   const [loginDraft, setLoginDraft] = useState({ handle: "", password: "" });
   const [myBrandDetails, setMyBrandDetails] = useState(() =>
@@ -737,44 +738,52 @@ function App() {
       return;
     }
     const trimmed = prompt.trim();
-    const nextId = Math.max(...clothing.map((item) => item.id), 0) + 1;
-    const nextImage = `/image${((clothing.length + generatedDesigns.length) % 7) + 1
-      }.jpg`;
-    const newDesign = {
-      id: nextId,
-      name: trimmed || `AI 컨셉 ${nextId}`,
-      savedAt: formatTimestamp(new Date()),
-      category: "Concept",
-      design_img_url: nextImage,
-      gender: "Unisex",
-      style: "Minimal",
-      price: 169000,
-      size_specs: { shoulder: 44, chest: 98, waist: 82 },
-      design_prompt: trimmed || "미니멀 테일러링 실루엣",
-      description:
-        trimmed ||
-        "AI가 생성한 컨셉을 기반으로 실루엣과 소재 밸런스를 설계했습니다.",
-      story:
-        "AI가 트렌드 데이터를 분석해 감각적인 컬렉션 스토리를 구성했습니다. 디자이너가 세부 디테일을 다듬을 수 있도록 여지를 남겨두었습니다.",
-    };
+    setIsGenerating(true);
 
-    setClothing((prev) => [...prev, newDesign]);
-    setGeneratedDesigns((prev) => [newDesign, ...prev]);
-    setBrand((prev) => ({ ...prev, clothes_count: prev.clothes_count + 1 }));
-    setPrompt("");
-    setDesignCoins((prev) => Math.max(0, prev - 1));
-    setDetailTab("overview");
-    setAiDesignDraft({
-      name: newDesign.name,
-      price: newDesign.price,
-      category: newDesign.category,
-      style: newDesign.style,
-      gender: newDesign.gender,
-      description: newDesign.description || "",
-      story: newDesign.story || "",
-    });
-    setAiDesignEditMode(false);
-    setAiDesignModal({ open: true, design: newDesign });
+    // Simulate AI generation time
+    window.setTimeout(() => {
+      const nextId = Math.max(...clothing.map((item) => item.id), 0) + 1;
+      const nextImage = `/image${((clothing.length + generatedDesigns.length) % 7) + 1
+        }.jpg`;
+      const newDesign = {
+        id: nextId,
+        name: trimmed || `AI 컨셉 ${nextId}`,
+        savedAt: formatTimestamp(new Date()),
+        category: "Concept",
+        design_img_url: nextImage,
+        gender: "Unisex",
+        style: "Minimal",
+        price: 169000,
+        size_specs: { shoulder: 44, chest: 98, waist: 82 },
+        design_prompt: trimmed || "미니멀 테일러링 실루엣",
+        description:
+          trimmed ||
+          "AI가 생성한 컨셉을 기반으로 실루엣과 소재 밸런스를 설계했습니다.",
+        story:
+          "AI가 트렌드 데이터를 분석해 감각적인 컬렉션 스토리를 구성했습니다. 디자이너가 세부 디테일을 다듬을 수 있도록 여지를 남겨두었습니다.",
+      };
+
+      setClothing((prev) => [...prev, newDesign]);
+      setGeneratedDesigns((prev) => [newDesign, ...prev]);
+      setBrand((prev) => ({ ...prev, clothes_count: prev.clothes_count + 1 }));
+      setPrompt("");
+      setDesignCoins((prev) => Math.max(0, prev - 1));
+      setDetailTab("overview");
+      setAiDesignDraft({
+        name: newDesign.name,
+        price: newDesign.price,
+        category: newDesign.category,
+        style: newDesign.style,
+        gender: newDesign.gender,
+        description: newDesign.description || "",
+        story: newDesign.story || "",
+      });
+      setAiDesignEditMode(false);
+      // Remove modal open behavior
+      // setAiDesignModal({ open: true, design: newDesign });
+
+      setIsGenerating(false);
+    }, 2000);
   };
 
   const confirmGenerateDesign = () => {
@@ -4993,7 +5002,12 @@ function App() {
                     <div className="ai-result-card">
                       <h4>디자인 결과</h4>
                       <div className="ai-result-frame large">
-                        {currentDesignPreview ? (
+                        {isGenerating ? (
+                          <div className="ai-loading-state">
+                            <Sparkles className="ai-loading-icon" size={32} />
+                            <p>AI가 디자인을 생성하고 있습니다...</p>
+                          </div>
+                        ) : currentDesignPreview ? (
                           <>
                             <img
                               src={currentDesignPreview.design_img_url}
