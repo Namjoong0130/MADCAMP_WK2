@@ -808,7 +808,6 @@ function App() {
       setClothing((prev) => [...prev, newDesign]);
       setGeneratedDesigns((prev) => [newDesign, ...prev]);
       setBrand((prev) => ({ ...prev, clothes_count: prev.clothes_count + 1 }));
-      setPrompt("");
       setDesignCoins((prev) => Math.max(0, prev - 1));
       setDetailTab("overview");
       setAiDesignDraft({
@@ -4944,7 +4943,13 @@ function App() {
                           <button
                             type="button"
                             className="design-canvas-surface"
-                            onClick={() => openCanvasForSide("front")}
+                            onClick={() => {
+                              if (studioSidePhotos.front?.url) {
+                                frontPhotoInputRef.current?.click();
+                              } else {
+                                openCanvasForSide("front");
+                              }
+                            }}
                           >
                             {studioSidePhotos.front?.url && (
                               <img
@@ -5028,7 +5033,13 @@ function App() {
                           <button
                             type="button"
                             className="design-canvas-surface"
-                            onClick={() => openCanvasForSide("back")}
+                            onClick={() => {
+                              if (studioSidePhotos.back?.url) {
+                                backPhotoInputRef.current?.click();
+                              } else {
+                                openCanvasForSide("back");
+                              }
+                            }}
                           >
                             {studioSidePhotos.back?.url && (
                               <img
