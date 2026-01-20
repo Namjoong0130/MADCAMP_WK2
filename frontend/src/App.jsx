@@ -582,6 +582,12 @@ function App() {
     return items;
   }, [clothing]);
 
+  const ensureBrandForDesign = () => {
+    if (hasBrandPage) return true;
+    alert("브랜드 페이지를 먼저 만들어야 합니다.");
+    return false;
+  };
+
   const generateDesign = () => {
     if (designCoins <= 0) {
       return;
@@ -628,6 +634,10 @@ function App() {
   };
 
   const confirmGenerateDesign = () => {
+    if (!ensureBrandForDesign()) {
+      setDesignGenerateConfirmOpen(false);
+      return;
+    }
     setDesignGenerateConfirmOpen(false);
     generateDesign();
   };
@@ -672,6 +682,46 @@ function App() {
       story: aiDesignModal.design.story || "",
     });
     setAiDesignEditMode(true);
+  };
+
+  const handleAiDesignUpload = () => {
+    if (!aiDesignModal.design) return;
+    if (!hasBrandPage) {
+      setBrandPageRequiredOpen(true);
+      return;
+    }
+    const brandName = myBrandDetails.brand?.trim() || brand.name;
+    const designerHandle = myBrandDetails.handle?.trim() || "@motif.studio";
+    const designId = aiDesignModal.design.id;
+
+    setFundings((prev) => {
+      const exists = prev.some(
+        (entry) =>
+          entry.clothing_id === designId && entry.brand === brandName,
+      );
+      if (exists) return prev;
+      const nextId = Math.max(0, ...prev.map((entry) => entry.id)) + 1;
+      const nextFunding = {
+        id: nextId,
+        clothing_id: designId,
+        brand: brandName,
+        designer_handle: designerHandle,
+        participant_count: 0,
+        likes: 0,
+        liked: false,
+        status: "FUNDING",
+        goal_amount: 2000000,
+        current_amount: 0,
+        created_at: formatDate(new Date()),
+      };
+      return [nextFunding, ...prev];
+    });
+
+    setAiDesignModal({ open: false, design: null });
+    setAiDesignEditMode(false);
+    setActiveTab("portfolio");
+    setPortfolioTab("investee");
+    setSelectedBrandKey("my-brand");
   };
 
   const handleTryOn = (clothingId) => {
@@ -3912,6 +3962,7 @@ function App() {
                       className="primary"
                       type="button"
                       onClick={() => {
+                        if (!ensureBrandForDesign()) return;
                         if (designCoins <= 0) return;
                         setDesignGenerateConfirmOpen(true);
                       }}
@@ -5583,12 +5634,7 @@ function App() {
                 <button
                   type="button"
                   className="primary"
-                  onClick={() => {
-                    if (!hasBrandPage) {
-                      setBrandPageRequiredOpen(true);
-                      return;
-                    }
-                  }}
+                  onClick={handleAiDesignUpload}
                 >
                   업로드
                 </button>
