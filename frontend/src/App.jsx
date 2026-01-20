@@ -199,13 +199,7 @@ function App() {
   const [myBrandDetails, setMyBrandDetails] = useState(() =>
     buildDefaultBrandDetails(brand.name),
   );
-  const [introOpen, setIntroOpen] = useState(() => {
-    try {
-      return window.localStorage.getItem("modifLoggedIn") !== "true";
-    } catch {
-      return true;
-    }
-  });
+  const [introOpen, setIntroOpen] = useState(false);
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState(0);
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
@@ -3709,8 +3703,8 @@ function App() {
                                     <div
                                       key={comment.id}
                                       className={`comment compact ${comment.parent_id && comment.is_creator
-                                          ? "reply"
-                                          : ""
+                                        ? "reply"
+                                        : ""
                                         }`}
                                     >
                                       {comment.parent_id && (
@@ -3734,8 +3728,8 @@ function App() {
                                             <span
                                               key={index}
                                               className={`star-icon ${index < comment.rating
-                                                  ? "active"
-                                                  : ""
+                                                ? "active"
+                                                : ""
                                                 }`}
                                             >
                                               ★
@@ -3821,8 +3815,8 @@ function App() {
                                       key={index}
                                       type="button"
                                       className={`star-btn ${index < commentDraft.rating
-                                          ? "active"
-                                          : ""
+                                        ? "active"
+                                        : ""
                                         }`}
                                       aria-label={`Rate ${index + 1} stars`}
                                       onClick={() =>
@@ -4009,8 +4003,8 @@ function App() {
                           </button>
                           <div
                             className={`tool-sub ${designTool === "eraser" && showClearBubble
-                                ? "is-visible"
-                                : ""
+                              ? "is-visible"
+                              : ""
                               }`}
                           >
                             <div className="bubble">
@@ -4812,8 +4806,8 @@ function App() {
                           <button
                             type="button"
                             className={`follow-cta ${followedBrands.includes(profile.handle)
-                                ? "is-mutual"
-                                : ""
+                              ? "is-mutual"
+                              : ""
                               }`}
                             onClick={() => toggleFollowBrand(profile.handle)}
                           >
