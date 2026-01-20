@@ -25,5 +25,6 @@ const upload = multer({
 module.exports = {
   upload, // Access to raw multer instance
   single: (name) => upload.single(name),
-  array: (name, count) => upload.array(name, count)
+  array: (name, count) => upload.array(name, count),
+  fields: (fields) => upload.fields(fields)
 };
