@@ -9,6 +9,7 @@ import {
   signup,
   getMe,
   getProfile,
+  updateProfile,
   updateBodyMetrics,
   deleteAccount,
   uploadProfilePhoto
@@ -1111,6 +1112,66 @@ function App() {
     } catch (err) {
       console.error(err);
       alert(err.response?.data?.message || "프로필 이미지 업로드에 실패했습니다.");
+    }
+  };
+
+  const handleProfileSave = async () => {
+    if (!isLoggedIn) return;
+
+    const profilePayload = {
+      name: userProfile.name?.trim(),
+      profile_img_url: userProfile.profile_photo_url ?? null,
+      base_photo_url: userProfile.base_photo_url ?? null,
+      styleTags: Array.isArray(userProfile.styleTags)
+        ? userProfile.styleTags
+        : undefined,
+      bodyTypeLabel: userProfile.bodyTypeLabel,
+    };
+
+    Object.keys(profilePayload).forEach((key) => {
+      if (profilePayload[key] === undefined || profilePayload[key] === "") {
+        delete profilePayload[key];
+      }
+    });
+
+    const metricPayload = {
+      height: userProfile.measurements.height,
+      weight: userProfile.measurements.weight,
+      neckCircum: userProfile.measurements.neckCircum,
+      shoulderWidth: userProfile.measurements.shoulderWidth,
+      chestCircum: userProfile.measurements.chestCircum,
+      waistCircum: userProfile.measurements.waistCircum,
+      hipCircum: userProfile.measurements.hipCircum,
+      armLength: userProfile.measurements.armLength,
+      legLength: userProfile.measurements.legLength,
+      wristCircum: userProfile.measurements.wristCircum,
+      footSize: userProfile.measurements.shoeSize,
+    };
+
+    const safeMetrics = Object.fromEntries(
+      Object.entries(metricPayload)
+        .map(([key, value]) => [key, Number(value)])
+        .filter(([, value]) => !Number.isNaN(value)),
+    );
+
+    try {
+      const tasks = [];
+      if (Object.keys(profilePayload).length > 0) {
+        tasks.push(updateProfile(profilePayload));
+      }
+      if (Object.keys(safeMetrics).length > 0) {
+        tasks.push(updateBodyMetrics(safeMetrics));
+      }
+      if (tasks.length > 0) {
+        await Promise.all(tasks);
+      }
+      const profile = await getProfile();
+      applyUserProfile(profile);
+      setIsProfileEditing(false);
+      setProfilePasswordDraft({ password: "", confirm: "" });
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.message || "프로필 저장에 실패했습니다.");
     }
   };
 
@@ -2656,7 +2717,11 @@ function App() {
 
       if (signupPhotoFile) {
         try {
-          await uploadProfilePhoto(signupPhotoFile, "profile");
+          const uploadResult = await uploadProfilePhoto(signupPhotoFile, "body");
+          const basePhotoUrl = uploadResult?.data?.basePhotoUrl;
+          if (basePhotoUrl) {
+            await updateProfile({ profile_img_url: basePhotoUrl });
+          }
         } catch (err) {
           console.error(err);
           alert(err.response?.data?.message || "프로필 이미지 업로드에 실패했습니다.");
@@ -6187,10 +6252,7 @@ function App() {
                           <button
                             type="button"
                             className="primary"
-                            onClick={() => {
-                              setIsProfileEditing(false);
-                              setProfilePasswordDraft({ password: "", confirm: "" });
-                            }}
+                            onClick={handleProfileSave}
                           >
                             저장
                           </button>
