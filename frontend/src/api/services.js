@@ -43,7 +43,8 @@ export const getClothes = async () => {
 
 // Funds
 export const getFundingFeed = async () => {
-    const response = await axios.get('/api/funds/feed');
+    // Add timestamp to prevent caching
+    const response = await axios.get(`/api/funds/feed?t=${new Date().getTime()}`);
     return response.data.data;
 };
 

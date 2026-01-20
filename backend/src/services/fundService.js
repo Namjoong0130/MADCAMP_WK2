@@ -39,11 +39,12 @@ exports.listFundingFeed = async (userId) => {
 
   return funds.map((fund) => {
     const likedUserIds = fund.cloth?.likedUserIds || [];
-    const liked = userId ? likedUserIds.includes(userId) : false;
+    const numUserId = Number(userId);
+    const liked = userId ? likedUserIds.includes(numUserId) : false;
 
     // Debug logging
     if (userId) {
-      // console.log(`[FundService] Checking like for user ${userId} on cloth ${fund.cloth?.clothing_id}. LikedIDs: ${JSON.stringify(likedUserIds)}, Result: ${liked}`);
+      console.log(`[FundService] Checking like for user ${userId}(${numUserId}) on cloth ${fund.cloth?.clothing_id}. LikedIDs: ${JSON.stringify(likedUserIds)}, Result: ${liked}`);
     }
 
     const likes = fund.cloth?.likeCount || 0;
