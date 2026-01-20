@@ -201,6 +201,7 @@ function App() {
   const [savedDesignTab, setSavedDesignTab] = useState("design");
   const [galleryScales, setGalleryScales] = useState({});
   const [activeGalleryDrag, setActiveGalleryDrag] = useState(null);
+  const [previewImage, setPreviewImage] = useState(null);
   const prevTabRef = useRef(activeTab);
   const aiPhotoInputRef = useRef(null);
   const fittingCanvasRef = useRef(null);
@@ -5071,7 +5072,7 @@ function App() {
                             className="design-canvas-surface"
                             onClick={() => {
                               if (studioSidePhotos.front?.url) {
-                                frontPhotoInputRef.current?.click();
+                                setPreviewImage(studioSidePhotos.front.url);
                               } else {
                                 openCanvasForSide("front");
                               }
@@ -5161,7 +5162,7 @@ function App() {
                             className="design-canvas-surface"
                             onClick={() => {
                               if (studioSidePhotos.back?.url) {
-                                backPhotoInputRef.current?.click();
+                                setPreviewImage(studioSidePhotos.back.url);
                               } else {
                                 openCanvasForSide("back");
                               }
@@ -5243,8 +5244,9 @@ function App() {
                               style={{
                                 transform: `scale(${designScale})`,
                                 transition: isDraggingDesign.current ? "none" : "transform 0.1s ease-out",
-                                maxHeight: "90%",
-                                maxWidth: "90%",
+                                height: "100%",
+                                width: "100%",
+                                objectFit: "contain",
                                 pointerEvents: "none", // Let container handle events
                                 userSelect: "none"
                               }}
@@ -7666,6 +7668,52 @@ function App() {
               확인
             </button>
           </div>
+        </div>
+      )}
+      {previewImage && (
+        <div
+          onClick={() => setPreviewImage(null)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            background: 'rgba(0,0,0,0.85)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 99999,
+            cursor: 'zoom-out'
+          }}
+        >
+          <img
+            src={previewImage}
+            style={{
+              maxWidth: '90%',
+              maxHeight: '90%',
+              objectFit: 'contain',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+              borderRadius: '8px'
+            }}
+            alt="Preview"
+          />
+          <button
+            type="button"
+            style={{
+              position: 'absolute',
+              top: '20px',
+              right: '20px',
+              background: 'none',
+              border: 'none',
+              color: 'white',
+              fontSize: '32px',
+              cursor: 'pointer'
+            }}
+            onClick={() => setPreviewImage(null)}
+          >
+            ×
+          </button>
         </div>
       )}
     </div>
