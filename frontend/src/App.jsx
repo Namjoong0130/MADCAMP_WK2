@@ -46,6 +46,7 @@ import {
   Filter,
   User,
   Pencil,
+  Palette,
   Trash2,
 } from "lucide-react";
 
@@ -2600,9 +2601,21 @@ function App() {
           return;
         }
 
-        const myProfile = normalized.find(
-          (profile) => profile.handle === userProfile.handle,
-        );
+        const myProfile = normalized.find((profile) => {
+          if (profile.handle && profile.handle === userProfile.handle) {
+            return true;
+          }
+          if (myBrandId && profile.id === myBrandId) {
+            return true;
+          }
+          if (
+            myBrandDetails.brand &&
+            profile.brand?.toLowerCase() === myBrandDetails.brand.toLowerCase()
+          ) {
+            return true;
+          }
+          return false;
+        });
         if (myProfile && !brandEditing) {
           setHasBrandPage(true);
           setBrandPageReady(true);
@@ -2627,7 +2640,14 @@ function App() {
     return () => {
       active = false;
     };
-  }, [brandEditing, isLoggedIn, resetMyBrandState, userProfile.handle]);
+  }, [
+    brandEditing,
+    isLoggedIn,
+    myBrandDetails.brand,
+    myBrandId,
+    resetMyBrandState,
+    userProfile.handle,
+  ]);
 
   useEffect(() => {
     if (!userProfile.handle) return;
@@ -2766,6 +2786,16 @@ function App() {
     setDetailTab("overview");
     setActiveTab("discover");
     setSearchOpen(false);
+  };
+
+  const openMyBrandPage = () => {
+    if (!isLoggedIn) {
+      setSelectedBrandKey("my-brand");
+      setPendingTab("brand");
+      openAuthModal("login-required");
+      return;
+    }
+    openBrandProfile(myBrandProfile);
   };
 
   const openBrandProfile = (profile) => {
@@ -3308,13 +3338,13 @@ function App() {
               icon: <Search size={20} strokeWidth={1.5} />,
             },
             {
-              key: "studio",
-              label: "Studio",
+              key: "brand",
+              label: "My Brand",
               icon: <Sparkles size={20} strokeWidth={1.5} />, // 별 모양 ✨
             },
             {
               key: "fitting",
-              label: "My Fitting",
+              label: "Fitting",
               icon: <Shirt size={20} strokeWidth={1.5} />, // 티셔츠 모양 👕
             },
             {
@@ -3329,7 +3359,9 @@ function App() {
               onClick={() =>
                 item.key === "discover"
                   ? setActiveTab(item.key)
-                  : handleRestrictedNav(item.key)
+                  : item.key === "brand"
+                    ? openMyBrandPage()
+                    : handleRestrictedNav(item.key)
               }
               type="button"
             >
@@ -4779,7 +4811,7 @@ function App() {
           <section className="content">
             <div className="page-title page-title-row">
               <div>
-                <h1>My Fitting</h1>
+                <h1>Fitting</h1>
                 <p>데이터로 완성하는 나만의 가상 드레스룸</p>
               </div>
               <div className="page-title-actions">
@@ -5092,7 +5124,7 @@ function App() {
               <div className="portfolio-grid portfolio-brands-layout">
                 <div className="panel my-brands-panel">
                   <div className="panel-title-row">
-                    <h3>My Brands</h3>
+                    <h3>My Funding</h3>
                     {brands.length > 2 && (
                       <button
                         type="button"
@@ -5124,6 +5156,26 @@ function App() {
                             {currency.format(item.currentCoin)}
                           </p>
                         </div>
+                        {(() => {
+                          const brandFunding = fundings.find(
+                            (entry) =>
+                              entry.brand?.toLowerCase() ===
+                              item.brand?.toLowerCase(),
+                          );
+                          const brandClothing = brandFunding
+                            ? clothingMap[brandFunding.clothing_id]
+                            : null;
+                          if (!brandClothing) return null;
+                          return (
+                            <button
+                              type="button"
+                              className="brand-product"
+                              onClick={() => openClothingDetail(brandClothing.id)}
+                            >
+                              {brandClothing.name}
+                            </button>
+                          );
+                        })()}
                         <textarea
                           value={item.production_note}
                           onChange={(event) =>
@@ -5399,6 +5451,16 @@ function App() {
               {selectedBrandProfile.handle === myBrandDetails.handle &&
                 hasBrandPage && (
                   <div className="brand-title-actions">
+                    <button
+                      type="button"
+                      className="brand-studio-btn"
+                      onClick={() => setActiveTab("studio")}
+                    >
+                      <span className="brand-studio-icon">
+                        <Palette size={16} strokeWidth={1.6} />
+                      </span>
+                      <span>Studio</span>
+                    </button>
                     <button
                       type="button"
                       className="brand-edit-btn"

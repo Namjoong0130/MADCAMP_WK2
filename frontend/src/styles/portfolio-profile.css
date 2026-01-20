@@ -147,6 +147,18 @@
   resize: none;
 }
 
+.brand-product {
+  border: none;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  color: #111111;
+}
+
 .investment-list {
   display: flex;
   flex-direction: column;
@@ -732,6 +744,10 @@
   margin-top: 6px;
 }
 
+.brand-title h1 {
+  font-size: 40px;
+}
+
 .brand-title-row {
   display: flex;
   justify-content: space-between;
@@ -743,6 +759,27 @@
   display: inline-flex;
   gap: 10px;
   align-items: center;
+}
+
+.brand-studio-btn {
+  border: 1px solid #111111;
+  background: #111111;
+  color: #ffffff;
+  border-radius: 999px;
+  height: 36px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.brand-studio-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .brand-edit-btn {
