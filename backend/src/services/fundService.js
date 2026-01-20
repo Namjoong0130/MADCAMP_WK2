@@ -233,6 +233,13 @@ exports.createInvestment = async (userId, fundId, payload) => {
 exports.createComment = async (userId, fundId, payload) => {
   requireFields(payload, ['content']);
 
+  const user = await prisma.user.findUnique({
+    where: { user_id: userId },
+  });
+  if (!user || user.deleted_at) {
+    throw createError(401, 'Invalid user. Please log in again.');
+  }
+
   const fund = await prisma.fund.findUnique({
     where: { funding_id: fundId },
     include: {
