@@ -311,7 +311,7 @@ function App() {
   }, [brandProfiles]);
 
   const followerSeries = useMemo(() => {
-    const values = [176, 182, 188, 195, 201, 208, 214];
+    const values = [0, 0, 0, 0, 0, 0, 0];
     return values.map((value, index) => {
       const date = new Date();
       date.setDate(date.getDate() - (values.length - 1 - index));
@@ -916,7 +916,7 @@ function App() {
 
   const handleTryOn = (clothingId) => {
     if (!isLoggedIn) {
-      alert("로그인이 필요합니다.");
+      openAuthModal("login-required");
       return;
     }
     setActiveTab("fitting");
@@ -1305,7 +1305,7 @@ function App() {
       setBrandEditing(false);
       setBrandPageReady(true);
       setSelectedBrandKey("my-brand");
-      setActiveTab("studio");
+      setActiveTab("brand");
 
       const profiles = await getBrandProfiles();
       const normalized = profiles.map((profile) => ({
@@ -1376,6 +1376,7 @@ function App() {
     const brandId = myBrandId || selectedBrandProfile?.id;
     if (!brandId) {
       resetBrandPage();
+      setActiveTab("discover");
       return;
     }
 
@@ -1383,6 +1384,7 @@ function App() {
       await deleteBrand(brandId);
       setMyBrandId(null);
       resetBrandPage();
+      setActiveTab("discover");
       const profiles = await getBrandProfiles();
       const normalized = profiles.map((profile) => ({
         ...profile,
@@ -1406,7 +1408,6 @@ function App() {
     setMyBrandDetails(buildEmptyBrandDetails());
     setMyBrandId(null);
     setBrandDeleteConfirmOpen(false);
-    setActiveTab("portfolio");
   };
 
   const resetMyBrandState = useCallback(() => {
@@ -2975,8 +2976,7 @@ function App() {
             className="onboarding-login"
             onClick={() => {
               setOnboardingOpen(false);
-              setIntroOpen(false);
-              openAuthModal("login-required");
+              openLoginFlow();
             }}
           >
             로그인
@@ -4377,10 +4377,17 @@ function App() {
                 <h1>Studio</h1>
                 <p>상상이 현실이 되는 크리에이티브 공간</p>
               </div>
-              <div className="page-title-actions">
+              <div className="page-title-actions studio-title-actions">
                 <button
                   type="button"
                   className="secondary"
+                  onClick={openMyBrandPage}
+                >
+                  내 브랜드
+                </button>
+                <button
+                  type="button"
+                  className="secondary studio-saved-btn"
                   onClick={() => setIsGalleryOpen(true)}
                 >
                   저장된 디자인
@@ -5265,7 +5272,7 @@ function App() {
 
                 <div className="portfolio-side">
                   <div className="brand-page-panel">
-                    <h3>Brand Page</h3>
+                    <h3>내 브랜드 페이지</h3>
                     {hasBrandPage ? (
                       <button
                         type="button"
@@ -5522,21 +5529,32 @@ function App() {
           <section className="content">
             <div className="page-title brand-title brand-title-row">
               <div>
-                <h1>{selectedBrandProfile.brand}</h1>
+                <h1>
+                  {selectedBrandKey === "my-brand" ||
+                  selectedBrandProfile.handle === myBrandDetails.handle
+                    ? "My Brand"
+                    : selectedBrandProfile.brand}
+                </h1>
+                {(selectedBrandKey === "my-brand" ||
+                  selectedBrandProfile.handle === myBrandDetails.handle) && (
+                  <p>나만의 브랜드 페이지</p>
+                )}
               </div>
               {selectedBrandProfile.handle === myBrandDetails.handle &&
                 hasBrandPage && (
                   <div className="brand-title-actions">
-                    <button
-                      type="button"
-                      className="brand-studio-btn"
-                      onClick={() => setActiveTab("studio")}
-                    >
-                      <span className="brand-studio-icon">
-                        <Palette size={16} strokeWidth={1.6} />
-                      </span>
-                      <span>Studio</span>
-                    </button>
+                    {brandPageReady && (
+                      <button
+                        type="button"
+                        className="brand-studio-btn"
+                        onClick={() => setActiveTab("studio")}
+                      >
+                        <span className="brand-studio-icon">
+                          <Palette size={16} strokeWidth={1.6} />
+                        </span>
+                        <span>Studio</span>
+                      </button>
+                    )}
                     <button
                       type="button"
                       className="brand-edit-btn"
@@ -6217,13 +6235,25 @@ function App() {
                     <div className="album-meta">
                       <div className="album-meta-row">
                         <strong>{item.name}</strong>
-                        <button
-                          type="button"
-                          className="album-load-btn"
-                          onClick={() => loadSavedDesign(item)}
-                        >
-                          불러오기
-                        </button>
+                        <div className="album-meta-actions">
+                          <button
+                            type="button"
+                            className="album-load-btn"
+                            onClick={() => loadSavedDesign(item)}
+                          >
+                            불러오기
+                          </button>
+                          <button
+                            type="button"
+                            className="album-load-btn"
+                            onClick={() => {
+                              setIsGalleryOpen(false);
+                              openMyBrandPage();
+                            }}
+                          >
+                            내 브랜드
+                          </button>
+                        </div>
                       </div>
                       <span>{item.savedAt}</span>
                     </div>
