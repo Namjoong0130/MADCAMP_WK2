@@ -204,9 +204,6 @@ function App() {
   const [myBrandDetails, setMyBrandDetails] = useState(() =>
     buildDefaultBrandDetails(brand.name),
   );
-  const [introOpen, setIntroOpen] = useState(true);
-  const [onboardingOpen, setOnboardingOpen] = useState(false);
-  const [onboardingStep, setOnboardingStep] = useState(0);
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     try {
       return window.localStorage.getItem("modifLoggedIn") === "true";
@@ -214,6 +211,10 @@ function App() {
       return false;
     }
   });
+  const [introOpen, setIntroOpen] = useState(!isLoggedIn);
+  const [authSelectionOpen, setAuthSelectionOpen] = useState(false);
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
+  const [onboardingStep, setOnboardingStep] = useState(0);
   const [pendingTab, setPendingTab] = useState(null);
   const [measurementMode, setMeasurementMode] = useState("manual");
   const [signupDraft, setSignupDraft] = useState(() => ({
@@ -2167,10 +2168,11 @@ function App() {
   };
 
   const startOnboarding = () => {
-    setIntroOpen(false);
-    if (!isLoggedIn) {
-      resetOnboarding();
-      setOnboardingOpen(true);
+    if (isLoggedIn) {
+      setIntroOpen(false);
+    } else {
+      setIntroOpen(false);
+      setAuthSelectionOpen(true);
     }
   };
 
@@ -2800,6 +2802,16 @@ function App() {
   }, [introOpen]);
 
   useEffect(() => {
+    if (!authSelectionOpen) return;
+    // Force visibility for auth selection elements since the observer might not run
+    const timer = setTimeout(() => {
+      const elements = document.querySelectorAll(".intro-overlay .intro-heading, .intro-overlay .intro-actions");
+      elements.forEach(el => el.classList.add("is-visible"));
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [authSelectionOpen]);
+
+  useEffect(() => {
     if (fittingView !== "real") return;
     if (!userProfile.base_photo_url) return;
     setFittingRealBaseUrl(userProfile.base_photo_url);
@@ -2976,7 +2988,8 @@ function App() {
             className="onboarding-login"
             onClick={() => {
               setOnboardingOpen(false);
-              openLoginFlow();
+              setIntroOpen(false);
+              openAuthModal("login-required");
             }}
           >
             로그인
@@ -3008,7 +3021,18 @@ function App() {
                 <div className="onboarding-section-inner compact">
                   <span className="onboarding-step">Step 1</span>
                   <div className="onboarding-panel">
-                    <h3>기본 정보</h3>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <h3>기본 정보</h3>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOnboardingOpen(false);
+                          setIntroOpen(true);
+                          resetOnboarding();
+                        }}
+                        style={{ background: 'none', border: 'none', fontSize: '24px', color: '#999', cursor: 'pointer', padding: 0 }}
+                      >×</button>
+                    </div>
                     <div className="onboarding-grid">
                       <div className="profile-photo-upload">
                         <input
@@ -3050,7 +3074,9 @@ function App() {
                           )}
                         </div>
                       </div>
+
                       <div className="name-fields">
+
                         <label className="onboarding-field">
                           이메일
                           <input
@@ -3223,15 +3249,38 @@ function App() {
                         </div>
                       )}
                     </div>
-                    <div className="onboarding-submit">
+                    <div className="onboarding-submit" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                       <button
                         type="button"
                         className="primary"
                         disabled={!canProceedProfile}
                         onClick={() => setOnboardingStep(1)}
+                        style={{ width: '100%' }}
                       >
                         다음
                       </button>
+                      <div style={{ marginTop: '16px', fontSize: '14px', color: '#666' }}>
+                        이미 계정이 있으신가요?{" "}
+                        <button
+                          type="button"
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: '#111',
+                            fontWeight: '600',
+                            textDecoration: 'underline',
+                            cursor: 'pointer',
+                            padding: 0,
+                            fontFamily: 'inherit'
+                          }}
+                          onClick={() => {
+                            setOnboardingOpen(false);
+                            setLoginModalOpen(true);
+                          }}
+                        >
+                          로그인하기
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -3379,6 +3428,94 @@ function App() {
               </div>
             </div>
           </section>
+        </div>
+      )}
+      {authSelectionOpen && (
+        <div className="intro-overlay" role="dialog" aria-modal="true">
+          <section className="intro-hero">
+            <video
+              className="intro-video"
+              src="/background.mp4"
+              autoPlay
+              muted
+              loop
+              playsInline
+            />
+            <div className="intro-fade" />
+          </section>
+
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+          }}>
+            <div className="onboarding-panel" style={{
+              margin: 0,
+              maxWidth: '400px',
+              width: '90%',
+              padding: '40px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              background: 'white',
+              borderRadius: '16px',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+            }}>
+              <h3 className="intro-heading" style={{ color: '#111', marginBottom: '8px', fontSize: '24px' }}>Modif 시작하기</h3>
+              <p style={{ color: '#666', marginBottom: '32px' }}>AI와 함께하는 새로운 패션의 시작</p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
+                <button
+                  type="button"
+                  className="primary"
+                  style={{ width: '100%', height: '54px', fontSize: '16px' }}
+                  onClick={() => {
+                    setAuthSelectionOpen(false);
+                    setLoginModalOpen(true);
+                  }}
+                >
+                  로그인
+                </button>
+                <button
+                  type="button"
+                  className="secondary"
+                  style={{ width: '100%', height: '54px', fontSize: '16px' }}
+                  onClick={() => {
+                    setAuthSelectionOpen(false);
+                    resetOnboarding();
+                    setOnboardingOpen(true);
+                  }}
+                >
+                  회원가입
+                </button>
+              </div>
+
+              <button
+                type="button"
+                style={{
+                  marginTop: '24px',
+                  background: 'none',
+                  border: 'none',
+                  color: '#999',
+                  textDecoration: 'underline',
+                  cursor: 'pointer',
+                  fontSize: '14px'
+                }}
+                onClick={() => {
+                  setAuthSelectionOpen(false);
+                  setIntroOpen(true);
+                }}
+              >
+                돌아가기
+              </button>
+            </div>
+          </div>
         </div>
       )}
       <aside className="sidebar">
@@ -3624,25 +3761,25 @@ function App() {
                   </ul>
                 </div>
               )}
+              <button
+                className="icon-btn"
+                type="button"
+                aria-label="Profile"
+                onClick={() => {
+                  if (isLoggedIn) {
+                    setActiveTab("profile");
+                    setDetailItem(null);
+                  } else {
+                    openAuthModal("login-required");
+                  }
+                }}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="12" cy="8" r="4" />
+                  <path d="M4 20c2-4 14-4 16 0" />
+                </svg>
+              </button>
             </div>
-            <button
-              className="icon-btn"
-              type="button"
-              aria-label="Profile"
-              onClick={() => {
-                if (isLoggedIn) {
-                  setActiveTab("profile");
-                  setDetailItem(null);
-                } else {
-                  openAuthModal("login-required");
-                }
-              }}
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <circle cx="12" cy="8" r="4" />
-                <path d="M4 20c2-4 14-4 16 0" />
-              </svg>
-            </button>
           </div>
         </header>
 
@@ -5535,14 +5672,14 @@ function App() {
               <div>
                 <h1>
                   {selectedBrandKey === "my-brand" ||
-                  selectedBrandProfile.handle === myBrandDetails.handle
+                    selectedBrandProfile.handle === myBrandDetails.handle
                     ? "My Brand"
                     : selectedBrandProfile.brand}
                 </h1>
                 {(selectedBrandKey === "my-brand" ||
                   selectedBrandProfile.handle === myBrandDetails.handle) && (
-                  <p>나만의 브랜드 페이지</p>
-                )}
+                    <p>나만의 브랜드 페이지</p>
+                  )}
               </div>
               {selectedBrandProfile.handle === myBrandDetails.handle &&
                 hasBrandPage && (
@@ -6112,58 +6249,110 @@ function App() {
         </div>
       )}
       {loginModalOpen && (
-        <div className="auth-modal" role="dialog" aria-modal="true">
-          <div className="auth-modal-content">
-            <button
-              type="button"
-              className="auth-modal-close"
-              aria-label="Close"
-              onClick={closeLoginModal}
-            >
-              ×
-            </button>
-            <h3>로그인</h3>
-            <div className="auth-modal-form">
-              <label>
-                이메일
-                <input
-                  value={loginDraft.handle}
-                  onChange={(event) =>
-                    setLoginDraft((prev) => ({
-                      ...prev,
-                      handle: event.target.value,
-                    }))
-                  }
-                  placeholder="name@example.com"
-                />
-              </label>
-              <label>
-                비밀번호
-                <input
-                  type="password"
-                  value={loginDraft.password}
-                  onChange={(event) =>
-                    setLoginDraft((prev) => ({
-                      ...prev,
-                      password: event.target.value,
-                    }))
-                  }
-                  placeholder="비밀번호 입력"
-                />
-              </label>
-            </div>
-            <div className="auth-modal-actions">
-              <button
-                type="button"
-                className="secondary"
-                onClick={startOnboarding}
-              >
-                회원가입
-              </button>
-              <button type="button" className="primary" onClick={submitLogin}>
-                로그인
-              </button>
-            </div>
+        <div className="intro-overlay" role="dialog" aria-modal="true">
+          <section className="intro-hero">
+            <video
+              className="intro-video"
+              src="/background.mp4"
+              autoPlay
+              muted
+              loop
+              playsInline
+            />
+            <div className="intro-fade" />
+          </section>
+
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10001,
+          }}>
+            <section className="onboarding-section is-visible" style={{ minHeight: 'auto', padding: 0 }}>
+              <div className="onboarding-section-inner" style={{ maxWidth: '400px', margin: '0 auto' }}>
+                <div className="onboarding-panel">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <h3 style={{ fontSize: '24px', color: '#111', margin: 0 }}>로그인</h3>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLoginModalOpen(false);
+                        setIntroOpen(true);
+                      }}
+                      style={{ background: 'none', border: 'none', fontSize: '24px', color: '#999', cursor: 'pointer', padding: 0 }}
+                    >×</button>
+                  </div>
+                  <p style={{ color: '#666', marginBottom: '32px' }}>Modif에 오신 것을 환영합니다.</p>
+
+                  <div className="auth-modal-form">
+                    <label className="onboarding-field">
+                      이메일
+                      <input
+                        value={loginDraft.handle}
+                        onChange={(event) =>
+                          setLoginDraft((prev) => ({
+                            ...prev,
+                            handle: event.target.value,
+                          }))
+                        }
+                        placeholder="name@example.com"
+                      />
+                    </label>
+                    <label className="onboarding-field">
+                      비밀번호
+                      <input
+                        type="password"
+                        value={loginDraft.password}
+                        onChange={(event) =>
+                          setLoginDraft((prev) => ({
+                            ...prev,
+                            password: event.target.value,
+                          }))
+                        }
+                        placeholder="비밀번호 입력"
+                      />
+                    </label>
+
+                    <button
+                      className="primary"
+                      onClick={submitLogin}
+                      style={{ marginTop: '12px', width: '100%', height: '54px', fontSize: '16px', borderRadius: '8px' }}
+                    >
+                      로그인
+                    </button>
+
+                    <div style={{ marginTop: '16px', textAlign: 'center', fontSize: '14px', color: '#666' }}>
+                      계정이 없으신가요?{" "}
+                      <button
+                        type="button"
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: '#111',
+                          fontWeight: '600',
+                          textDecoration: 'underline',
+                          cursor: 'pointer',
+                          padding: 0,
+                          fontFamily: 'inherit'
+                        }}
+                        onClick={() => {
+                          setLoginModalOpen(false);
+                          resetOnboarding();
+                          setOnboardingOpen(true);
+                        }}
+                      >
+                        회원가입하기
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
           </div>
         </div>
       )}
