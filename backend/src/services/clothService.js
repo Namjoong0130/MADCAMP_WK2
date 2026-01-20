@@ -150,7 +150,10 @@ exports.createCloth = async (userId, payload) => {
   return prisma.$transaction(async (tx) => {
     const cloth = await tx.cloth.create({
       data: {
-      });
+        ...clothData,
+        brand_id: user.brand.brand_id,
+      },
+    });
 
     if (attemptPayload?.design_prompt || attemptPayload?.ai_result_url) {
       await tx.designAttempt.create({
