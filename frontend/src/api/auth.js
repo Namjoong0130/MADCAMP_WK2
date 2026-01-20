@@ -13,7 +13,7 @@ export const signup = async (userData) => {
 
 export const getMe = async () => {
     const response = await axios.get('/api/users/me');
-    return response.data;
+    return response.data.data;
 };
 
 export const getProfile = async () => {

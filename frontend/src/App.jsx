@@ -2828,9 +2828,18 @@ function App() {
       return;
     }
 
+    if (!currentUserId) {
+      console.warn("OpenMyBrandPage: Logged in but no currentUserId yet. Waiting...");
+      alert("사용자 정보를 불러오는 중입니다. 잠시 후 다시 시도해주세요.");
+      return;
+    }
+
     // Direct lookup for robustness with Type Safety
-    // backend sends numbers, but ensure we compare safely
+    console.log("OpenMyBrandPage Check:", { currentUserId, profilesCount: brandProfiles.length });
+
     const directProfile = brandProfiles.find(p => Number(p.owner_id) === Number(currentUserId));
+    console.log("Found Direct Profile:", directProfile);
+
     const brandExists = !!directProfile || hasBrandPage || (myBrandId !== null && myBrandId !== "my-brand");
 
     setSelectedBrandKey("my-brand");
