@@ -78,6 +78,7 @@ exports.listDesignHistory = async (req, res, next) => {
 
 exports.generateDesign = async (req, res, next) => {
   try {
+    console.log('[Controller] generateDesign called');
     const { prompt } = req.body;
     let input_images = [];
 
@@ -89,6 +90,11 @@ exports.generateDesign = async (req, res, next) => {
       // Fallback to URL string/array if provided manually
       input_images = Array.isArray(req.body.input_images) ? req.body.input_images : [req.body.input_images];
     }
+
+    console.log('[Controller] Inputs:', {
+      prompt,
+      imageCount: input_images.length
+    });
 
     // Strict validation
     if (!prompt || input_images.length !== 2) {
@@ -103,6 +109,7 @@ exports.generateDesign = async (req, res, next) => {
     );
     return created(res, attempt, '디자인이 생성되었습니다.');
   } catch (error) {
+    console.error('[Controller] generateDesign Error:', error);
     next(error);
   }
 };

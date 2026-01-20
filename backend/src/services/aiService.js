@@ -108,7 +108,11 @@ const callFalAi = async (prompt, imageUrls = []) => {
       finalInputImages = [blank];
     }
 
-    console.log('[FAL AI Request]', { endpoint: FAL_MODEL_ENDPOINT, imageCount: finalInputImages.length });
+    console.log('[FAL AI Request]', {
+      endpoint: FAL_MODEL_ENDPOINT,
+      imageCount: finalInputImages.length,
+      promptPreview: prompt.substring(0, 100) + '...'
+    });
 
     const result = await fal.subscribe(FAL_MODEL_ENDPOINT, {
       input: {
@@ -129,11 +133,20 @@ const callFalAi = async (prompt, imageUrls = []) => {
     // Return the image URL from result
     if (result.data) {
       // Check for 'images' array or 'image' object
-      if (result.data.images && result.data.images[0]) return result.data.images[0].url;
-      if (result.data.image && result.data.image.url) return result.data.image.url;
+      if (result.data.images && result.data.images[0]) {
+        console.log('[FAL AI Success] URL:', result.data.images[0].url);
+        return result.data.images[0].url;
+      }
+      if (result.data.image && result.data.image.url) {
+        console.log('[FAL AI Success] URL:', result.data.image.url);
+        return result.data.image.url;
+      }
+    } else {
+      console.warn('[FAL AI Warning] No data in response');
     }
   } catch (error) {
     console.error('Fal.ai API Error:', error.message || error);
+    if (error.body) console.error('Fal.ai Error Body:', error.body);
   }
   return null;
 };

@@ -41,6 +41,19 @@ export const getClothes = async () => {
     return response.data.data;
 };
 
+export const generateDesign = async (clothId, prompt, images) => {
+    const formData = new FormData();
+    formData.append('prompt', prompt);
+    if (images && images.length > 0) {
+        images.forEach((img) => formData.append('images', img));
+    }
+
+    const response = await axios.post(`/api/clothes/${clothId}/generate`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data.data;
+};
+
 // Funds
 export const getFundingFeed = async () => {
     // Add timestamp to prevent caching

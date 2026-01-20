@@ -733,34 +733,52 @@ function App() {
     return false;
   };
 
-  const generateDesign = () => {
+  const generateDesign = async () => {
     if (designCoins <= 0) {
+      alert("디자인 토큰이 부족합니다.");
       return;
     }
+
+    // Prepare inputs
+    const files = [];
+    if (studioSidePhotos.front?.file) files.push(studioSidePhotos.front.file);
+    if (studioSidePhotos.back?.file) files.push(studioSidePhotos.back.file);
+
+    // Validate inputs locally
+    if (files.length !== 2) {
+      alert("앞면과 뒷면 도안 이미지가 모두 필요합니다.");
+      return;
+    }
+
     const trimmed = prompt.trim();
     setIsGenerating(true);
 
-    // Simulate AI generation time
-    window.setTimeout(() => {
+    try {
+      console.log('Calling generateDesign API with:', { prompt: trimmed, fileCount: files.length });
+
+      const dummyClothId = clothing.length > 0 ? clothing[0].id : 1;
+
+      const result = await apiGenerateDesign(dummyClothId, trimmed, files);
+
+      console.log('API Result:', result);
+
       const nextId = Math.max(...clothing.map((item) => item.id), 0) + 1;
-      const nextImage = `/image${((clothing.length + generatedDesigns.length) % 7) + 1
-        }.jpg`;
+
       const newDesign = {
         id: nextId,
         name: trimmed || `AI 컨셉 ${nextId}`,
         savedAt: formatTimestamp(new Date()),
         category: "Concept",
-        design_img_url: nextImage,
+        design_img_url: result.front || result.all,
+        final_result_front_url: result.front,
+        final_result_back_url: result.back,
         gender: "Unisex",
         style: "Minimal",
         price: 169000,
         size_specs: { shoulder: 44, chest: 98, waist: 82 },
         design_prompt: trimmed || "미니멀 테일러링 실루엣",
-        description:
-          trimmed ||
-          "AI가 생성한 컨셉을 기반으로 실루엣과 소재 밸런스를 설계했습니다.",
-        story:
-          "AI가 트렌드 데이터를 분석해 감각적인 컬렉션 스토리를 구성했습니다. 디자이너가 세부 디테일을 다듬을 수 있도록 여지를 남겨두었습니다.",
+        description: trimmed || "AI가 생성한 컨셉을 기반으로 실루엣과 소재 밸런스를 설계했습니다.",
+        story: "AI가 트렌드 데이터를 분석해 감각적인 컬렉션 스토리를 구성했습니다.",
       };
 
       setClothing((prev) => [...prev, newDesign]);
@@ -779,11 +797,13 @@ function App() {
         story: newDesign.story || "",
       });
       setAiDesignEditMode(false);
-      // Remove modal open behavior
-      // setAiDesignModal({ open: true, design: newDesign });
 
+    } catch (error) {
+      console.error("Design Generation Failed:", error);
+      alert(error.response?.data?.message || "디자인 생성에 실패했습니다.");
+    } finally {
       setIsGenerating(false);
-    }, 2000);
+    }
   };
 
   const confirmGenerateDesign = () => {
