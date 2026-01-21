@@ -275,6 +275,8 @@ export const initialInvestments = [];
 
 export const initialBrands = [];
 
+export const initialFittingHistory = [];
+
 export const userBase = {
   name: "Test User",
   handle: "@test.user",
