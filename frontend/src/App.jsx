@@ -29,6 +29,7 @@ import {
   deleteFundComment,
   createCloth,
   deleteCloth,
+  createFitting,
   generateDesign as apiGenerateDesign,
 } from "./api/services";
 import Tshirt from "./Tshirt";
@@ -151,6 +152,8 @@ function App() {
   const [fittingRealBaseUrl, setFittingRealBaseUrl] = useState(
     userBase.base_photo_url || "/image7.png",
   );
+  const [fittingRealResult, setFittingRealResult] = useState(null);
+  const [fittingMannequinResult, setFittingMannequinResult] = useState(null);
   const [currentUserId, setCurrentUserId] = useState(null);
   const [userProfile, setUserProfile] = useState(userBase);
   const [brands, setBrands] = useState(initialBrands);
@@ -5581,37 +5584,26 @@ function App() {
                   저장
                 </button>
                 {fittingView === "3d" ? (
-                  /* Preserving 3D Canvas logic for later GLB integration, but replacing with 2D view for now */
-                  false ? (
-                    <Canvas
-                      camera={{ position: [0, 0, 1.5], fov: 45 }}
-                      gl={{ preserveDrawingBuffer: true }}
-                      onCreated={({ gl }) => {
-                        fittingCanvasRef.current = gl.domElement;
-                      }}
-                    >
-                      <ambientLight intensity={0.6} />
-                      <directionalLight position={[2, 2, 2]} intensity={0.8} />
-                      <OrbitControls enablePan={false} />
-                      <Suspense fallback={null}>
-                        <Environment preset="city" />
-                        <Center>
-                          <Tshirt />
-                        </Center>
-                      </Suspense>
-                    </Canvas>
-                  ) : (
-                    <div className="fitting-mannequin-2d" style={{
-                      width: '100%',
-                      height: '100%',
-                      backgroundColor: '#f0f0f0',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      position: 'relative',
-                      overflow: 'hidden'
-                    }}>
-                      {fittingLayers.length === 0 ? (
+                  /* Mannequin View */
+                  <div className="fitting-mannequin-2d" style={{
+                    width: '100%',
+                    height: '100%',
+                    backgroundColor: '#f0f0f0',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    position: 'relative',
+                    overflow: 'hidden'
+                  }}>
+                    {/* Show Mannequin Result if available, otherwise placeholder */}
+                    {fittingMannequinResult ? (
+                      <img
+                        src={fittingMannequinResult}
+                        alt="Mannequin Result"
+                        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                      />
+                    ) : (
+                      fittingLayers.length === 0 ? (
                         <div style={{
                           textAlign: 'center',
                           color: '#666',
@@ -5621,7 +5613,7 @@ function App() {
                           Fitting을 누르면 마네킹이 형성됩니다
                         </div>
                       ) : (
-                        /* Placeholder for Mannequin Photo */
+                        /* Placeholder while waiting for result, show layers stacked? */
                         <div className="fitting-mannequin-result" style={{
                           width: '100%',
                           height: '100%',
@@ -5629,7 +5621,7 @@ function App() {
                           alignItems: 'center',
                           justifyContent: 'center'
                         }}>
-                          {/* Reusing layer stack logic for now, or just empty background with layers */}
+                          {/* Reusing layer stack logic for feedback */}
                           <div className="layer-stack" style={{
                             transform: `scale(${fittingZoom})`,
                             transformOrigin: "center"
@@ -5642,12 +5634,12 @@ function App() {
                               />
                             ))}
                           </div>
-                          {/* Add a placeholder mannequin base if desired, but user just said "photo here" */}
                         </div>
-                      )}
-                    </div>
-                  )
+                      )
+                    )}
+                  </div>
                 ) : (
+                  /* Real View */
                   <div
                     className="fitting-real"
                     onWheel={(event) => {
@@ -5656,66 +5648,103 @@ function App() {
                       setFittingZoom((prev) => clamp(prev + delta, 0.7, 1.8));
                     }}
                   >
-                    {!fittingRealBaseUrl ? (
-                      <div
-                        className="fitting-no-photo"
-                        onClick={() => {
-                          setActiveTab("profile");
-                          setProfilePhotoMode("body");
-                        }}
+                    {/* Show Result if Available */}
+                    {fittingRealResult ? (
+                      <img
+                        src={fittingRealResult}
+                        alt="Fitting Result"
                         style={{
-                          width: "100%",
-                          height: "100%",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          cursor: "pointer",
-                          color: "#666",
-                          fontSize: "16px",
-                          fontWeight: "500",
-                          backgroundColor: "#f5f5f5",
-                          flexDirection: "column",
-                          gap: "8px",
-                          textAlign: "center",
-                          padding: "20px"
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'contain',
+                          transform: `scale(${fittingZoom})`,
+                          transformOrigin: "center"
                         }}
-                      >
-                        <p>실물 사진을 추가하려면 클릭하세요</p>
-                        <span style={{ fontSize: "24px" }}>+</span>
-                      </div>
+                      />
                     ) : (
-                      <>
-                        <img
-                          className="fitting-real-base"
-                          src={fittingRealBaseUrl}
-                          alt="model"
-                          style={{
-                            transform: `scale(${fittingZoom})`,
-                            transformOrigin: "center",
+                      !fittingRealBaseUrl ? (
+                        <div
+                          className="fitting-no-photo"
+                          onClick={() => {
+                            setActiveTab("profile");
+                            setProfilePhotoMode("body");
                           }}
-                        />
-                        {fittingLayers.length > 0 && (
-                          <div
-                            className="layer-stack"
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            cursor: "pointer",
+                            color: "#666",
+                            fontSize: "16px",
+                            fontWeight: "500",
+                            backgroundColor: "#f5f5f5",
+                            flexDirection: "column",
+                            gap: "8px",
+                            textAlign: "center",
+                            padding: "20px"
+                          }}
+                        >
+                          <p>실물 사진을 추가하려면 클릭하세요</p>
+                          <span style={{ fontSize: "24px" }}>+</span>
+                        </div>
+                      ) : (
+                        <>
+                          <img
+                            className="fitting-real-base"
+                            src={fittingRealBaseUrl}
+                            alt="model"
                             style={{
                               transform: `scale(${fittingZoom})`,
                               transformOrigin: "center",
                             }}
-                          >
-                            {fittingLayers.map((id) => (
-                              <img
-                                key={id}
-                                src={clothingMap[id]?.design_img_url}
-                                alt={clothingMap[id]?.name}
-                              />
-                            ))}
-                          </div>
-                        )}
-                      </>
+                          />
+                          {fittingLayers.length > 0 && (
+                            <div
+                              className="layer-stack"
+                              style={{
+                                transform: `scale(${fittingZoom})`,
+                                transformOrigin: "center",
+                              }}
+                            >
+                              {fittingLayers.map((id) => (
+                                <img
+                                  key={id}
+                                  src={clothingMap[id]?.design_img_url}
+                                  alt={clothingMap[id]?.name}
+                                />
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      )
                     )}
                   </div>
                 )}
-                {isComposing && <div className="compose">AI 합성 중...</div>}
+
+                {/* AI Loading State Overlay */}
+                {isComposing && (
+                  <div style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(255,255,255,0.85)',
+                    zIndex: 20,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#333'
+                  }}>
+                    <div className="ai-loading-state">
+                      <Sparkles className="ai-loading-icon" size={32} />
+                      <p>AI가 피팅 결과를 생성하고 있습니다...</p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="fitting-panel" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -5725,7 +5754,51 @@ function App() {
                     <button
                       type="button"
                       className="layer-apply-btn"
-                      onClick={() => setFittingLayers(fittingLayersDraft)}
+                      onClick={async () => {
+                        // 1. Commit draft to actual layers
+                        setFittingLayers(fittingLayersDraft);
+
+                        // 2. Clear previous results to show change
+                        setFittingRealResult(null);
+                        setFittingMannequinResult(null);
+
+                        // 3. Trigger AI Generation
+                        if (!fittingRealBaseUrl) {
+                          alert("피팅을 위해 전신 사진(프로필)이 필요합니다.");
+                          return;
+                        }
+
+                        setIsComposing(true);
+                        try {
+                          // Call Backend API
+                          // Assuming imports: createFitting from api/services
+                          const payload = {
+                            base_photo_url: fittingRealBaseUrl,
+                            internal_cloth_ids: fittingLayersDraft // Use draft as it is the committed version now
+                          };
+
+                          const response = await createFitting(payload);
+
+                          // Response structure: { fitting: {...}, results: { tryOn: 'url', mannequin: 'url' } }
+                          if (response && response.results) {
+                            setFittingRealResult(normalizeAssetUrl(response.results.tryOn));
+                            if (response.results.mannequin) {
+                              setFittingMannequinResult(normalizeAssetUrl(response.results.mannequin));
+                            }
+                            // Auto-switch to Real view to see result first? Or keep current.
+                            // User typically wants to see the result.
+                            if (fittingView === '3d') {
+                              // If on mannequin, we likely want to stay there if it generated.
+                              // But typically real try-on is primary.
+                            }
+                          }
+                        } catch (error) {
+                          console.error("Fitting Generation Failed:", error);
+                          alert("AI 피팅 생성에 실패했습니다: " + (error.response?.data?.error?.message || error.message));
+                        } finally {
+                          setIsComposing(false);
+                        }
+                      }}
                     >
                       Fitting
                     </button>

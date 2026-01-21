@@ -2,6 +2,7 @@ const fittingService = require('../services/fittingService');
 const { created, success } = require('../utils/responseHandler');
 
 exports.createFitting = async (req, res, next) => {
+  console.log('[FittingController] createFitting called. Body:', JSON.stringify(req.body, null, 2));
   try {
     // Check if base_photo_url is provided, otherwise fallback to user's saved photo
     if (!req.body.base_photo_url) {
@@ -25,6 +26,7 @@ exports.createFitting = async (req, res, next) => {
 
     // Handle Uploaded Cloth Images & Metadata
     if (req.files && req.files.length > 0) {
+      console.log('[FittingController] Processing uploaded files:', req.files.length);
       const uploadedUrls = req.files.map(file => `/images/uploads/${file.filename}`);
 
       // Parse categories and orders
@@ -34,6 +36,8 @@ exports.createFitting = async (req, res, next) => {
       // Ensure arrays if single value
       if (categories && !Array.isArray(categories)) categories = [categories];
       if (orders && !Array.isArray(orders)) orders = [orders];
+
+      console.log('[FittingController] Categories:', categories, 'Orders:', orders);
 
       // Strict Validation for Metadata
       if (!categories || categories.length !== req.files.length) {

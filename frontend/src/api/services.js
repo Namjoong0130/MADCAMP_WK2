@@ -77,6 +77,12 @@ export const getUserInvestments = async () => {
 };
 
 // Fittings
+export const createFitting = async (payload) => {
+    // payload: { base_photo_url, internal_cloth_ids, ... }
+    const response = await axios.post('/api/fittings', payload);
+    return response.data.data;
+};
+
 export const getMyFittings = async () => {
     const response = await axios.get('/api/fittings');
     return response.data.data;

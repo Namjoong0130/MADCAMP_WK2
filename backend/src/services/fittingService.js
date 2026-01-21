@@ -112,6 +112,7 @@ exports.generateFittingImage = async (userId, fittingId) => {
   });
 
   try {
+    console.log(`[FittingService] Starting AI generation for Fitting ID: ${fittingId}`);
     // Prepare clothing list for prompt
     // For now, mapping external/internal checks ideally. 
     // Simplified: Assuming fitting.tags or similar holds info, or fetching cloth details

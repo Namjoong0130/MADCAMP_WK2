@@ -92,6 +92,7 @@ exports.removeBackground = async (inputPath) => {
 };
 
 const callFalAi = async (prompt, imageUrls = []) => {
+  console.log('[AI Service] callFalAi invoked. Key present:', !!FAL_KEY);
   if (!FAL_KEY) {
     console.warn('FAL_KEY is missing. Using mock generation.');
     return null; // Trigger mock
