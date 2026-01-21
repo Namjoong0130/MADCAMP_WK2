@@ -85,7 +85,7 @@ exports.getUserProfile = async (userId) => {
     followerCount: user.brand?.totalFollowers || 0,
     followingCount: user.follows?.length || 0,
     profile_img_url: profileImgUrl,
-    base_photo_url: basePhotoUrl || profileImgUrl,
+    base_photo_url: basePhotoUrl,
     measurements: {
       height: user.height,
       weight: user.weight,

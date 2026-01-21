@@ -262,6 +262,7 @@ function App() {
     name: userBase.name,
     password: "",
     passwordConfirm: "",
+    profile_img_url: null,
     base_photo_url: null,
     measurements: { ...userBase.measurements },
   }));
@@ -2760,7 +2761,7 @@ function App() {
       // 2. 상태 업데이트 (사진 주소 저장)
       setSignupDraft((prev) => ({
         ...prev,
-        base_photo_url: imageUrl,
+        profile_img_url: imageUrl,
       }));
       setSignupPhotoFile(file);
     }
@@ -2935,9 +2936,9 @@ function App() {
   };
 
   const validateSignupRequired = () => {
-    if (!signupDraft.base_photo_url) {
-      alert("전신 사진을 업로드해주세요.");
-      return false;
+    if (!signupDraft.profile_img_url) {
+      // Optional: alert("프로필 사진을 업로드해주세요.");
+      // If we want it mandatory: return false;
     }
     if (!signupDraft.handle.trim()) {
       alert("이메일을 입력해주세요.");
@@ -3013,14 +3014,16 @@ function App() {
 
       if (signupPhotoFile) {
         try {
-          const uploadResult = await uploadProfilePhoto(signupPhotoFile, "body");
-          const basePhotoUrl = uploadResult?.data?.basePhotoUrl;
-          if (basePhotoUrl) {
-            await updateProfile({ profile_img_url: basePhotoUrl });
+          const uploadResult = await uploadProfilePhoto(signupPhotoFile, "profile");
+          // Backend returns updated user object with snake_case keys
+          const profileUrl = uploadResult?.data?.profile_img_url;
+          if (profileUrl) {
+            await updateProfile({ profile_img_url: profileUrl });
           }
+
         } catch (err) {
           console.error(err);
-          alert(err.response?.data?.message || "프로필 이미지 업로드에 실패했습니다.");
+          // alert(err.response?.data?.message || "프로필 이미지 업로드에 실패했습니다.");
         }
       }
 
@@ -3427,7 +3430,7 @@ function App() {
         (field) => Number(signupDraft.measurements[field.key]) > 0,
       );
   const canProceedProfile =
-    Boolean(signupDraft.base_photo_url) &&
+    Boolean(signupDraft.profile_img_url) &&
     signupDraft.handle.trim().length > 0 &&
     signupDraft.name.trim().length > 0 &&
     passwordReady &&
@@ -3483,7 +3486,7 @@ function App() {
                           accept="image/*"
                           onChange={handleProfilePhotoChange}
                         />
-                        {signupDraft.base_photo_url && (
+                        {signupDraft.profile_img_url && (
                           <button
                             type="button"
                             className="profile-remove"
@@ -3491,7 +3494,7 @@ function App() {
                             onClick={() => {
                               setSignupDraft((prev) => ({
                                 ...prev,
-                                base_photo_url: null,
+                                profile_img_url: null,
                               }));
                               setSignupPhotoFile(null);
                             }}
@@ -3500,16 +3503,16 @@ function App() {
                           </button>
                         )}
                         <div
-                          className={`profile-icon ${signupDraft.base_photo_url ? "has-photo" : ""
+                          className={`profile-icon ${signupDraft.profile_img_url ? "has-photo" : ""
                             }`}
                         >
                           {/* 1. 항상 'profile' 글자를 배경에 깔아둡니다 */}
                           <span className="profile-text">profile</span>
 
                           {/* 2. 이미지가 있으면 그 위에 덮어씌웁니다 */}
-                          {signupDraft.base_photo_url && (
+                          {signupDraft.profile_img_url && (
                             <img
-                              src={signupDraft.base_photo_url}
+                              src={signupDraft.profile_img_url}
                               alt="Profile"
                               /* ✨ 핵심: 이미지가 깨지면(에러나면) 스스로를 숨겨서 뒤에 있는 글자가 보이게 함 */
                               onError={(e) => (e.target.style.display = "none")}
