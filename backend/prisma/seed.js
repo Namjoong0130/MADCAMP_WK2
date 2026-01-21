@@ -9,7 +9,7 @@ const initialClothing = [
         gender: "FEMALE", // Map to FEMALE
         style: "Minimal",
         price: 129000,
-        design_img_url: "http://172.10.5.178/images/designs/1_front.png", // Valid file
+        design_img_url: "http://172.10.5.178/images/image1.jpeg", // Moved from frontend
         size_specs: { shoulder: 46, chest: 104, waist: 90 },
         brandName: "SKYLINE", // Link to brand
     },
@@ -20,7 +20,7 @@ const initialClothing = [
         gender: "FEMALE",
         style: "Romantic",
         price: 189000,
-        design_img_url: "http://172.10.5.178/images/designs/1_front.png", // Reusing valid
+        design_img_url: "http://172.10.5.178/images/image2.jpeg", // Moved from frontend
         size_specs: { shoulder: 42, chest: 96, waist: 86 },
         brandName: "ROSE FORM",
     },
@@ -31,7 +31,7 @@ const initialClothing = [
         gender: "MALE", // Map
         style: "Classic",
         price: 219000,
-        design_img_url: "http://172.10.5.178/images/designs/1_3_front.png", // Valid file
+        design_img_url: "http://172.10.5.178/images/image3.jpeg", // Moved from frontend
         size_specs: { shoulder: 44, chest: 102, waist: 92 },
         brandName: "CHESTNUT LAB",
     },
@@ -42,7 +42,7 @@ const initialClothing = [
         gender: "UNISEX",
         style: "Minimal",
         price: 149000,
-        design_img_url: "http://172.10.5.178/images/designs/1_front.png", // Reusing valid
+        design_img_url: "http://172.10.5.178/images/image4.jpeg", // Moved from frontend
         size_specs: { shoulder: 48, chest: 106, waist: 94 },
         brandName: "OAT EDITION",
     },
@@ -53,7 +53,7 @@ const initialClothing = [
         gender: "UNISEX",
         style: "Street",
         price: 279000,
-        design_img_url: "http://172.10.5.178/images/designs/1_3_front.png", // Reusing valid
+        design_img_url: "http://172.10.5.178/images/image5.jpeg", // Moved from frontend
         size_specs: { shoulder: 50, chest: 114, waist: 106 },
         brandName: "MIDNIGHT",
     },
@@ -64,7 +64,7 @@ const initialClothing = [
         gender: "FEMALE",
         style: "Classic",
         price: 249000,
-        design_img_url: "http://172.10.5.178/images/designs/1_front.png", // Reusing valid
+        design_img_url: "http://172.10.5.178/images/image6.png", // Moved from frontend
         size_specs: { shoulder: 46, chest: 108, waist: 100 },
         brandName: "CLOUD LINE",
     },
@@ -75,7 +75,7 @@ const initialClothing = [
         gender: "FEMALE",
         style: "Romantic",
         price: 159000,
-        design_img_url: "http://172.10.5.178/images/designs/1_3_front.png", // Reusing valid
+        design_img_url: "http://172.10.5.178/images/image7.png", // Moved from frontend
         size_specs: { shoulder: 36, chest: 82, waist: 66 },
         brandName: "INK ATELIER",
     },
