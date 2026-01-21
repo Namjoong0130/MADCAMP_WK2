@@ -5622,18 +5622,7 @@ function App() {
                           justifyContent: 'center'
                         }}>
                           {/* Reusing layer stack logic for feedback */}
-                          <div className="layer-stack" style={{
-                            transform: `scale(${fittingZoom})`,
-                            transformOrigin: "center"
-                          }}>
-                            {fittingLayers.map((id) => (
-                              <img
-                                key={id}
-                                src={clothingMap[id]?.design_img_url}
-                                alt={clothingMap[id]?.name}
-                              />
-                            ))}
-                          </div>
+                          {/* Layer stack removed as per user request */}
                         </div>
                       )
                     )}
@@ -5700,23 +5689,7 @@ function App() {
                               transformOrigin: "center",
                             }}
                           />
-                          {fittingLayers.length > 0 && (
-                            <div
-                              className="layer-stack"
-                              style={{
-                                transform: `scale(${fittingZoom})`,
-                                transformOrigin: "center",
-                              }}
-                            >
-                              {fittingLayers.map((id) => (
-                                <img
-                                  key={id}
-                                  src={clothingMap[id]?.design_img_url}
-                                  alt={clothingMap[id]?.name}
-                                />
-                              ))}
-                            </div>
-                          )}
+                          {/* Layer stack removed as per user request */}
                         </>
                       )
                     )}
