@@ -29,8 +29,7 @@ import {
   deleteFundComment,
   createCloth,
   deleteCloth,
-  createCloth,
-  deleteCloth,
+
   createFitting,
   generateMannequin,
   updateFitting,
