@@ -16,8 +16,19 @@ const UPLOAD_ROOT = path.join(__dirname, '../../public/images'); // Align with f
 const resolveImageUrl = async (imgUrl) => {
   if (!imgUrl) return null;
 
-  // If it's a web URL, return as is
-  if (imgUrl.startsWith('http')) return imgUrl;
+  // If it's a web URL, check if it points to our local server
+  const SERVER_URL = process.env.SERVER_URL || 'http://172.10.5.178';
+  if (imgUrl.startsWith('http')) {
+    // If it points to our server, convert to local path to skip download and ensuring FAL access
+    if (imgUrl.startsWith(SERVER_URL) || imgUrl.includes('172.10.5.178') || imgUrl.includes('localhost')) {
+      // Remove domain/protocol to treat as local path
+      let cleanUrl = imgUrl.replace(SERVER_URL, '').replace(/https?:\/\/[^\/]+/, '');
+      console.log('[AI Service] Intercepted Local URL:', imgUrl, '->', cleanUrl);
+      imgUrl = cleanUrl; // Continue to local handling below
+    } else {
+      return imgUrl; // External real URL
+    }
+  }
 
   // Generic local path handling
   let fullPath = null;
