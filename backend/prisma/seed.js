@@ -72,6 +72,28 @@ const initialClothing = [
         brandName: "NOUVEAU FORM",
     },
     {
+        original_id: 3,
+        name: "Ivory High-Waist Linen Shorts",
+        category: "BOTTOM",
+        gender: "FEMALE",
+        style: "Minimal",
+        price: 69000,
+        design_img_url: "/image3.webp",
+        size_specs: { shoulder: 0, chest: 0, waist: 66 },
+        brandName: "RIVERLINE",
+    },
+    {
+        original_id: 4,
+        name: "Black Pinstripe Ruffle Pants",
+        category: "BOTTOM",
+        gender: "FEMALE",
+        style: "Unique",
+        price: 109000,
+        design_img_url: "/image4.webp",
+        size_specs: { shoulder: 0, chest: 0, waist: 70 },
+        brandName: "LUMEN STUDIO",
+    },
+    {
         original_id: 5,
         name: "Beige Belted Trench Coat",
         category: "OUTER",
@@ -81,6 +103,17 @@ const initialClothing = [
         design_img_url: "/image5.jpeg",
         size_specs: { shoulder: 48, chest: 108, waist: 98 },
         brandName: "BLACKCURRENT",
+    },
+    {
+        original_id: 6,
+        name: "Check Ruffle Mini Skirt",
+        category: "BOTTOM",
+        gender: "FEMALE",
+        style: "Romantic",
+        price: 159000,
+        design_img_url: "/image6.webp",
+        size_specs: { shoulder: 36, chest: 84, waist: 68 },
+        brandName: "ECHO ATELIER",
     },
     {
         original_id: 7,
@@ -98,7 +131,10 @@ const initialClothing = [
 const initialFunding = [
     { clothing_id: 1, brand: "LUMEN STUDIO", likes: 164, status: "FUNDING", goal_amount: 2100000, current_amount: 920000, deadline: new Date("2026-03-01") },
     { clothing_id: 2, brand: "NOUVEAU FORM", likes: 214, status: "FUNDING", goal_amount: 2400000, current_amount: 1260000, deadline: new Date("2026-03-01") },
+    { clothing_id: 3, brand: "RIVERLINE", likes: 96, status: "FUNDING", goal_amount: 2800000, current_amount: 1040000, deadline: new Date("2026-03-01") },
+    { clothing_id: 4, brand: "LUMEN STUDIO", likes: 88, status: "FUNDING", goal_amount: 1700000, current_amount: 640000, deadline: new Date("2026-03-01") },
     { clothing_id: 5, brand: "BLACKCURRENT", likes: 298, status: "FUNDING", goal_amount: 4600000, current_amount: 2360000, deadline: new Date("2026-03-01") },
+    { clothing_id: 6, brand: "ECHO ATELIER", likes: 204, status: "FUNDING", goal_amount: 2300000, current_amount: 1120000, deadline: new Date("2026-03-01") },
     { clothing_id: 7, brand: "NOUVEAU FORM", likes: 136, status: "FUNDING", goal_amount: 2200000, current_amount: 980000, deadline: new Date("2026-03-01") },
 ];
 
