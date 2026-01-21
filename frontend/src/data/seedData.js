@@ -280,54 +280,9 @@ export const mannequins = [
   { id: "plus", label: "Plus-size", desc: "Relaxed fit, stable silhouette" },
 ];
 
-export const initialInvestments = [
-  {
-    id: 1,
-    brand: "TEST STUDIO",
-    itemName: "Cloud Belt Coat",
-    image: "/image6.png",
-    amount: 150000,
-    status: "Funding",
-    eta: "2026-02-20",
-  },
-  {
-    id: 2,
-    brand: "TEST ESSENCE",
-    itemName: "Sky Knit Pullover",
-    image: "/image1.jpeg",
-    amount: 90000,
-    status: "In progress",
-    eta: "2026-02-10",
-  },
-  {
-    id: 3,
-    brand: "TEST HERITAGE",
-    itemName: "Chestnut Blazer",
-    image: "/image3.jpeg",
-    amount: 240000,
-    status: "In progress",
-    eta: "2026-01-05",
-  },
-];
+export const initialInvestments = [];
 
-export const initialBrands = [
-  {
-    id: 1,
-    brand: "TEST ATELIER",
-    participantCount: 72,
-    currentCoin: 980000,
-    production_note: "??? ??: ?? ?? ?",
-    progress: 0.58,
-  },
-  {
-    id: 2,
-    brand: "TEST LAB",
-    participantCount: 34,
-    currentCoin: 420000,
-    production_note: "??? ??: ?? ??",
-    progress: 0.32,
-  },
-];
+export const initialBrands = [];
 
 export const userBase = {
   name: "Test User",

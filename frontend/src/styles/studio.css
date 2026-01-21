@@ -459,6 +459,34 @@
   cursor: pointer;
 }
 
+.ai-design-modal .ai-design-header {
+  padding-right: 56px;
+}
+
+.ai-design-modal .ai-design-actions {
+  margin-right: 12px;
+  gap: 12px;
+}
+
+.ai-design-modal .auth-modal-close {
+  top: 16px;
+  right: 18px;
+}
+
+.ai-upload-fields {
+  display: grid;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.ai-upload-field {
+  gap: 8px;
+}
+
+.studio-preview-grid {
+  margin-top: 12px;
+}
+
 .ai-history-scroll {
   display: flex;
   gap: 12px;

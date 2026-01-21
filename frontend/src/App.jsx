@@ -27,9 +27,6 @@ import {
   createFundComment,
   updateFundComment,
   deleteFundComment,
-  uploadGarment,
-  getGarments,
-  getGarmentStatus,
   createCloth,
   deleteCloth,
   generateDesign as apiGenerateDesign,
@@ -102,6 +99,22 @@ const normalizeAssetUrl = (value) => {
   if (value.startsWith("http")) return value;
   const base = getBackendBaseUrl();
   return base ? `${base}${value}` : value;
+};
+
+const TEMP_DESIGN_STORAGE_KEY = "modifTempDesigns";
+
+const readFileAsDataUrl = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+
+const dataUrlToFile = async (dataUrl, filename) => {
+  const response = await fetch(dataUrl);
+  const blob = await response.blob();
+  return new File([blob], filename, { type: blob.type || "image/png" });
 };
 
 function App() {
@@ -198,7 +211,6 @@ function App() {
 
   const frontPhotoInputRef = useRef(null);
   const backPhotoInputRef = useRef(null);
-  const [savedDesignTab, setSavedDesignTab] = useState("design");
   const [galleryScales, setGalleryScales] = useState({});
   const [activeGalleryDrag, setActiveGalleryDrag] = useState(null);
   const [previewImage, setPreviewImage] = useState(null);
@@ -238,13 +250,7 @@ function App() {
   const [myBrandDetails, setMyBrandDetails] = useState(() =>
     buildDefaultBrandDetails(brand.name),
   );
-  const [isLoggedIn, setIsLoggedIn] = useState(() => {
-    try {
-      return window.localStorage.getItem("modifLoggedIn") === "true";
-    } catch {
-      return false;
-    }
-  });
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [introOpen, setIntroOpen] = useState(!isLoggedIn);
   const [authSelectionOpen, setAuthSelectionOpen] = useState(false);
   const [onboardingOpen, setOnboardingOpen] = useState(false);
@@ -303,7 +309,16 @@ function App() {
     back: null,
   });
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
-  const [tempDesigns, setTempDesigns] = useState([]);
+  const [tempDesigns, setTempDesigns] = useState(() => {
+    try {
+      const stored = window.localStorage.getItem(TEMP_DESIGN_STORAGE_KEY);
+      if (!stored) return [];
+      const parsed = JSON.parse(stored);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
   const [profilePhotoMode, setProfilePhotoMode] = useState("profile");
   const designCanvasRef = useRef(null);
   const frontCanvasRef = useRef(null);
@@ -332,6 +347,17 @@ function App() {
     };
     fetchData();
   }, [isLoggedIn]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        TEMP_DESIGN_STORAGE_KEY,
+        JSON.stringify(tempDesigns),
+      );
+    } catch {
+      // Ignore storage failures (private mode, quota, etc.).
+    }
+  }, [tempDesigns]);
 
   // Fetch My Designs (Persistence)
   useEffect(() => {
@@ -896,7 +922,10 @@ function App() {
         description:
           aiDesignDraft.description.trim() ||
           aiDesignModal.design.description,
-        story: aiDesignDraft.story.trim() || aiDesignModal.design.story,
+        story:
+          aiDesignDraft.story.trim() ||
+          myBrandDetails.bio?.trim() ||
+          aiDesignModal.design.story,
       };
       setAiDesignModal((prev) => ({ ...prev, design: nextDesign }));
       setClothing((prev) =>
@@ -919,7 +948,7 @@ function App() {
       style: aiDesignModal.design.style || "",
       gender: aiDesignModal.design.gender || "",
       description: aiDesignModal.design.description || "",
-      story: aiDesignModal.design.story || "",
+      story: myBrandDetails.bio || aiDesignModal.design.story || "",
     });
     setAiDesignEditMode(true);
   };
@@ -986,17 +1015,19 @@ function App() {
       alert("먼저 디자인을 생성하세요.");
       return;
     }
+    const brandStoryText = myBrandDetails.bio?.trim() || "";
     setAiDesignModal({ open: true, design: currentDesignPreview });
+    setAiDesignDraft({
+      name: currentDesignPreview.name || "",
+      price: currentDesignPreview.price || 0,
+      category: designCategory,
+      style: currentDesignPreview.style || "",
+      gender: designGender,
+      description: currentDesignPreview.description || prompt.trim(),
+      story: brandStoryText,
+    });
     setDetailTab("overview");
     setAiDesignEditMode(false);
-  };
-
-  const moveDesignResult = (direction) => {
-    if (designResultItems.length < 2) return;
-    setDesignResultIndex((prev) => {
-      const total = designResultItems.length;
-      return (prev + direction + total) % total;
-    });
   };
 
   const resetStudioState = () => {
@@ -1015,7 +1046,6 @@ function App() {
     setSizeDetailInputs({});
     setFabric({ stretch: 5, weight: 5, stiffness: 5 });
     setDesignResultIndex(0);
-    setSavedDesignTab("design");
     setIsGalleryOpen(false);
     if (frontPhotoInputRef.current) {
       frontPhotoInputRef.current.value = "";
@@ -1419,6 +1449,14 @@ function App() {
     ].filter(Boolean);
     return Array.from(new Set(tags));
   }, [detailItem]);
+
+  const detailBrandStory = useMemo(() => {
+    if (!detailItem?.funding) return "";
+    const profile =
+      brandProfileMap[detailItem.funding.designer_handle?.toLowerCase()] ||
+      brandProfileMap[detailItem.funding.brand.toLowerCase()];
+    return profile?.description || profile?.bio || "";
+  }, [brandProfileMap, detailItem]);
 
   const handleDetailTagClick = (tag) => {
     const categoryMap = {
@@ -2297,7 +2335,7 @@ function App() {
     image.src = dataUrl;
   }, []);
 
-  const saveTempDesign = (name) => {
+  const saveTempDesign = async (name) => {
     const totalDesignCount = generatedDesigns.length + tempDesigns.length;
     if (totalDesignCount >= 10) {
       openLimitAlert(
@@ -2313,6 +2351,34 @@ function App() {
       studioSideImages.front || studioSideImages.back || dataUrl;
     if (!previewUrl) return;
     const nextId = `temp-${Date.now()}`;
+    const resolvePhotoData = async (photo, fallbackName) => {
+      if (!photo) return null;
+      if (photo.dataUrl) {
+        return { url: photo.dataUrl, name: photo.name || fallbackName, dataUrl: photo.dataUrl };
+      }
+      if (photo.file) {
+        const dataUrlValue = await readFileAsDataUrl(photo.file);
+        return { url: dataUrlValue, name: photo.name || fallbackName, dataUrl: dataUrlValue };
+      }
+      if (photo.url) {
+        if (photo.url.startsWith("data:")) {
+          return { url: photo.url, name: photo.name || fallbackName, dataUrl: photo.url };
+        }
+        try {
+          const response = await fetch(photo.url);
+          const blob = await response.blob();
+          const dataUrlValue = await readFileAsDataUrl(blob);
+          return { url: dataUrlValue, name: photo.name || fallbackName, dataUrl: dataUrlValue };
+        } catch (error) {
+          console.error("Failed to persist studio photo", error);
+        }
+      }
+      return null;
+    };
+    const storedSidePhotos = {
+      front: await resolvePhotoData(studioSidePhotos.front, "front.png"),
+      back: await resolvePhotoData(studioSidePhotos.back, "back.png"),
+    };
     setTempDesigns((prev) => [
       {
         id: nextId,
@@ -2330,14 +2396,19 @@ function App() {
         studioState: {
           activeSide: studioSide,
           sideImages: { ...studioSideImages },
-          sidePhotos: { ...studioSidePhotos },
+          sidePhotos: storedSidePhotos,
           prompt,
           designGender,
           designCategory,
           designLength,
+          designTool,
+          designColor,
+          designSize,
           sizeRange: [...sizeRange],
           sizeDetailSelected,
           sizeDetailInputs: { ...sizeDetailInputs },
+          designScale,
+          designViewSide,
           fabric: { ...fabric },
         },
         isTemp: true,
@@ -2350,19 +2421,44 @@ function App() {
     // Use saved state if available (for temp designs)
     if (item?.studioState) {
       const state = item.studioState;
+      const restorePhoto = async (photo, fallbackName) => {
+        if (!photo) return null;
+        const dataUrl = photo.dataUrl || photo.url;
+        if (!dataUrl) return null;
+        let file = photo.file;
+        if (!file) {
+          try {
+            file = await dataUrlToFile(dataUrl, photo.name || fallbackName);
+          } catch (error) {
+            console.error("Failed to restore studio photo file", error);
+          }
+        }
+        return { url: dataUrl, name: photo.name || fallbackName, file };
+      };
+      const restoredPhotos = {
+        front: await restorePhoto(state.sidePhotos?.front, "front.png"),
+        back: await restorePhoto(state.sidePhotos?.back, "back.png"),
+      };
       setPrompt(state.prompt || "");
       setDesignGender(state.designGender || "Unisex");
       setDesignCategory(state.designCategory || "상의");
       setDesignLength(state.designLength || "민소매");
+      setDesignTool(state.designTool || "brush");
+      setDesignColor(state.designColor || "#111111");
+      setDesignSize(state.designSize || 6);
+      setDesignScale(state.designScale || 0.8);
+      setDesignViewSide(state.designViewSide || "front");
       setSizeRange(state.sizeRange || [2, 5]);
       setSizeDetailSelected(state.sizeDetailSelected || "M");
       setSizeDetailInputs(state.sizeDetailInputs || {});
       setFabric(state.fabric || { stretch: 5, weight: 5, stiffness: 5 });
-      setStudioSidePhotos(state.sidePhotos || { front: null, back: null });
+      setStudioSidePhotos(restoredPhotos || { front: null, back: null });
       setStudioSideImages(state.sideImages || { front: null, back: null });
       setStudioSide(state.activeSide || "front");
 
-      const nextUrl = state.sideImages?.[state.activeSide || "front"];
+      const activeSide = state.activeSide || "front";
+      const nextUrl =
+        state.sideImages?.[activeSide] || restoredPhotos?.[activeSide]?.url;
       if (nextUrl) {
         loadDesignToCanvas(nextUrl);
       } else {
@@ -2495,6 +2591,13 @@ function App() {
     }
   };
 
+  const openIntroDiscover = () => {
+    setIntroOpen(false);
+    setAuthSelectionOpen(false);
+    setActiveTab("discover");
+    setPendingTab(null);
+  };
+
   const openLoginFlow = () => {
     setIntroOpen(false);
     setLoginModalOpen(true);
@@ -2506,10 +2609,6 @@ function App() {
 
   const closeAuthModal = () => {
     setAuthModal({ open: false, mode: null });
-  };
-
-  const closeLoginModal = () => {
-    setLoginModalOpen(false);
   };
 
   const closeCancelFundingModal = () => {
@@ -2734,8 +2833,9 @@ function App() {
     lastMouseY.current = e.clientY;
   };
 
-  const handleGalleryMouseMove = (e) => {
-    if (activeGalleryDrag) {
+  useEffect(() => {
+    if (!activeGalleryDrag) return;
+    const onMove = (e) => {
       const deltaY = lastMouseY.current - e.clientY;
       lastMouseY.current = e.clientY;
       setGalleryScales((prev) => {
@@ -2743,44 +2843,15 @@ function App() {
         const newScale = clamp(currentScale + deltaY * 0.005, 0.5, 3.0);
         return { ...prev, [activeGalleryDrag]: newScale };
       });
-    }
-  };
-
-  const handleGalleryMouseUp = () => {
-    setActiveGalleryDrag(null);
-  };
-
-  useEffect(() => {
-    const handleGlobalMouseUp = () => {
-      isDraggingDesign.current = false;
-      setActiveGalleryDrag(null);
     };
-
-    const handleGlobalMouseMove = (e) => {
-      // We can call the handlers directly here if state is accessible
-      // But handleGalleryMouseMove relies on state.
-      // Since this useEffect has empty dependency array [], it handles refs well but not state closures unless we use refs for everything.
-      // However, setActiveGalleryDrag is state setter, so it works.
-      // But reading activeGalleryDrag inside handleGlobalMouseMove defined in useEffect might be stale if not in deps.
-      // Better approach: Add onMouseMove to the main App div or the Modal div.
-      // But for 'drag outside' we need window.
-      // Let's use a ref for activeGalleryDragId to avoid stale closure issues in global listener, or just add activeGalleryDrag to dependency array (but that resets listener often).
-      // Alternative: Just rely on the Modal's onMouseMove which covers the whole screen usually? No, modal might be small.
-      // Let's use the 'activeGalleryDrag' state in the render logic (attach to window event listener inside a separate useEffect that depends on activeGalleryDrag).
+    const onUp = () => setActiveGalleryDrag(null);
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
     };
-
-    window.addEventListener('mouseup', handleGlobalMouseUp);
-    return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
-  }, []);
-
-  // Dedicated effect for Gallery Dragging to avoid stale closures
-  useEffect(() => {
-    if (activeGalleryDrag) {
-      const onMove = (e) => handleGalleryMouseMove(e);
-      window.addEventListener('mousemove', onMove);
-      return () => window.removeEventListener('mousemove', onMove);
-    }
-  }, [activeGalleryDrag]); // Re-binds when drag starts/stops or ID changes (rare during drag)
+  }, [activeGalleryDrag]);
 
   const loadImage = (src) =>
     new Promise((resolve, reject) => {
@@ -3367,30 +3438,6 @@ function App() {
   if (onboardingOpen) {
     return (
       <div className="onboarding-page">
-        <div className="onboarding-actions">
-          <button
-            type="button"
-            className="onboarding-back"
-            onClick={() => {
-              setOnboardingOpen(false);
-              setIntroOpen(true);
-              resetOnboarding();
-            }}
-          >
-            돌아가기
-          </button>
-          <button
-            type="button"
-            className="onboarding-login"
-            onClick={() => {
-              setOnboardingOpen(false);
-              setIntroOpen(false);
-              openAuthModal("login-required");
-            }}
-          >
-            로그인
-          </button>
-        </div>
         <video
           className="onboarding-video"
           src="/background.mp4"
@@ -3645,13 +3692,12 @@ function App() {
                         </div>
                       )}
                     </div>
-                    <div className="onboarding-submit" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <div className="onboarding-submit align-right">
                       <button
                         type="button"
                         className="primary"
                         disabled={!canProceedProfile}
                         onClick={() => setOnboardingStep(1)}
-                        style={{ width: '100%' }}
                       >
                         다음
                       </button>
@@ -3814,10 +3860,7 @@ function App() {
                 <button
                   type="button"
                   className="intro-btn"
-                  onClick={() => {
-                    setIntroOpen(false);
-                    setActiveTab("discover");
-                  }}
+                  onClick={openIntroDiscover}
                 >
                   둘러보기
                 </button>
@@ -3840,37 +3883,17 @@ function App() {
             <div className="intro-fade" />
           </section>
 
-          <div style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 10000,
-          }}>
-            <div className="onboarding-panel" style={{
-              margin: 0,
-              maxWidth: '400px',
-              width: '90%',
-              padding: '40px',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              background: 'white',
-              borderRadius: '16px',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
-            }}>
-              <h3 className="intro-heading" style={{ color: '#111', marginBottom: '8px', fontSize: '24px' }}>Modif 시작하기</h3>
-              <p style={{ color: '#666', marginBottom: '32px' }}>AI와 함께하는 새로운 패션의 시작</p>
+          <div className="auth-selection">
+            <div className="auth-selection-card">
+              <h3 className="auth-selection-title">Modif 시작하기</h3>
+              <p className="auth-selection-subtitle">
+                AI와 함께하는 새로운 패션의 시작
+              </p>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
+              <div className="auth-selection-actions">
                 <button
                   type="button"
-                  className="primary"
-                  style={{ width: '100%', height: '54px', fontSize: '16px' }}
+                  className="auth-selection-btn auth-selection-btn--primary"
                   onClick={() => {
                     setAuthSelectionOpen(false);
                     setLoginModalOpen(true);
@@ -3880,8 +3903,7 @@ function App() {
                 </button>
                 <button
                   type="button"
-                  className="secondary"
-                  style={{ width: '100%', height: '54px', fontSize: '16px' }}
+                  className="auth-selection-btn auth-selection-btn--ghost"
                   onClick={() => {
                     setAuthSelectionOpen(false);
                     resetOnboarding();
@@ -3894,15 +3916,7 @@ function App() {
 
               <button
                 type="button"
-                style={{
-                  marginTop: '24px',
-                  background: 'none',
-                  border: 'none',
-                  color: '#999',
-                  textDecoration: 'underline',
-                  cursor: 'pointer',
-                  fontSize: '14px'
-                }}
+                className="auth-selection-back"
                 onClick={() => {
                   setAuthSelectionOpen(false);
                   setIntroOpen(true);
@@ -4676,7 +4690,8 @@ function App() {
                           <div className="detail-block detail-tab-panel">
                             <h4>브랜드 스토리</h4>
                             <p>
-                              {detailItem.clothing?.story ||
+                              {detailBrandStory ||
+                                detailItem.clothing?.story ||
                                 `${detailItem.funding.brand}는 장인 정신과 데이터 기반 디자인을 결합해 지속 가능한 컬렉션을 선보입니다. 이번 라인업은 도시적인 실루엣과 실용적 디테일을 강조하며, 고객 피드백을 빠르게 반영하는 것을 목표로 합니다.`}
                             </p>
                             <div className="story-meta">
@@ -6306,7 +6321,11 @@ function App() {
                         alt={`${selectedBrandProfile.brand} logo`}
                       />
                       <strong>{selectedBrandProfile.brand}</strong>
-                      <p>{selectedBrandProfile.bio}</p>
+                      <p>
+                        {selectedBrandProfile.handle === myBrandDetails.handle
+                          ? myBrandDetails.bio
+                          : selectedBrandProfile.bio}
+                      </p>
                     </>
                   )}
                 </div>
@@ -6735,97 +6754,78 @@ function App() {
             <div className="intro-fade" />
           </section>
 
-          <div style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 10001,
-          }}>
-            <section className="onboarding-section is-visible" style={{ minHeight: 'auto', padding: 0 }}>
-              <div className="onboarding-section-inner" style={{ maxWidth: '400px', margin: '0 auto' }}>
-                <div className="onboarding-panel">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                    <h3 style={{ fontSize: '24px', color: '#111', margin: 0 }}>로그인</h3>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setLoginModalOpen(false);
-                        setIntroOpen(true);
-                      }}
-                      style={{ background: 'none', border: 'none', fontSize: '24px', color: '#999', cursor: 'pointer', padding: 0 }}
-                    >×</button>
-                  </div>
-                  <p style={{ color: '#666', marginBottom: '32px' }}>Modif에 오신 것을 환영합니다.</p>
+          <div className="auth-selection">
+            <div className="auth-selection-card auth-selection-card--login">
+              <div className="auth-selection-header">
+                <h3 className="auth-selection-title">로그인</h3>
+                <button
+                  type="button"
+                  className="auth-selection-close"
+                  onClick={() => {
+                    setLoginModalOpen(false);
+                    setIntroOpen(true);
+                  }}
+                  aria-label="Close login"
+                >
+                  ×
+                </button>
+              </div>
+              <p className="auth-selection-subtitle">
+                Modif에 오신 것을 환영합니다.
+              </p>
 
-                  <div className="auth-modal-form">
-                    <label className="onboarding-field">
-                      이메일
-                      <input
-                        value={loginDraft.handle}
-                        onChange={(event) =>
-                          setLoginDraft((prev) => ({
-                            ...prev,
-                            handle: event.target.value,
-                          }))
-                        }
-                        placeholder="name@example.com"
-                      />
-                    </label>
-                    <label className="onboarding-field">
-                      비밀번호
-                      <input
-                        type="password"
-                        value={loginDraft.password}
-                        onChange={(event) =>
-                          setLoginDraft((prev) => ({
-                            ...prev,
-                            password: event.target.value,
-                          }))
-                        }
-                        placeholder="비밀번호 입력"
-                      />
-                    </label>
+              <div className="auth-selection-form">
+                <label className="onboarding-field">
+                  이메일
+                  <input
+                    value={loginDraft.handle}
+                    onChange={(event) =>
+                      setLoginDraft((prev) => ({
+                        ...prev,
+                        handle: event.target.value,
+                      }))
+                    }
+                    placeholder="name@example.com"
+                  />
+                </label>
+                <label className="onboarding-field">
+                  비밀번호
+                  <input
+                    type="password"
+                    value={loginDraft.password}
+                    onChange={(event) =>
+                      setLoginDraft((prev) => ({
+                        ...prev,
+                        password: event.target.value,
+                      }))
+                    }
+                    placeholder="비밀번호 입력"
+                  />
+                </label>
 
-                    <button
-                      className="primary"
-                      onClick={submitLogin}
-                      style={{ marginTop: '12px', width: '100%', height: '54px', fontSize: '16px', borderRadius: '8px' }}
-                    >
-                      로그인
-                    </button>
+                <button
+                  className="auth-selection-btn auth-selection-btn--primary auth-selection-btn--compact"
+                  onClick={submitLogin}
+                >
+                  로그인
+                </button>
 
-                    <div style={{ marginTop: '16px', textAlign: 'center', fontSize: '14px', color: '#666' }}>
-                      계정이 없으신가요?{" "}
-                      <button
-                        type="button"
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: '#111',
-                          fontWeight: '600',
-                          textDecoration: 'underline',
-                          cursor: 'pointer',
-                          padding: 0,
-                          fontFamily: 'inherit'
-                        }}
-                        onClick={() => {
-                          setLoginModalOpen(false);
-                          resetOnboarding();
-                          setOnboardingOpen(true);
-                        }}
-                      >
-                        회원가입하기
-                      </button>
-                    </div>
-                  </div>
+                <div className="auth-selection-footer">
+                  계정이 없으신가요?{" "}
+                  <button
+                    type="button"
+                    className="auth-selection-link"
+                    onClick={() => {
+                      setLoginModalOpen(false);
+                      resetOnboarding();
+                      setOnboardingOpen(true);
+                    }}
+                  >
+                    회원가입하기
+                  </button>
                 </div>
               </div>
-            </section>
+            </div>
           </div>
         </div>
       )}
@@ -7046,21 +7046,7 @@ function App() {
                 <div className="modal-header">
                   <div>
                     <h2>{brand.name}</h2>
-                    {aiDesignEditMode ? (
-                      <input
-                        className="ai-design-input"
-                        value={aiDesignDraft.name}
-                        onChange={(event) =>
-                          setAiDesignDraft((prev) => ({
-                            ...prev,
-                            name: event.target.value,
-                          }))
-                        }
-                        aria-label="Design name"
-                      />
-                    ) : (
-                      <p>{aiDesignModal.design.name}</p>
-                    )}
+                    <p>{aiDesignDraft.name || aiDesignModal.design.name}</p>
                   </div>
                   <div className="pill-group detail-tabs">
                     {["overview", "story", "feedback"].map((tab) => (
@@ -7167,87 +7153,54 @@ function App() {
                             )}
                           </div>
                         </div>
-                        <h4>옷 세부내용</h4>
-                        {aiDesignEditMode ? (
-                          <textarea
-                            className="ai-design-textarea"
-                            value={aiDesignDraft.description}
-                            onChange={(event) =>
-                              setAiDesignDraft((prev) => ({
-                                ...prev,
-                                description: event.target.value,
-                              }))
-                            }
-                          />
-                        ) : (
-                          <p>
-                            {aiDesignModal.design.description ||
-                              "AI가 생성한 컨셉을 기반으로 실루엣과 소재 밸런스를 설계했습니다."}
-                          </p>
-                        )}
-                        <div className="detail-tags">
-                          <span className="detail-tag">#니트</span>
-                          <span className="detail-tag">#미니멀</span>
-                          <span className="detail-tag">#여성</span>
+                        <div className="ai-upload-fields">
+                          <label className="field ai-upload-field">
+                            Cloth Name
+                            <input
+                              className="ai-design-input"
+                              value={aiDesignDraft.name}
+                              onChange={(event) =>
+                                setAiDesignDraft((prev) => ({
+                                  ...prev,
+                                  name: event.target.value,
+                                }))
+                              }
+                            />
+                          </label>
+                          <label className="field ai-upload-field">
+                            Cloth Description
+                            <textarea
+                              className="ai-design-textarea"
+                              value={aiDesignDraft.description}
+                              onChange={(event) =>
+                                setAiDesignDraft((prev) => ({
+                                  ...prev,
+                                  description: event.target.value,
+                                }))
+                              }
+                            />
+                          </label>
                         </div>
-                        <div className="spec-grid">
+                        <div className="spec-grid studio-preview-grid">
                           <div>
                             <span>카테고리</span>
-                            {aiDesignEditMode ? (
-                              <input
-                                className="ai-design-input"
-                                value={aiDesignDraft.category}
-                                onChange={(event) =>
-                                  setAiDesignDraft((prev) => ({
-                                    ...prev,
-                                    category: event.target.value,
-                                  }))
-                                }
-                                aria-label="Design category"
-                              />
-                            ) : (
-                              <strong>{aiDesignModal.design.category}</strong>
-                            )}
+                            <strong>{designCategory}</strong>
                           </div>
                           <div>
-                            <span>스타일</span>
-                            {aiDesignEditMode ? (
-                              <input
-                                className="ai-design-input"
-                                value={aiDesignDraft.style}
-                                onChange={(event) =>
-                                  setAiDesignDraft((prev) => ({
-                                    ...prev,
-                                    style: event.target.value,
-                                  }))
-                                }
-                                aria-label="Design style"
-                              />
-                            ) : (
-                              <strong>{aiDesignModal.design.style}</strong>
-                            )}
+                            <span>길이</span>
+                            <strong>{designLength}</strong>
                           </div>
                           <div>
                             <span>성별</span>
-                            {aiDesignEditMode ? (
-                              <input
-                                className="ai-design-input"
-                                value={aiDesignDraft.gender}
-                                onChange={(event) =>
-                                  setAiDesignDraft((prev) => ({
-                                    ...prev,
-                                    gender: event.target.value,
-                                  }))
-                                }
-                                aria-label="Design gender"
-                              />
-                            ) : (
-                              <strong>{aiDesignModal.design.gender}</strong>
-                            )}
+                            <strong>{designGender}</strong>
+                          </div>
+                          <div>
+                            <span>스타일</span>
+                            <strong>{aiDesignDraft.style || "-"}</strong>
                           </div>
                           <div>
                             <span>사이즈</span>
-                            <strong>XS - XL</strong>
+                            <strong>{sizeRangeLabels.join(" - ")}</strong>
                           </div>
                         </div>
                         <div className="spec-bar">
@@ -7278,17 +7231,23 @@ function App() {
                         {aiDesignEditMode ? (
                           <textarea
                             className="ai-design-textarea"
-                            value={aiDesignDraft.story}
-                            onChange={(event) =>
+                            value={myBrandDetails.bio}
+                            onChange={(event) => {
+                              const value = event.target.value;
+                              setMyBrandDetails((prev) => ({
+                                ...prev,
+                                bio: value,
+                              }));
                               setAiDesignDraft((prev) => ({
                                 ...prev,
-                                story: event.target.value,
-                              }))
-                            }
+                                story: value,
+                              }));
+                            }}
                           />
                         ) : (
                           <p>
-                            {aiDesignModal.design.story ||
+                            {myBrandDetails.bio ||
+                              aiDesignModal.design.story ||
                               "AI가 트렌드 데이터를 분석해 감각적인 컬렉션 스토리를 구성했습니다. 디자이너가 세부 디테일을 다듬을 수 있도록 여지를 남겨두었습니다."}
                           </p>
                         )}

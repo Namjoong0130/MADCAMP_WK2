@@ -29,7 +29,6 @@
   /* 높이 설정 정리 (화면의 85%만큼만 커지게) */
   max-height: 78vh;   /* ⭕ 최대 높이만 제한 */
   height: 78vh;
-  padding-bottom: 32px;
   overflow: hidden;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
 }
@@ -44,7 +43,7 @@
   justify-content: space-between;
   align-items: center;
   gap: 32px;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
   padding: 0 50px;
   width: 100%;
 }
@@ -58,6 +57,10 @@
   color: inherit;
   cursor: pointer;
 }
+
+.modal-header p {
+  margin: 6px 0 0;
+}
 /* modal.css */
 
 /* modal.css */
@@ -70,7 +73,7 @@
   flex: 1;
   min-height: 0;
   max-width: 980px;
-  margin: 10px auto 0;
+  margin: 6px auto 0;
 
 }
 
@@ -95,7 +98,7 @@
   background: transparent;
   border-radius: 8px;
   overflow: hidden;
-  padding: 24px 0;
+  padding: 16px 0;
   margin-bottom: 0;}
 
 /* 박스 안의 이미지 크기 잡아주기 */
