@@ -857,14 +857,19 @@ function App() {
   ]);
   const onboardingStyleItems = useMemo(() => {
     const items = [];
-    const userGender = signupDraft.gender;
+    const userGender = signupDraft.gender; // "MALE" or "FEMALE"
 
     for (const item of clothing) {
       if (!item.design_img_url) continue;
 
       // Filter by gender: show items that match user's gender or are Unisex
-      const itemGender = item.gender;
-      if (itemGender === 'UNISEX' || itemGender === userGender) {
+      // API returns "Mens", "Womens", "Unisex" - need to normalize for comparison
+      const itemGender = (item.gender || '').toUpperCase();
+      const isUnisex = itemGender === 'UNISEX' || itemGender === 'UNISEX';
+      const matchesMale = userGender === 'MALE' && (itemGender === 'MALE' || itemGender === 'MENS');
+      const matchesFemale = userGender === 'FEMALE' && (itemGender === 'FEMALE' || itemGender === 'WOMENS');
+
+      if (isUnisex || matchesMale || matchesFemale) {
         items.push(item);
         if (items.length >= 10) break;
       }
