@@ -343,14 +343,16 @@ function App() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [clothesData, fundsData, brandsData] = await Promise.all([
+        const [clothesData, fundsData, brandsData, fittingsData] = await Promise.all([
           getClothes(),
           getFundingFeed(),
-          getBrandProfiles()
+          getBrandProfiles(),
+          getMyFittings()
         ]);
         if (clothesData) setClothing(clothesData);
         if (fundsData) setFundings(fundsData);
         if (brandsData) setBrandProfiles(brandsData);
+        if (fittingsData) setFittingHistory(fittingsData);
       } catch (err) {
         console.error("Failed to fetch initial data", err);
       }
@@ -6031,12 +6033,21 @@ function App() {
 
                   <div className="album">
                     {fittingHistory.map((item) => {
+                      // Debug log
+                      // console.log("Rendering Album Item:", item.id, item.results);
+
                       // Filter result by tab
-                      const targetResult = item.results?.find(r =>
+                      let targetResult = item.results?.find(r =>
                         fittingAlbumTab === 'real'
                           ? r.type === 'REAL'
                           : r.type === 'MANNEQUIN'
                       );
+
+                      // Fallback for Real tab: if no explicit REAL result, use the main preview image (likely base photo or legacy result)
+                      // This ensures items counted in the header are actually visible.
+                      if (!targetResult && fittingAlbumTab === 'real') {
+                        targetResult = { url: item.image, type: 'REAL' };
+                      }
 
                       // If tab is Mannequin but no mannequin result, skip rendering this item in this tab
                       // Unless we want to show it as available to generate? For now skip.
