@@ -93,6 +93,11 @@ export const generateMannequin = async (fittingId) => {
     return response.data.data;
 };
 
+export const updateFitting = async (fittingId, payload) => {
+    const response = await axios.patch(`/api/fittings/${fittingId}`, payload);
+    return response.data.data;
+};
+
 export const getDesignHistory = async () => {
     const response = await axios.get('/api/clothes/design/history');
     return response.data.data;

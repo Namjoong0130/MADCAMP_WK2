@@ -141,12 +141,18 @@ const toFrontendInvestment = (invest, cloth, brand) => ({
 });
 
 const toFrontendFittingHistory = (fitting) => {
+  // Use latest result as preview, but pass all results
   const latestResult = fitting.results?.[0];
   return {
     id: fitting.fitting_id,
     title: fitting.note || `Fitting #${fitting.fitting_id}`,
     image: normalizeUrl(latestResult?.result_img_url || fitting.base_photo_url),
     date: fitting.created_at,
+    results: fitting.results ? fitting.results.map(r => ({
+      url: normalizeUrl(r.result_img_url),
+      type: r.generation_prompt.includes('Mannequin') ? 'MANNEQUIN' : 'REAL',
+      created_at: r.created_at
+    })) : []
   };
 };
 

@@ -29,8 +29,12 @@ import {
   deleteFundComment,
   createCloth,
   deleteCloth,
+  createCloth,
+  deleteCloth,
   createFitting,
   generateMannequin,
+  updateFitting,
+  getMyFittings,
   generateDesign as apiGenerateDesign,
 } from "./api/services";
 import Tshirt from "./Tshirt";
@@ -147,6 +151,7 @@ function App() {
   const [fittingLayers, setFittingLayers] = useState([]); // The finalized layers being worn
   const [fittingLayersDraft, setFittingLayersDraft] = useState([]); // Draft layers in panel
   const [currentFittingId, setCurrentFittingId] = useState(null); // ID of the latest fitting session
+  const [fittingAlbumTab, setFittingAlbumTab] = useState("real"); // 'real' or 'mannequin'
   const [focusClothingId, setFocusClothingId] = useState(null);
   const [isComposing, setIsComposing] = useState(false);
   const [fittingView, setFittingView] = useState("real");
@@ -2873,66 +2878,34 @@ function App() {
     });
 
   const saveFittingSnapshot = async (name, view) => {
-    if (fittingHistory.length >= 10) {
-      openLimitAlert(
-        "피팅 앨범은 10장까지만 저장할 수 있습니다. 기존 항목을 삭제한 뒤 다시 시도해주세요.",
-      );
-      return;
-    }
-    const timestamp = formatTimestamp(new Date());
-    const targetView = view || fittingView;
-    if (targetView === "3d") {
-      if (!fittingCanvasRef.current) return;
-      const dataUrl = fittingCanvasRef.current.toDataURL("image/png");
-      setFittingHistory((prev) => [
-        {
-          id: `fit-${Date.now()}`,
-          title: name || "3D Snapshot",
-          image: dataUrl,
-          date: timestamp,
-        },
-        ...prev,
-      ]);
+    // Check if we have a current session
+    if (!currentFittingId || (!fittingRealResult && !fittingMannequinResult)) {
+      alert("저장할 피팅 결과가 없습니다.");
       return;
     }
 
     try {
-      const baseImage = await loadImage("/image7.png");
-      const canvas = document.createElement("canvas");
-      canvas.width = baseImage.width;
-      canvas.height = baseImage.height;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-      const centerX = canvas.width / 2;
-      const centerY = canvas.height / 2;
-      ctx.save();
-      ctx.translate(centerX, centerY);
-      ctx.scale(fittingZoom, fittingZoom);
-      ctx.translate(-centerX, -centerY);
-      ctx.drawImage(baseImage, 0, 0, canvas.width, canvas.height);
-      const layerWidth = canvas.width * 0.6;
-      const layerHeight = canvas.height * 0.6;
-      const layerX = (canvas.width - layerWidth) / 2;
-      const layerY = (canvas.height - layerHeight) / 2;
-      for (const id of fittingLayers) {
-        const src = clothingMap[id]?.design_img_url;
-        if (!src) continue;
-        const layerImage = await loadImage(src);
-        ctx.drawImage(layerImage, layerX, layerY, layerWidth, layerHeight);
-      }
-      ctx.restore();
-      const dataUrl = canvas.toDataURL("image/png");
-      setFittingHistory((prev) => [
-        {
-          id: `fit-${Date.now()}`,
-          title: name || "Real Snapshot",
-          image: dataUrl,
-          date: timestamp,
-        },
-        ...prev,
-      ]);
-    } catch {
-      // Ignore snapshot failures (missing assets, tainted canvas).
+      // Update the note/title of the current fitting in backend
+      await updateFitting(currentFittingId, { note: name });
+
+      // Refresh the fitting history from backend to get the latest state
+      const updatedHistory = await getMyFittings();
+      // Transform if necessary, but getMyFittings usually returns formatted data if services.js does.
+      // Wait, services.js returns response.data.data which is array of fitting objects.
+      // We need to transform them using the transformer logic? 
+      // Actually services.js `getMyFittings` calls `/api/fittings` which calls `fittingController.listFittings` 
+      // which uses `toFrontendFittingHistory`. So it's already formatted.
+      // EXCEPT `toFrontendFittingHistory` was updated in backend.
+
+      // We need to fetch it properly.
+      // Let's assume getMyFittings returns the list as per the controller.
+      setFittingHistory(updatedHistory);
+
+      alert("피팅이 저장되었습니다.");
+
+    } catch (error) {
+      console.error("Failed to save fitting:", error);
+      alert("저장에 실패했습니다: " + (error.response?.data?.error?.message || error.message));
     }
   };
 
@@ -6040,42 +6013,83 @@ function App() {
                     <h3>Fitting Album</h3>
                     <span>{fittingHistory.length} items</span>
                   </div>
+
+                  {/* Album Tabs */}
+                  <div className="album-tabs" style={{ display: 'flex', gap: '10px', padding: '0 24px', marginBottom: '16px' }}>
+                    <button
+                      className={`pill ${fittingAlbumTab === 'real' ? 'active' : ''}`}
+                      onClick={() => setFittingAlbumTab('real')}
+                    >
+                      Real
+                    </button>
+                    <button
+                      className={`pill ${fittingAlbumTab === 'mannequin' ? 'active' : ''}`}
+                      onClick={() => setFittingAlbumTab('mannequin')}
+                    >
+                      Mannequin
+                    </button>
+                  </div>
+
                   <div className="album">
-                    {fittingHistory.map((item) => (
-                      <div key={item.id} className="album-card">
-                        <button
-                          type="button"
-                          className="album-remove"
-                          aria-label="Remove album item"
-                          onClick={() =>
-                            setFittingHistory((prev) =>
-                              prev.filter((entry) => entry.id !== item.id),
-                            )
-                          }
-                        >
-                          ×
-                        </button>
-                        <img src={item.image} alt={item.title} />
-                        <div className="album-meta">
-                          <div className="album-meta-row">
-                            <strong>{item.title}</strong>
-                            <button
-                              type="button"
-                              className="album-load-btn"
-                              onClick={() => {
-                                setFittingRealBaseUrl(item.image);
-                                setFittingView("real");
-                                setFittingLayers([]);
-                                setFittingAlbumOpen(false);
-                              }}
-                            >
-                              불러오기
-                            </button>
+                    {fittingHistory.map((item) => {
+                      // Filter result by tab
+                      const targetResult = item.results?.find(r =>
+                        fittingAlbumTab === 'real'
+                          ? r.type === 'REAL'
+                          : r.type === 'MANNEQUIN'
+                      );
+
+                      // If tab is Mannequin but no mannequin result, skip rendering this item in this tab
+                      // Unless we want to show it as available to generate? For now skip.
+                      if (!targetResult) return null;
+
+                      return (
+                        <div key={item.id} className="album-card">
+                          <button
+                            type="button"
+                            className="album-remove"
+                            aria-label="Remove album item"
+                            onClick={() =>
+                              setFittingHistory((prev) =>
+                                prev.filter((entry) => entry.id !== item.id),
+                              )
+                            }
+                          >
+                            ×
+                          </button>
+                          <img src={targetResult.url} alt={item.title} style={{ objectFit: 'contain' }} />
+                          <div className="album-meta">
+                            <div className="album-meta-row">
+                              <strong>{item.title}</strong>
+                              <button
+                                type="button"
+                                className="album-load-btn"
+                                onClick={() => {
+                                  // Load appropriate result into view
+                                  if (fittingAlbumTab === 'real') {
+                                    setFittingRealResult(targetResult.url);
+                                    setFittingView("real");
+                                  } else {
+                                    setFittingMannequinResult(targetResult.url);
+                                    setFittingView("3d");
+                                  }
+                                  setCurrentFittingId(item.id);
+                                  setFittingAlbumOpen(false);
+                                }}
+                              >
+                                불러오기
+                              </button>
+                            </div>
+                            <span>{formatAlbumDate(item.date)}</span>
                           </div>
-                          <span>{formatAlbumDate(item.date)}</span>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
+                    {fittingHistory.every(item => !item.results?.some(r => fittingAlbumTab === 'real' ? r.type === 'REAL' : r.type === 'MANNEQUIN')) && (
+                      <p style={{ padding: '20px', color: '#666', width: '100%', textAlign: 'center' }}>
+                        {fittingAlbumTab === 'real' ? '생성된 실물 피팅 결과가 없습니다.' : '생성된 마네킹 결과가 없습니다.'}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>

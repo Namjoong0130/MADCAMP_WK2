@@ -98,6 +98,19 @@ exports.getFittingDetail = async (req, res, next) => {
   }
 };
 
+exports.updateFitting = async (req, res, next) => {
+  try {
+    const result = await fittingService.updateFitting(
+      req.user.userId,
+      Number(req.params.fittingId),
+      req.body
+    );
+    return success(res, result, '피팅 정보가 업데이트되었습니다.');
+  } catch (error) {
+    next(error);
+  }
+};
+
 exports.createFittingResult = async (req, res, next) => {
   try {
     const result = await fittingService.createFittingResult(

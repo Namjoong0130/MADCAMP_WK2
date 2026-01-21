@@ -67,6 +67,33 @@ router.get('/album', authMiddleware, fittingController.listFittingAlbum);
  */
 router.get('/:fittingId', authMiddleware, fittingController.getFittingDetail);
 
+/**
+ * @swagger
+ * /api/fittings/{fittingId}:
+ *   patch:
+ *     summary: Update fitting details (e.g. note/title)
+ *     tags: [Fittings]
+ *     parameters:
+ *       - in: path
+ *         name: fittingId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               note:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Fitting updated
+ */
+router.patch('/:fittingId', authMiddleware, fittingController.updateFitting);
+
 // Upload middleware for cloth_image
 const uploadMiddleware = require('../middlewares/uploadMiddleware');
 router.post('/', authMiddleware, uploadMiddleware.array('cloth_image'), fittingController.createFitting);

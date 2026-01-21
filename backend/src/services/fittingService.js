@@ -41,7 +41,24 @@ exports.getFittingDetail = async (userId, fittingId) => {
   return fitting;
 };
 
-exports.createFittingResult = async (userId, fittingId, payload) => {
+exports.updateFitting = async (userId, fittingId, data) => {
+  const fitting = await prisma.fitting.findUnique({
+    where: { fitting_id: fittingId },
+  });
+  if (!fitting || fitting.user_id !== userId) {
+    throw createError(404, '피팅을 찾을 수 없습니다.');
+  }
+
+  const updated = await prisma.fitting.update({
+    where: { fitting_id: fittingId },
+    data: data,
+    include: { results: true }
+  });
+
+  return updated;
+};
+
+exports.createFittingResult = async (userId, fittingId, fileUrl) => {
   requireFields(payload, ['result_img_url', 'generation_prompt']);
 
   const fitting = await prisma.fitting.findUnique({
@@ -91,7 +108,7 @@ exports.createFittingResult = async (userId, fittingId, payload) => {
 exports.listFittingAlbum = async (userId) => {
   const fittings = await prisma.fitting.findMany({
     where: { user_id: userId, deleted_at: null },
-    include: { results: { orderBy: { created_at: 'desc' }, take: 1 } },
+    include: { results: { orderBy: { created_at: 'desc' } } },
     orderBy: { created_at: 'desc' },
   });
 
