@@ -200,23 +200,28 @@ const generateMockBuffer = (text, width = 1024, height = 1024) => {
 exports.generateDesignImage = async (clothId, userPrompt, attemptId, inputImages = []) => {
   // 1. Construct Prompt
   // Explicitly map inputs if 2 are provided (checked by controller anyway)
-  const mappingText = "The input Image 1 strictly represents the FRONT view sketch. The input Image 2 strictly represents the BACK view sketch.";
+  const mappingText = "Image 1 = FRONT view sketch. Image 2 = BACK view sketch.";
 
-  const finalPrompt = `A high-quality 3D product rendering showing two views of the same clothing item side-by-side on a SINGLE, CONTINUOUS, UNIFORM PURE WHITE BACKGROUND.
+  const finalPrompt = `Create a SINGLE IMAGE with EXACTLY TWO garments placed SIDE BY SIDE horizontally on a pure white background.
 
-  Layout:
-  - Left side: FRONT view (based on Image 1)
-  - Right side: BACK view (based on Image 2)
-  - Center: A wide empty white space separating them. DO NOT OVERLAP. DO NOT DRAW ANY DIVIDER LINES.
-  - CRITICAL: Position both garments CENTERED VERTICALLY and HORIZONTALLY in their respective halves. Show the COMPLETE FULL-LENGTH garment from top to bottom without any cropping.
+  STRICT LAYOUT RULES:
+  - LEFT HALF: ONE single FRONT view garment (from Image 1)
+  - RIGHT HALF: ONE single BACK view garment (from Image 2)
+  - TOTAL COUNT: Exactly 2 garments in the entire image. NO MORE.
+  - ARRANGEMENT: Horizontal side-by-side ONLY. NO vertical stacking. NO multiple rows.
+  - SPACING: Wide empty white gap between the two garments. No overlap. No divider lines.
 
   ${mappingText}
 
-  CRITICAL ENVIRONMENT INSTRUCTION: The background must be one single infinite white surface. The lighting, shadows, and color tone must be IDENTICAL for both views. It should look like two items placed on the same white table/floor, not two different images stitched together.
+  FORBIDDEN:
+  - Do NOT show multiple angles of the same view
+  - Do NOT stack images vertically
+  - Do NOT create a grid or collage
+  - Do NOT show more than 2 garments total
 
-  CRITICAL DESIGN INSTRUCTION: The final design must be a perfect synthesis of the input sketches and the user prompt. You must strictly preserve the structural silhouette, cut, and shape from the input sketches, while applying the materials, colors, textures, and design details specified in the user description: "${userPrompt}".
+  DESIGN: Apply materials, colors, and textures from this description: "${userPrompt}". Preserve the silhouette and shape from the input sketches.
 
-  Ghost mannequin style (just clothes, invisible body), neutral studio lighting, no shadows, straight-on camera view at eye level. ALWAYS show the COMPLETE garment - never crop the top or bottom.`;
+  STYLE: Ghost mannequin (invisible body), uniform pure white background, neutral studio lighting, no shadows, eye-level straight-on camera. Show complete full-length garment without cropping.`;
 
   console.log(`[AI] Generating Design for Cloth #${clothId}, Attempt #${attemptId} with Prompt:`, finalPrompt);
 
