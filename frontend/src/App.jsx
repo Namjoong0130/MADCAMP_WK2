@@ -343,16 +343,24 @@ function App() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [clothesData, fundsData, brandsData, fittingsData] = await Promise.all([
+        // Public Data
+        const [clothesData, fundsData, brandsData] = await Promise.all([
           getClothes(),
           getFundingFeed(),
-          getBrandProfiles(),
-          getMyFittings()
+          getBrandProfiles()
         ]);
         if (clothesData) setClothing(clothesData);
         if (fundsData) setFundings(fundsData);
         if (brandsData) setBrandProfiles(brandsData);
-        if (fittingsData) setFittingHistory(fittingsData);
+
+        // Authenticated Data
+        if (isLoggedIn) {
+          const fittingsData = await getMyFittings();
+          if (fittingsData) setFittingHistory(fittingsData);
+        } else {
+          // Reset fitting history if logged out (optional but safer)
+          // setFittingHistory([]); // Or keep dummy data?
+        }
       } catch (err) {
         console.error("Failed to fetch initial data", err);
       }
