@@ -5548,17 +5548,17 @@ function App() {
                 <div className="fitting-toggle">
                   <button
                     type="button"
-                    className={fittingView === "3d" ? "active" : ""}
-                    onClick={() => setFittingView("3d")}
-                  >
-                    마네킹
-                  </button>
-                  <button
-                    type="button"
                     className={fittingView === "real" ? "active" : ""}
                     onClick={() => setFittingView("real")}
                   >
                     실물
+                  </button>
+                  <button
+                    type="button"
+                    className={fittingView === "3d" ? "active" : ""}
+                    onClick={() => setFittingView("3d")}
+                  >
+                    마네킹
                   </button>
                 </div>
                 <button
@@ -5603,31 +5603,62 @@ function App() {
                       setFittingZoom((prev) => clamp(prev + delta, 0.7, 1.8));
                     }}
                   >
-                    <img
-                      className="fitting-real-base"
-                      src={fittingRealBaseUrl}
-                      alt="model"
-                      style={{
-                        transform: `scale(${fittingZoom})`,
-                        transformOrigin: "center",
-                      }}
-                    />
-                    {fittingLayers.length > 0 && (
+                    {!fittingRealBaseUrl ? (
                       <div
-                        className="layer-stack"
+                        className="fitting-no-photo"
+                        onClick={() => {
+                          setActiveTab("profile");
+                          setProfilePhotoMode("body");
+                        }}
                         style={{
-                          transform: `scale(${fittingZoom})`,
-                          transformOrigin: "center",
+                          width: "100%",
+                          height: "100%",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          cursor: "pointer",
+                          color: "#666",
+                          fontSize: "16px",
+                          fontWeight: "500",
+                          backgroundColor: "#f5f5f5",
+                          flexDirection: "column",
+                          gap: "8px",
+                          textAlign: "center",
+                          padding: "20px"
                         }}
                       >
-                        {fittingLayers.map((id) => (
-                          <img
-                            key={id}
-                            src={clothingMap[id]?.design_img_url}
-                            alt={clothingMap[id]?.name}
-                          />
-                        ))}
+                        <p>실물 사진을 추가하려면 클릭하세요</p>
+                        <span style={{ fontSize: "24px" }}>+</span>
                       </div>
+                    ) : (
+                      <>
+                        <img
+                          className="fitting-real-base"
+                          src={fittingRealBaseUrl}
+                          alt="model"
+                          style={{
+                            transform: `scale(${fittingZoom})`,
+                            transformOrigin: "center",
+                          }}
+                        />
+                        {fittingLayers.length > 0 && (
+                          <div
+                            className="layer-stack"
+                            style={{
+                              transform: `scale(${fittingZoom})`,
+                              transformOrigin: "center",
+                            }}
+                          >
+                            {fittingLayers.map((id) => (
+                              <img
+                                key={id}
+                                src={clothingMap[id]?.design_img_url}
+                                alt={clothingMap[id]?.name}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 )}
