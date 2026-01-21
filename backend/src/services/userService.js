@@ -3,6 +3,15 @@ const { createError } = require('../utils/responseHandler');
 const { toNumber } = require('../utils/validator');
 const { buildHandle } = require('../utils/transformers');
 
+const getServerUrl = () => process.env.SERVER_URL || '';
+
+const normalizeUrl = (url) => {
+  if (!url) return null;
+  if (url.startsWith('http')) return url;
+  if (url.startsWith('/')) return `${getServerUrl()}${url}`;
+  return url;
+};
+
 exports.getUserHeader = async (userId) => {
   const user = await prisma.user.findUnique({
     where: { user_id: userId },
@@ -74,10 +83,8 @@ exports.getUserProfile = async (userId) => {
   }
 
   // Ensure image URLs are properly formatted with full path
-  const profileImgUrl = user.profile_img_url ?
-    (user.profile_img_url.startsWith('http') ? user.profile_img_url : user.profile_img_url) : null;
-  const basePhotoUrl = user.basePhotoUrl ?
-    (user.basePhotoUrl.startsWith('http') ? user.basePhotoUrl : user.basePhotoUrl) : null;
+  const profileImgUrl = normalizeUrl(user.profile_img_url);
+  const basePhotoUrl = normalizeUrl(user.basePhotoUrl);
 
   return {
     name: user.userName,
@@ -127,10 +134,10 @@ exports.updateUserProfile = async (userId, payload) => {
   return {
     user_id: user.user_id,
     userName: user.userName,
-    profile_img_url: user.profile_img_url,
+    profile_img_url: normalizeUrl(user.profile_img_url),
     styleTags: user.styleTags,
     bodyTypeLabel: user.bodyTypeLabel,
-    basePhotoUrl: user.basePhotoUrl,
+    basePhotoUrl: normalizeUrl(user.basePhotoUrl),
     updatedAt: user.updatedAt,
   };
 };
