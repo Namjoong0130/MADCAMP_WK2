@@ -250,7 +250,7 @@ exports.createComment = async (userId, fundId, payload) => {
   });
   if (!fund) throw createError(404, '펀딩을 찾을 수 없습니다.');
 
-  const isBrandOwner = fund.user_id === userId;
+  const isBrandOwner = fund.cloth?.brand?.owner_id === userId;
 
   const comment = await prisma.comment.create({
     data: {

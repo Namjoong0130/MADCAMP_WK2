@@ -29,12 +29,15 @@ import {
   deleteFundComment,
   createCloth,
   deleteCloth,
+  updateCloth,
 
   createFitting,
   generateMannequin,
   updateFitting,
   getMyFittings,
   generateDesign as apiGenerateDesign,
+  getNotifications,
+  markNotificationAsRead,
 } from "./api/services";
 import Tshirt from "./Tshirt";
 import {
@@ -196,6 +199,10 @@ function App() {
     value: "",
     view: null,
   });
+  const [shareModal, setShareModal] = useState({
+    open: false,
+    clothing: null,
+  });
   const [limitAlertOpen, setLimitAlertOpen] = useState(false);
   const [limitAlertMessage, setLimitAlertMessage] = useState("");
   const [aiDesignModal, setAiDesignModal] = useState({
@@ -273,6 +280,7 @@ function App() {
     passwordConfirm: "",
     profile_img_url: null,
     base_photo_url: null,
+    gender: "MALE",
     measurements: { ...userBase.measurements },
   }));
   const [signupPhotoFile, setSignupPhotoFile] = useState(null);
@@ -357,9 +365,22 @@ function App() {
         if (isLoggedIn) {
           const fittingsData = await getMyFittings();
           if (fittingsData) setFittingHistory(fittingsData);
+
+          // Fetch notifications
+          const notificationsData = await getNotifications();
+          if (notificationsData) {
+            setNotifications(notificationsData.map(noti => ({
+              id: noti.id,
+              title: noti.title,
+              message: noti.message,
+              target: noti.target,
+              is_read: noti.is_read,
+              removing: false,
+            })));
+          }
         } else {
-          // Reset fitting history if logged out (optional but safer)
-          // setFittingHistory([]); // Or keep dummy data?
+          // Reset fitting history and notifications if logged out
+          setNotifications([]);
         }
       } catch (err) {
         console.error("Failed to fetch initial data", err);
@@ -794,6 +815,22 @@ function App() {
     });
     const sorted = [...filtered];
     switch (selectedSort) {
+      case "recommended":
+        // Sort by matching style tags first, then by likes
+        sorted.sort((a, b) => {
+          const clothA = clothingMap[a.clothing_id];
+          const clothB = clothingMap[b.clothing_id];
+          const styleTagsUser = userProfile.styleTags || [];
+
+          const matchA = styleTagsUser.includes(clothA?.style) ? 1 : 0;
+          const matchB = styleTagsUser.includes(clothB?.style) ? 1 : 0;
+
+          if (matchA !== matchB) {
+            return matchB - matchA; // Matching styles first
+          }
+          return b.likes - a.likes; // Then by popularity
+        });
+        break;
       case "latest":
         sorted.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
         break;
@@ -816,16 +853,24 @@ function App() {
     selectedGender,
     selectedStyle,
     selectedSort,
+    userProfile.styleTags,
   ]);
   const onboardingStyleItems = useMemo(() => {
     const items = [];
+    const userGender = signupDraft.gender;
+
     for (const item of clothing) {
       if (!item.design_img_url) continue;
-      items.push(item);
-      if (items.length >= 12) break;
+
+      // Filter by gender: show items that match user's gender or are Unisex
+      const itemGender = item.gender;
+      if (itemGender === 'UNISEX' || itemGender === userGender) {
+        items.push(item);
+        if (items.length >= 10) break;
+      }
     }
     return items;
-  }, [clothing]);
+  }, [clothing, signupDraft.gender]);
 
   const ensureBrandForDesign = () => {
     if (hasBrandPage) return true;
@@ -2568,20 +2613,31 @@ function App() {
     }
   };
 
-  const removeBrandDesign = (clothingId) => {
+  const removeBrandDesign = async (clothingId) => {
     if (!clothingId) return;
-    setFundings((prev) =>
-      prev.filter(
-        (entry) =>
-          entry.clothing_id !== clothingId ||
-          entry.brand !== myBrandDetails.brand,
-      ),
-    );
-    setClothing((prev) => prev.filter((item) => item.id !== clothingId));
-    setGeneratedDesigns((prev) => prev.filter((item) => item.id !== clothingId));
-    setDetailItem((current) =>
-      current?.clothing?.id === clothingId ? null : current,
-    );
+    if (!confirm('정말 이 디자인을 삭제하시겠습니까?')) return;
+
+    try {
+      await deleteCloth(clothingId);
+
+      setFundings((prev) =>
+        prev.filter(
+          (entry) =>
+            entry.clothing_id !== clothingId ||
+            entry.brand !== myBrandDetails.brand,
+        ),
+      );
+      setClothing((prev) => prev.filter((item) => item.id !== clothingId));
+      setGeneratedDesigns((prev) => prev.filter((item) => item.id !== clothingId));
+      setDetailItem((current) =>
+        current?.clothing?.id === clothingId ? null : current,
+      );
+
+      alert('디자인이 삭제되었습니다.');
+    } catch (err) {
+      console.error('Failed to delete design', err);
+      alert('삭제에 실패했습니다: ' + (err.response?.data?.message || err.message));
+    }
   };
 
   const resetFilters = () => {
@@ -2969,6 +3025,10 @@ function App() {
       const email = signupDraft.handle;
       const password = signupDraft.password;
 
+      // Collect style tags from selected clothing items
+      const selectedClothes = clothing.filter(item => selectedStyleIds.includes(item.id));
+      const styleTags = [...new Set(selectedClothes.map(item => item.style).filter(Boolean))];
+
       // Backend expects: email, password, userName, height, weight
       const userData = {
         email,
@@ -2976,6 +3036,8 @@ function App() {
         userName: signupDraft.name,
         height: Number(signupDraft.measurements.height) || 0,
         weight: Number(signupDraft.measurements.weight) || 0,
+        gender: signupDraft.gender,
+        styleTags: styleTags.length > 0 ? styleTags : ['Minimal'],
       };
 
       await signup(userData);
@@ -3568,6 +3630,26 @@ function App() {
                       비밀번호가 일치하지 않습니다.
                     </p>
                     <div className="onboarding-divider" />
+                    <h4 style={{ marginBottom: '12px' }}>성별</h4>
+                    <div style={{ display: 'flex', gap: '12px', marginBottom: '20px' }}>
+                      <button
+                        type="button"
+                        className={signupDraft.gender === 'MALE' ? 'tab-btn active' : 'tab-btn'}
+                        onClick={() => updateSignupField('gender', 'MALE')}
+                        style={{ flex: 1, padding: '12px' }}
+                      >
+                        남성
+                      </button>
+                      <button
+                        type="button"
+                        className={signupDraft.gender === 'FEMALE' ? 'tab-btn active' : 'tab-btn'}
+                        onClick={() => updateSignupField('gender', 'FEMALE')}
+                        style={{ flex: 1, padding: '12px' }}
+                      >
+                        여성
+                      </button>
+                    </div>
+                    <div className="onboarding-divider" />
                     <div className="measurements-head">
                       <h4>신체 수치</h4>
                       <div className="measurements-tabs">
@@ -4103,7 +4185,7 @@ function App() {
                   }
                 }}
               >
-                {notifications.length > 0 && (
+                {notifications.filter(n => !n.is_read).length > 0 && (
                   <span className="notif-dot" aria-hidden="true" />
                 )}
                 <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -4116,7 +4198,7 @@ function App() {
                   <div className="notif-header">
                     <div className="notif-title">
                       <strong>알림</strong>
-                      <span>{notifications.length} new</span>
+                      <span>{notifications.filter(n => !n.is_read).length} new</span>
                     </div>
                   </div>
                   <ul>
@@ -4131,10 +4213,26 @@ function App() {
                           <button
                             type="button"
                             className="notif-item"
-                            onClick={() => openNotificationTarget(item)}
+                            onClick={async () => {
+                              if (!item.is_read) {
+                                try {
+                                  await markNotificationAsRead(item.id);
+                                  setNotifications((prev) =>
+                                    prev.map((notice) =>
+                                      notice.id === item.id
+                                        ? { ...notice, is_read: true }
+                                        : notice,
+                                    ),
+                                  );
+                                } catch (err) {
+                                  console.error('Failed to mark notification as read', err);
+                                }
+                              }
+                              openNotificationTarget(item);
+                            }}
                           >
-                            <strong>{item.title}</strong>
-                            <span>{item.message}</span>
+                            <strong style={{ opacity: item.is_read ? 0.6 : 1 }}>{item.title}</strong>
+                            <span style={{ opacity: item.is_read ? 0.6 : 1 }}>{item.message}</span>
                           </button>
                           <button
                             className="notif-item-close"
@@ -4618,6 +4716,30 @@ function App() {
                                 >
                                   <Heart size={14} strokeWidth={1.6} />
                                   {detailItem.funding.likes}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="like-count-inline subtle"
+                                  aria-label="Share"
+                                  onClick={() => {
+                                    if (!isLoggedIn) {
+                                      openAuthModal("login-required");
+                                      return;
+                                    }
+                                    setShareModal({
+                                      open: true,
+                                      clothing: detailItem.clothing
+                                    });
+                                  }}
+                                >
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+                                    <circle cx="18" cy="5" r="3" />
+                                    <circle cx="6" cy="12" r="3" />
+                                    <circle cx="18" cy="19" r="3" />
+                                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+                                    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+                                  </svg>
+                                  공유
                                 </button>
                               </div>
                             </div>
@@ -6146,27 +6268,40 @@ function App() {
               <div className="portfolio-grid portfolio-brands-layout">
                 <div className="panel my-brands-panel">
                   <div className="panel-title-row">
-                    <h3>My Funding</h3>
-                    {brands.length > 2 && (
-                      <button
-                        type="button"
-                        className="ghost"
-                        onClick={() => setBrandFundingOpen(true)}
-                      >
-                        더보기
-                      </button>
-                    )}
+                    <h3>내 펀딩</h3>
+                    <span style={{ color: '#666', fontSize: '14px' }}>{generatedDesigns.length}개 디자인</span>
                   </div>
-                  <div className="chart">
-                    {brands.map((item) => (
-                      <div key={item.id} className="chart-row">
-                        <span>{item.brand}</span>
-                        <div className="chart-bar">
-                          <div style={{ width: `${item.progress * 100}%` }} />
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+                    {generatedDesigns.slice(0, 6).map((design) => (
+                      <div key={design.id} style={{
+                        position: 'relative',
+                        background: '#f8f8f8',
+                        borderRadius: '8px',
+                        overflow: 'hidden',
+                        cursor: 'pointer'
+                      }}
+                      onClick={() => {
+                        const funding = fundings.find(f => f.clothing_id === design.id);
+                        if (funding) {
+                          openClothingDetail(design.id);
+                        }
+                      }}>
+                        <img
+                          src={design.design_img_url || design.final_result_front_url}
+                          alt={design.name}
+                          style={{ width: '100%', height: '150px', objectFit: 'cover' }}
+                        />
+                        <div style={{ padding: '12px' }}>
+                          <div style={{ fontSize: '13px', fontWeight: '600', marginBottom: '4px' }}>{design.name}</div>
+                          <div style={{ fontSize: '12px', color: '#666' }}>{currency.format(design.price || 0)}</div>
                         </div>
-                        <span>{Math.round(item.progress * 100)}%</span>
                       </div>
                     ))}
+                    {generatedDesigns.length === 0 && (
+                      <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px', color: '#999' }}>
+                        아직 업로드한 디자인이 없습니다
+                      </div>
+                    )}
                   </div>
                   <div className="brand-list">
                     {brands.slice(0, 2).map((item) => (
@@ -7563,6 +7698,88 @@ function App() {
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {shareModal.open && (
+        <div className="auth-modal" role="dialog" aria-modal="true">
+          <div className="auth-modal-content" style={{ maxWidth: '500px' }}>
+            <button
+              type="button"
+              className="auth-modal-close"
+              aria-label="Close"
+              onClick={() => setShareModal({ open: false, clothing: null })}
+            >
+              ×
+            </button>
+            <h3>디자인 공유하기</h3>
+            <div style={{ marginTop: '24px', marginBottom: '24px' }}>
+              <div style={{
+                background: '#f8f8f8',
+                borderRadius: '12px',
+                padding: '20px',
+                display: 'flex',
+                gap: '16px',
+                alignItems: 'center'
+              }}>
+                <img
+                  src={shareModal.clothing?.design_img_url}
+                  alt={shareModal.clothing?.name}
+                  style={{
+                    width: '120px',
+                    height: '120px',
+                    objectFit: 'cover',
+                    borderRadius: '8px'
+                  }}
+                />
+                <div style={{ flex: 1 }}>
+                  <h4 style={{ margin: '0 0 8px 0', fontSize: '18px' }}>{shareModal.clothing?.name}</h4>
+                  <p style={{ margin: '0 0 8px 0', color: '#666', fontSize: '14px' }}>
+                    {shareModal.clothing?.description || '멋진 디자인을 모두와 공유해보세요!'}
+                  </p>
+                  <div style={{ fontSize: '16px', fontWeight: '600' }}>
+                    {currency.format(shareModal.clothing?.price || 0)}
+                  </div>
+                </div>
+              </div>
+              <p style={{ marginTop: '16px', color: '#666', fontSize: '14px', lineHeight: '1.6' }}>
+                이 디자인을 공유하면 모든 사용자의 Discover 탭에 표시됩니다.
+                더 많은 사람들이 펀딩에 참여할 수 있습니다!
+              </p>
+            </div>
+            <div className="auth-modal-actions">
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => setShareModal({ open: false, clothing: null })}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                className="primary"
+                onClick={async () => {
+                  try {
+                    await updateCloth(shareModal.clothing.id, { is_public: true });
+                    alert('디자인이 성공적으로 공유되었습니다!');
+
+                    // Update local state
+                    setClothing(prev => prev.map(item =>
+                      item.id === shareModal.clothing.id
+                        ? { ...item, is_public: true }
+                        : item
+                    ));
+
+                    setShareModal({ open: false, clothing: null });
+                  } catch (err) {
+                    console.error('Failed to share clothing', err);
+                    alert('공유에 실패했습니다: ' + (err.response?.data?.message || err.message));
+                  }
+                }}
+              >
+                공유하기
+              </button>
             </div>
           </div>
         </div>

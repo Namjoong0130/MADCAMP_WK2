@@ -28,6 +28,19 @@ exports.createCloth = async (req, res, next) => {
   }
 };
 
+exports.updateCloth = async (req, res, next) => {
+  try {
+    const cloth = await clothService.updateCloth(
+      req.user.userId,
+      Number(req.params.clothId),
+      req.body
+    );
+    return success(res, cloth, '의류 정보가 업데이트되었습니다.');
+  } catch (error) {
+    next(error);
+  }
+};
+
 exports.updateClothPhysics = async (req, res, next) => {
   try {
     const cloth = await clothService.updateClothPhysics(

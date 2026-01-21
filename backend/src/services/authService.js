@@ -10,7 +10,7 @@ const jwt = require('jsonwebtoken');
 // ?ъ슜?먭? 濡쒓렇?명뻽?ㅻ뒗 利앺몴??'?붿????좊텇利???諛쒓툒?댁＜???꾧뎄?낅땲??
 const notificationService = require('./notificationService');
 
-exports.register = async (email, password, userName, height, weight) => {
+exports.register = async (email, password, userName, height, weight, gender, styleTags) => {
   // 1. ?대? 媛?낅맂 ?대찓?쇱씤吏 ?뺤씤
   const existingUser = await prisma.user.findUnique({ where: { email } });
   if (existingUser) {
@@ -37,7 +37,7 @@ exports.register = async (email, password, userName, height, weight) => {
       tokens: 10,     // 臾대즺 ?붿옄???쒕룄沅?10??吏湲?
 
       // 由ъ뒪??Array) ??낆? 鍮?諛곗뿴濡?珥덇린?뷀빐二쇰뒗 寃껋씠 ?덉쟾?⑸땲??
-      styleTags: [],
+      styleTags: styleTags || [],
       is_creator: true,
     }
   });

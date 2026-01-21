@@ -111,6 +111,7 @@ router.post('/', authMiddleware, clothController.createCloth);
  *       200:
  *         description: Physics updated
  */
+router.patch('/:clothId', authMiddleware, clothController.updateCloth);
 router.patch('/:clothId/physics', authMiddleware, clothController.updateClothPhysics);
 
 /**

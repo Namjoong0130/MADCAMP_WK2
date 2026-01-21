@@ -203,11 +203,12 @@ exports.generateDesignImage = async (clothId, userPrompt, attemptId, inputImages
   const mappingText = "The input Image 1 strictly represents the FRONT view sketch. The input Image 2 strictly represents the BACK view sketch.";
 
   const finalPrompt = `A high-quality 3D product rendering showing two views of the same clothing item side-by-side on a SINGLE, CONTINUOUS, UNIFORM PURE WHITE BACKGROUND.
-  
+
   Layout:
   - Left side: FRONT view (based on Image 1)
   - Right side: BACK view (based on Image 2)
   - Center: A wide empty white space separating them. DO NOT OVERLAP. DO NOT DRAW ANY DIVIDER LINES.
+  - CRITICAL: Position both garments CENTERED VERTICALLY and HORIZONTALLY in their respective halves. Show the COMPLETE FULL-LENGTH garment from top to bottom without any cropping.
 
   ${mappingText}
 
@@ -215,7 +216,7 @@ exports.generateDesignImage = async (clothId, userPrompt, attemptId, inputImages
 
   CRITICAL DESIGN INSTRUCTION: The final design must be a perfect synthesis of the input sketches and the user prompt. You must strictly preserve the structural silhouette, cut, and shape from the input sketches, while applying the materials, colors, textures, and design details specified in the user description: "${userPrompt}".
 
-  Ghost mannequin style (just clothes, invisible body), neutral studio lighting, no shadows, straight-on camera view at eye level.`;
+  Ghost mannequin style (just clothes, invisible body), neutral studio lighting, no shadows, straight-on camera view at eye level. ALWAYS show the COMPLETE garment - never crop the top or bottom.`;
 
   console.log(`[AI] Generating Design for Cloth #${clothId}, Attempt #${attemptId} with Prompt:`, finalPrompt);
 
@@ -333,7 +334,7 @@ exports.generateFittingResult = async (fittingId, basePhotoUrl, clothingList, ex
     externalImagePrompt = ` ADDITIONAL REFERENCE: Use the additional input images (Image 2 to Image ${allInputImages.length}) as strict visual references for the specific clothing items. Map them exactly as described in the layering order.`;
   }
 
-  const finalPrompt = `A photorealistic virtual try-on image. The goal is to dress the person from the main reference image (Image 1) with the provided clothing items. CRITICAL REQUIREMENT: The person's identity, facial features, body shape, pose, and the original background environment must be PERFECTLY PRESERVED without any alteration. Only the clothing area on the person's body should be changed. ${layeringText}.${externalImagePrompt} Ensure realistic fabric physics, natural folds, and believable shadows cast by the new clothes onto the person's body. The lighting on the clothes must match the lighting conditions of the original photo.`;
+  const finalPrompt = `A photorealistic virtual try-on image. The goal is to dress the person from the main reference image (Image 1) with the provided clothing items. CRITICAL REQUIREMENT: The person's identity, facial features, body shape, pose, and the original background environment must be PERFECTLY PRESERVED without any alteration. Only the clothing area on the person's body should be changed. The person must be CENTERED in the frame and facing FORWARD toward the camera. Show the COMPLETE FULL BODY from head to feet without cropping. ${layeringText}.${externalImagePrompt} Ensure realistic fabric physics, natural folds, and believable shadows cast by the new clothes onto the person's body. The lighting on the clothes must match the lighting conditions of the original photo.`;
 
   console.log(`[AI] Generating Fitting #${fittingId}`);
 
@@ -363,7 +364,7 @@ exports.generateFittingResult = async (fittingId, basePhotoUrl, clothingList, ex
 };
 
 exports.generateMannequinResult = async (fittingId, tryOnImageUrl) => {
-  const finalPrompt = `A photorealistic transformation based on the reference image. The goal is to replace *only* the visible human skin areas with a mannequin material. CRITICAL REQUIREMENT: All clothing items, including their specific fabric textures, folds, shadows, and the exact lighting striking them, MUST be perfectly preserved without any alteration. The original background remains unchanged. Transform the human figure into a high-quality retail display mannequin while maintaining the exact original body shape, volume, and pose. Mannequin Specification (Standardized): The mannequin must have a uniform MATTE WHITE finish over its entire surface. The head is abstract and featureless (smooth surface, no eyes, nose, mouth, or hair). The joints are seamless.`;
+  const finalPrompt = `A photorealistic transformation based on the reference image. The goal is to replace *only* the visible human skin areas with a mannequin material. CRITICAL REQUIREMENT: All clothing items, including their specific fabric textures, folds, shadows, and the exact lighting striking them, MUST be perfectly preserved without any alteration. The original background remains unchanged. Transform the human figure into a high-quality retail display mannequin while maintaining the exact original body shape, volume, and pose. The mannequin must be CENTERED in the frame, facing FORWARD toward the camera, and show the COMPLETE FULL BODY from head to feet without any cropping. Mannequin Specification (Standardized): The mannequin must have a uniform MATTE WHITE finish over its entire surface. The head is abstract and featureless (smooth surface, no eyes, nose, mouth, or hair). The joints are seamless.`;
 
   console.log(`[AI] Generating Mannequin #${fittingId}`);
 

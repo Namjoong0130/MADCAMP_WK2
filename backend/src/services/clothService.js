@@ -224,6 +224,29 @@ exports.deleteCloth = async (userId, clothId) => {
   return true;
 };
 
+exports.updateCloth = async (userId, clothId, payload) => {
+  const cloth = await prisma.cloth.findUnique({
+    where: { clothing_id: clothId },
+    include: { brand: true },
+  });
+  if (!cloth || cloth.deleted_at) throw createError(404, '의류를 찾을 수 없습니다.');
+  if (cloth.brand?.owner_id !== userId) throw createError(403, '수정 권한이 없습니다.');
+
+  const data = {};
+  if (payload.is_public !== undefined) data.is_public = payload.is_public;
+  if (payload.clothing_name) data.clothing_name = payload.clothing_name;
+  if (payload.description) data.description = payload.description;
+  if (payload.price !== undefined) data.price = toNumber(payload.price, 'price');
+  if (payload.style) data.style = payload.style;
+
+  const updated = await prisma.cloth.update({
+    where: { clothing_id: clothId },
+    data,
+  });
+
+  return toFrontendCloth(updated);
+};
+
 exports.updateClothPhysics = async (userId, clothId, payload) => {
   const cloth = await prisma.cloth.findUnique({
     where: { clothing_id: clothId },

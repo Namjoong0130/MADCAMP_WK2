@@ -7,9 +7,9 @@ const authService = require('../services/authService');
 exports.signup = async (req, res, next) => {
   try {
     // 1. 주문표 확인: 프론트엔드에서 보낸 상자(body)를 엽니다.
-    const { email, password, userName, height, weight } = req.body;
+    const { email, password, userName, height, weight, gender, styleTags } = req.body;
     // 2. 주방에 전달: 요리사(Service)에게 이 재료들로 가입시켜달라고 시킵니다.
-    const user = await authService.register(email, password, userName, height, weight);
+    const user = await authService.register(email, password, userName, height, weight, gender, styleTags);
     
     res.status(201).json({
       success: true,

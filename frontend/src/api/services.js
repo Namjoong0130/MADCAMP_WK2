@@ -172,3 +172,20 @@ export const getGarmentStatus = async (garmentId) => {
     const response = await axios.get(`/api/garments/${garmentId}/status`);
     return response.data.data;
 };
+
+// Notifications
+export const getNotifications = async () => {
+    const response = await axios.get('/api/notifications');
+    return response.data.data;
+};
+
+export const markNotificationAsRead = async (notiId) => {
+    const response = await axios.patch(`/api/notifications/${notiId}/read`);
+    return response.data.data;
+};
+
+// Update Cloth (for sharing)
+export const updateCloth = async (clothId, payload) => {
+    const response = await axios.patch(`/api/clothes/${clothId}`, payload);
+    return response.data.data;
+};
