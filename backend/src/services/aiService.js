@@ -22,7 +22,10 @@ const resolveImageUrl = async (imgUrl) => {
   // Generic local path handling
   let fullPath = null;
 
-  if (imgUrl.startsWith('/images/')) {
+  if (imgUrl.startsWith('/api/images/')) {
+    const relativePath = imgUrl.replace('/api/images/', '');
+    fullPath = path.join(UPLOAD_ROOT, relativePath);
+  } else if (imgUrl.startsWith('/images/')) {
     const relativePath = imgUrl.replace('/images/', '');
     fullPath = path.join(UPLOAD_ROOT, relativePath);
   } else if (imgUrl.startsWith('/')) {
@@ -76,8 +79,12 @@ exports.removeBackground = async (inputPath) => {
     let fullPath = inputPath;
 
     // Resolve Web URL path (/images/...) to System Path
-    // Resolve Web URL path (/images/...) to System Path
-    if (inputPath.includes('/images/')) {
+    // Resolve Web URL path (/api/images/...) to System Path
+    if (inputPath.includes('/api/images/')) {
+      const relativePath = inputPath.split('/api/images/')[1];
+      fullPath = path.join(UPLOAD_ROOT, relativePath);
+    }
+    else if (inputPath.includes('/images/')) {
       const relativePath = inputPath.split('/images/')[1];
       fullPath = path.join(UPLOAD_ROOT, relativePath);
     }

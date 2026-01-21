@@ -55,7 +55,7 @@ exports.uploadProfilePhoto = async (req, res, next) => {
       throw new Error('파일이 업로드되지 않았습니다.');
     }
 
-    let webPath = `/images/uploads/${req.file.filename}`;
+    let webPath = `/api/images/uploads/${req.file.filename}`;
     const type = req.query.type === 'body' ? 'body' : 'profile';
 
     // If uploading body photo, try to remove background
@@ -69,7 +69,7 @@ exports.uploadProfilePhoto = async (req, res, next) => {
           const noBgPath = path.join(req.file.destination, noBgFilename);
 
           fs.writeFileSync(noBgPath, bgRemovedBuffer);
-          webPath = `/images/uploads/${noBgFilename}`;
+          webPath = `/api/images/uploads/${noBgFilename}`;
           console.log('[Upload] Background removed. Saved to:', webPath);
         } else {
           console.warn('[Upload] Background removal returned empty. Using original.');
