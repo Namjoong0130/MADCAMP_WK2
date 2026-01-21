@@ -22,10 +22,7 @@ const resolveImageUrl = async (imgUrl) => {
   // Generic local path handling
   let fullPath = null;
 
-  if (imgUrl.startsWith('/api/images/')) {
-    const relativePath = imgUrl.replace('/api/images/', '');
-    fullPath = path.join(UPLOAD_ROOT, relativePath);
-  } else if (imgUrl.startsWith('/images/')) {
+  if (imgUrl.startsWith('/images/')) {
     const relativePath = imgUrl.replace('/images/', '');
     fullPath = path.join(UPLOAD_ROOT, relativePath);
   } else if (imgUrl.startsWith('/')) {
