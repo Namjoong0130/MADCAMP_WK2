@@ -20,7 +20,7 @@ const initialClothing = [
         gender: "FEMALE",
         style: "Romantic",
         price: 189000,
-        design_img_url: "http://172.10.5.178/images/designs/1_front.png", // Fallback to valid Image 1
+        design_img_url: "http://172.10.5.178/images/designs/1_front.png", // Reusing valid
         size_specs: { shoulder: 42, chest: 96, waist: 86 },
         brandName: "ROSE FORM",
     },
@@ -42,7 +42,7 @@ const initialClothing = [
         gender: "UNISEX",
         style: "Minimal",
         price: 149000,
-        design_img_url: "http://172.10.5.178/images/dummy.png", // Fallback
+        design_img_url: "http://172.10.5.178/images/designs/1_front.png", // Reusing valid
         size_specs: { shoulder: 48, chest: 106, waist: 94 },
         brandName: "OAT EDITION",
     },
@@ -53,7 +53,7 @@ const initialClothing = [
         gender: "UNISEX",
         style: "Street",
         price: 279000,
-        design_img_url: "http://172.10.5.178/images/dummy.png", // Fallback
+        design_img_url: "http://172.10.5.178/images/designs/1_3_front.png", // Reusing valid
         size_specs: { shoulder: 50, chest: 114, waist: 106 },
         brandName: "MIDNIGHT",
     },
@@ -64,7 +64,7 @@ const initialClothing = [
         gender: "FEMALE",
         style: "Classic",
         price: 249000,
-        design_img_url: "http://172.10.5.178/images/dummy.png", // Fallback covering image6 error
+        design_img_url: "http://172.10.5.178/images/designs/1_front.png", // Reusing valid
         size_specs: { shoulder: 46, chest: 108, waist: 100 },
         brandName: "CLOUD LINE",
     },
@@ -75,7 +75,7 @@ const initialClothing = [
         gender: "FEMALE",
         style: "Romantic",
         price: 159000,
-        design_img_url: "http://172.10.5.178/images/dummy.png", // Fallback covering image7 error
+        design_img_url: "http://172.10.5.178/images/designs/1_3_front.png", // Reusing valid
         size_specs: { shoulder: 36, chest: 82, waist: 66 },
         brandName: "INK ATELIER",
     },
