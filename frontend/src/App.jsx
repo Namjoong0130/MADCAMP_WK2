@@ -29,7 +29,6 @@ import {
   deleteFundComment,
   createCloth,
   deleteCloth,
-  updateCloth,
 
   createFitting,
   generateMannequin,
@@ -110,6 +109,87 @@ const normalizeAssetUrl = (value) => {
 };
 
 const TEMP_DESIGN_STORAGE_KEY = "modifTempDesigns";
+
+const CATEGORY_ALIASES = {
+  TOP: "Top",
+  TOPS: "Top",
+  Top: "Top",
+  Knit: "Knit",
+  KNIT: "Knit",
+  Shirt: "Shirt",
+  SHIRT: "Shirt",
+  Jacket: "Jacket",
+  JACKET: "Jacket",
+  자켓: "Jacket",
+  Coat: "Coat",
+  COAT: "Coat",
+  코트: "Coat",
+  Outerwear: "Outerwear",
+  OUTERWEAR: "Outerwear",
+  아우터: "Outerwear",
+  Pants: "Pants",
+  PANTS: "Pants",
+  Bottom: "Pants",
+  Bottoms: "Pants",
+  BOTTOMS: "Pants",
+  BOTTOM: "Pants",
+  하의: "Pants",
+  Skirt: "Skirt",
+  SKIRT: "Skirt",
+  스커트: "Skirt",
+  Dress: "Dress",
+  DRESS: "Dress",
+  Onepiece: "Dress",
+  ONEPIECE: "Dress",
+  원피스: "Dress",
+  Concept: "Concept",
+  CONCEPT: "Concept",
+  상의: "Top",
+};
+
+const CATEGORY_LABELS = {
+  Top: "탑",
+  Knit: "니트",
+  Shirt: "셔츠",
+  Jacket: "자켓",
+  Coat: "코트",
+  Outerwear: "아우터",
+  Pants: "하의",
+  Skirt: "스커트",
+  Dress: "원피스",
+  Concept: "컨셉",
+};
+
+const STYLE_LABELS = {
+  Minimal: "미니멀",
+  Street: "스트릿",
+  Classic: "클래식",
+  Sport: "스포티",
+  Romantic: "로맨틱",
+};
+
+const GENDER_LABELS = {
+  MALE: "남자",
+  FEMALE: "여자",
+  UNISEX: "공용",
+  Mens: "남자",
+  Womens: "여자",
+  Unisex: "공용",
+};
+
+const labelToKeyMap = (map) =>
+  Object.fromEntries(Object.entries(map).map(([key, value]) => [value, key]));
+
+const CATEGORY_LABEL_TO_KEY = labelToKeyMap(CATEGORY_LABELS);
+const STYLE_LABEL_TO_KEY = labelToKeyMap(STYLE_LABELS);
+const GENDER_LABEL_TO_KEY = labelToKeyMap(GENDER_LABELS);
+
+const normalizeCategoryValue = (value) => {
+  if (!value) return "";
+  const trimmed = String(value).trim();
+  if (!trimmed) return "";
+  return CATEGORY_ALIASES[trimmed] || CATEGORY_ALIASES[trimmed.toUpperCase()] || trimmed;
+};
 
 const readFileAsDataUrl = (file) =>
   new Promise((resolve, reject) => {
@@ -198,10 +278,6 @@ function App() {
     type: null,
     value: "",
     view: null,
-  });
-  const [shareModal, setShareModal] = useState({
-    open: false,
-    clothing: null,
   });
   const [limitAlertOpen, setLimitAlertOpen] = useState(false);
   const [limitAlertMessage, setLimitAlertMessage] = useState("");
@@ -687,6 +763,24 @@ function App() {
     selectedBrandKey,
   ]);
 
+  const canEditBrandDesigns = useMemo(() => {
+    if (!selectedBrandProfile) return false;
+    if (selectedBrandKey === "my-brand") return true;
+    const selectedHandle = (selectedBrandProfile.handle || "").toLowerCase();
+    const myHandle = (myBrandDetails.handle || "").toLowerCase();
+    const selectedBrand = (selectedBrandProfile.brand || "").toLowerCase();
+    const myBrand = (myBrandDetails.brand || "").toLowerCase();
+    return (
+      (selectedHandle && myHandle && selectedHandle === myHandle) ||
+      (selectedBrand && myBrand && selectedBrand === myBrand)
+    );
+  }, [
+    selectedBrandKey,
+    selectedBrandProfile,
+    myBrandDetails.handle,
+    myBrandDetails.brand,
+  ]);
+
   const searchResults = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     if (!query) return [];
@@ -738,10 +832,14 @@ function App() {
 
   const categoryToMain = useMemo(
     () => ({
+      Top: "Tops",
       Knit: "Tops",
+      Shirt: "Tops",
       Jacket: "Outer",
       Outerwear: "Outer",
       Coat: "Outer",
+      Pants: "Bottoms",
+      Skirt: "Bottoms",
       Dress: "Dress",
       Concept: "Tops",
     }),
@@ -751,7 +849,9 @@ function App() {
   const categories = useMemo(() => {
     const set = new Set();
     fundingsFeed.forEach((item) => {
-      const category = clothingMap[item.clothing_id]?.category;
+      const category = normalizeCategoryValue(
+        clothingMap[item.clothing_id]?.category,
+      );
       if (category) {
         set.add(category);
       }
@@ -802,11 +902,12 @@ function App() {
     const filtered = fundingsFeed.filter((item) => {
       const cloth = clothingMap[item.clothing_id];
       if (!cloth) return false;
-      const mappedMain = categoryToMain[cloth.category] || "Tops";
+      const clothCategory = normalizeCategoryValue(cloth.category);
+      const mappedMain = categoryToMain[clothCategory] || "Tops";
       const matchesMain =
         selectedMainCategory === "All" || mappedMain === selectedMainCategory;
       const matchesSub =
-        selectedSubCategory === "All" || cloth.category === selectedSubCategory;
+        selectedSubCategory === "All" || clothCategory === selectedSubCategory;
       const matchesGender =
         selectedGender === "All" || cloth.gender === selectedGender;
       const matchesStyle =
@@ -882,8 +983,8 @@ function App() {
     return false;
   };
 
-  const generateDesign = async () => {
-    if (designCoins <= 0) {
+  const generateDesign = async ({ consumeToken = false } = {}) => {
+    if (consumeToken && designCoins <= 0) {
       alert("디자인 토큰이 부족합니다.");
       return;
     }
@@ -897,6 +998,10 @@ function App() {
     if (files.length !== 2) {
       alert("앞면과 뒷면 도안 이미지가 모두 필요합니다.");
       return;
+    }
+
+    if (consumeToken) {
+      setDesignCoins((prev) => Math.max(0, prev - 1));
     }
 
     const trimmed = prompt.trim();
@@ -947,7 +1052,6 @@ function App() {
       setClothing((prev) => [...prev, newDesign]);
       setGeneratedDesigns((prev) => [newDesign, ...prev]);
       setBrand((prev) => ({ ...prev, clothes_count: prev.clothes_count + 1 }));
-      setDesignCoins((prev) => Math.max(0, prev - 1));
       setDetailTab("overview");
       setAiDesignDraft({
         name: newDesign.name,
@@ -962,6 +1066,9 @@ function App() {
       setShowResult(true);
 
     } catch (error) {
+      if (consumeToken) {
+        setDesignCoins((prev) => prev + 1);
+      }
       console.error("Design Generation Failed:", error);
       alert(error.response?.data?.message || "디자인 생성에 실패했습니다.");
     } finally {
@@ -975,7 +1082,7 @@ function App() {
       return;
     }
     setDesignGenerateConfirmOpen(false);
-    generateDesign();
+    generateDesign({ consumeToken: true });
   };
 
   const handleAiDesignEditToggle = () => {
@@ -1494,28 +1601,11 @@ function App() {
 
   const detailTags = useMemo(() => {
     if (!detailItem?.clothing) return [];
-    const categoryMap = {
-      Knit: "니트",
-      Jacket: "자켓",
-      Coat: "코트",
-      Dress: "원피스",
-      Top: "상의",
-      Bottom: "하의",
-      Shirt: "셔츠",
-    };
-    const styleMap = {
-      Minimal: "미니멀",
-      Street: "스트릿",
-      Classic: "클래식",
-      Sport: "스포티",
-      Romantic: "로맨틱",
-    };
-    const genderMap = { Mens: "남자", Womens: "여자", Unisex: "공용" };
+    const categoryValue = normalizeCategoryValue(detailItem.clothing.category);
     const tags = [
-      categoryMap[detailItem.clothing.category] ||
-      detailItem.clothing.category,
-      styleMap[detailItem.clothing.style] || detailItem.clothing.style,
-      genderMap[detailItem.clothing.gender] || detailItem.clothing.gender,
+      CATEGORY_LABELS[categoryValue] || categoryValue,
+      STYLE_LABELS[detailItem.clothing.style] || detailItem.clothing.style,
+      GENDER_LABELS[detailItem.clothing.gender] || detailItem.clothing.gender,
     ].filter(Boolean);
     return Array.from(new Set(tags));
   }, [detailItem]);
@@ -1529,46 +1619,24 @@ function App() {
   }, [brandProfileMap, detailItem]);
 
   const handleDetailTagClick = (tag) => {
-    const categoryMap = {
-      Knit: "니트",
-      Jacket: "자켓",
-      Coat: "코트",
-      Dress: "원피스",
-      Top: "상의",
-      Bottom: "하의",
-      Shirt: "셔츠",
-    };
-    const styleMap = {
-      Minimal: "미니멀",
-      Street: "스트릿",
-      Classic: "클래식",
-      Sport: "스포티",
-      Romantic: "로맨틱",
-    };
-    const genderMap = { Mens: "남자", Womens: "여자", Unisex: "공용" };
-    const categoryLabelMap = Object.fromEntries(
-      Object.entries(categoryMap).map(([key, value]) => [value, key]),
-    );
-    const styleLabelMap = Object.fromEntries(
-      Object.entries(styleMap).map(([key, value]) => [value, key]),
-    );
-    const genderLabelMap = Object.fromEntries(
-      Object.entries(genderMap).map(([key, value]) => [value, key]),
-    );
+    const category =
+      CATEGORY_LABEL_TO_KEY[tag] || (categoryToMain[tag] ? tag : null);
+    const style = STYLE_LABEL_TO_KEY[tag] || (STYLE_LABELS[tag] ? tag : null);
+    const gender =
+      GENDER_LABEL_TO_KEY[tag] || (GENDER_LABELS[tag] ? tag : null);
 
-    if (categoryLabelMap[tag]) {
-      const category = categoryLabelMap[tag];
+    if (category) {
       setSelectedMainCategory(categoryToMain[category] || "Tops");
       setSelectedSubCategory(category);
       setSelectedStyle("All");
       setSelectedGender("All");
-    } else if (styleLabelMap[tag]) {
-      setSelectedStyle(styleLabelMap[tag]);
+    } else if (style) {
+      setSelectedStyle(style);
       setSelectedMainCategory("All");
       setSelectedSubCategory("All");
       setSelectedGender("All");
-    } else if (genderLabelMap[tag]) {
-      setSelectedGender(genderLabelMap[tag]);
+    } else if (gender) {
+      setSelectedGender(gender);
       setSelectedMainCategory("All");
       setSelectedSubCategory("All");
       setSelectedStyle("All");
@@ -2643,6 +2711,23 @@ function App() {
       console.error('Failed to delete design', err);
       alert('삭제에 실패했습니다: ' + (err.response?.data?.message || err.message));
     }
+  };
+
+  const openBrandDesignEditor = (design) => {
+    if (!design) return;
+    setAiDesignModal({ open: true, design });
+    setAiDesignDraft({
+      name: design.name || "",
+      price: design.price || 0,
+      category: design.category || "",
+      style: design.style || "",
+      gender: design.gender || "",
+      description: design.description || "",
+      story: myBrandDetails.bio || design.story || "",
+    });
+    setDetailTab("overview");
+    setModalViewSide("front");
+    setAiDesignEditMode(true);
   };
 
   const resetFilters = () => {
@@ -4349,7 +4434,9 @@ function App() {
                             }`}
                           onClick={() => setSelectedSubCategory(category)}
                         >
-                          <span className="tag-label">{category}</span>
+                          <span className="tag-label">
+                            {CATEGORY_LABELS[category] || category}
+                          </span>
                           {selectedSubCategory === category && (
                             <span
                               className="tag-clear"
@@ -4721,30 +4808,6 @@ function App() {
                                 >
                                   <Heart size={14} strokeWidth={1.6} />
                                   {detailItem.funding.likes}
-                                </button>
-                                <button
-                                  type="button"
-                                  className="like-count-inline subtle"
-                                  aria-label="Share"
-                                  onClick={() => {
-                                    if (!isLoggedIn) {
-                                      openAuthModal("login-required");
-                                      return;
-                                    }
-                                    setShareModal({
-                                      open: true,
-                                      clothing: detailItem.clothing
-                                    });
-                                  }}
-                                >
-                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-                                    <circle cx="18" cy="5" r="3" />
-                                    <circle cx="6" cy="12" r="3" />
-                                    <circle cx="18" cy="19" r="3" />
-                                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
-                                    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
-                                  </svg>
-                                  공유
                                 </button>
                               </div>
                             </div>
@@ -6827,8 +6890,18 @@ function App() {
                       }
                     }}
                   >
-                    {brandEditing &&
-                      selectedBrandProfile.handle === myBrandDetails.handle && (
+                    {canEditBrandDesigns && (
+                      <div className="brand-feed-actions">
+                        <button
+                          type="button"
+                          className="brand-feed-edit"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            openBrandDesignEditor(entry.clothing);
+                          }}
+                        >
+                          수정
+                        </button>
                         <button
                           type="button"
                           className="brand-feed-remove"
@@ -6838,9 +6911,10 @@ function App() {
                             removeBrandDesign(entry.clothing.id);
                           }}
                         >
-                          ×
+                          삭제
                         </button>
-                      )}
+                      </div>
+                    )}
                     <img
                       src={entry.clothing.design_img_url}
                       alt={entry.clothing.name}
@@ -7707,88 +7781,6 @@ function App() {
           </div>
         </div>
       )}
-      {shareModal.open && (
-        <div className="auth-modal" role="dialog" aria-modal="true">
-          <div className="auth-modal-content" style={{ maxWidth: '500px' }}>
-            <button
-              type="button"
-              className="auth-modal-close"
-              aria-label="Close"
-              onClick={() => setShareModal({ open: false, clothing: null })}
-            >
-              ×
-            </button>
-            <h3>디자인 공유하기</h3>
-            <div style={{ marginTop: '24px', marginBottom: '24px' }}>
-              <div style={{
-                background: '#f8f8f8',
-                borderRadius: '12px',
-                padding: '20px',
-                display: 'flex',
-                gap: '16px',
-                alignItems: 'center'
-              }}>
-                <img
-                  src={shareModal.clothing?.design_img_url}
-                  alt={shareModal.clothing?.name}
-                  style={{
-                    width: '120px',
-                    height: '120px',
-                    objectFit: 'cover',
-                    borderRadius: '8px'
-                  }}
-                />
-                <div style={{ flex: 1 }}>
-                  <h4 style={{ margin: '0 0 8px 0', fontSize: '18px' }}>{shareModal.clothing?.name}</h4>
-                  <p style={{ margin: '0 0 8px 0', color: '#666', fontSize: '14px' }}>
-                    {shareModal.clothing?.description || '멋진 디자인을 모두와 공유해보세요!'}
-                  </p>
-                  <div style={{ fontSize: '16px', fontWeight: '600' }}>
-                    {currency.format(shareModal.clothing?.price || 0)}
-                  </div>
-                </div>
-              </div>
-              <p style={{ marginTop: '16px', color: '#666', fontSize: '14px', lineHeight: '1.6' }}>
-                이 디자인을 공유하면 모든 사용자의 Discover 탭에 표시됩니다.
-                더 많은 사람들이 펀딩에 참여할 수 있습니다!
-              </p>
-            </div>
-            <div className="auth-modal-actions">
-              <button
-                type="button"
-                className="secondary"
-                onClick={() => setShareModal({ open: false, clothing: null })}
-              >
-                취소
-              </button>
-              <button
-                type="button"
-                className="primary"
-                onClick={async () => {
-                  try {
-                    await updateCloth(shareModal.clothing.id, { is_public: true });
-                    alert('디자인이 성공적으로 공유되었습니다!');
-
-                    // Update local state
-                    setClothing(prev => prev.map(item =>
-                      item.id === shareModal.clothing.id
-                        ? { ...item, is_public: true }
-                        : item
-                    ));
-
-                    setShareModal({ open: false, clothing: null });
-                  } catch (err) {
-                    console.error('Failed to share clothing', err);
-                    alert('공유에 실패했습니다: ' + (err.response?.data?.message || err.message));
-                  }
-                }}
-              >
-                공유하기
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
       {nameModal.open && (
         <div className="auth-modal" role="dialog" aria-modal="true">
           <div className="auth-modal-content">
@@ -8051,7 +8043,7 @@ function App() {
               ×
             </button>
             <div className="design-generate-top">
-              <h3>디자인 토큰이 소모됩니다.</h3>
+              <h3>디자인 토큰 1개를 소모하시겠습니까?</h3>
               <button
                 type="button"
                 className="design-coin"
@@ -8092,7 +8084,7 @@ function App() {
                 <span className="design-coin-count">{designCoins}</span>
               </button>
             </div>
-            <p>확인하면 AI 디자인 생성 페이지로 이동합니다.</p>
+            <p>확인하면 바로 디자인 생성을 시작합니다.</p>
             <div className="auth-modal-actions">
               <button
                 type="button"
@@ -8106,7 +8098,7 @@ function App() {
                 className="primary"
                 onClick={confirmGenerateDesign}
               >
-                확인
+                소모하고 생성
               </button>
             </div>
           </div>

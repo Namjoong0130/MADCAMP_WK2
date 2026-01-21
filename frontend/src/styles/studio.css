@@ -468,6 +468,14 @@
   gap: 12px;
 }
 
+.ai-design-modal .ai-design-actions .secondary,
+.ai-design-modal .ai-design-actions .primary {
+  padding: 8px 14px;
+  min-width: 80px;
+  border-radius: 999px;
+  font-size: 12px;
+}
+
 .ai-design-modal .auth-modal-close {
   top: 16px;
   right: 18px;
