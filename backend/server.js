@@ -14,9 +14,12 @@ async function main() {
     await prisma.$connect();
     console.log('✅ 데이터베이스 연결 성공');
 
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, () => {
       console.log(`🚀 서버가 포트 ${PORT}에서 작동 중입니다.`);
     });
+
+    // Increase timeout to 10 minutes for long-running AI tasks
+    server.setTimeout(600000);
   } catch (error) {
     console.error('❌ 서버 시작 실패:', error);
     await prisma.$disconnect();

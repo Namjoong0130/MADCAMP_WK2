@@ -107,4 +107,22 @@ router.post('/:fittingId/results', authMiddleware, fittingController.createFitti
  */
 router.post('/:fittingId/generate', authMiddleware, fittingController.generateFitting);
 
+/**
+ * @swagger
+ * /api/fittings/{fittingId}/mannequin:
+ *   post:
+ *     summary: Trigger AI Mannequin generation (Step 2)
+ *     tags: [Fittings]
+ *     parameters:
+ *       - in: path
+ *         name: fittingId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Mannequin generation initiated
+ */
+router.post('/:fittingId/mannequin', authMiddleware, fittingController.generateMannequin);
+
 module.exports = router;

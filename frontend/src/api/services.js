@@ -88,6 +88,11 @@ export const getMyFittings = async () => {
     return response.data.data;
 };
 
+export const generateMannequin = async (fittingId) => {
+    const response = await axios.post(`/api/fittings/${fittingId}/mannequin`);
+    return response.data.data;
+};
+
 export const getDesignHistory = async () => {
     const response = await axios.get('/api/clothes/design/history');
     return response.data.data;

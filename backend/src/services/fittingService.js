@@ -171,9 +171,6 @@ exports.generateFittingImage = async (userId, fittingId) => {
       externalClothItems
     );
 
-    // 2. Generate Mannequin Ver.
-    const mannequinUrl = await aiService.generateMannequinResult(fittingId, tryOnUrl);
-
     // Create Result Record (Primary Try-On)
     const result = await prisma.fittingResult.create({
       data: {
@@ -181,19 +178,6 @@ exports.generateFittingImage = async (userId, fittingId) => {
         user_id: userId,
         result_img_url: tryOnUrl,
         generation_prompt: 'AI Virtual Try-On'
-      }
-    });
-
-    // Ideally store mannequinUrl too, but schema might not have it.
-    // We can store it in a separate result or note.
-    // For now, let's create a second result entry or just log it.
-    // Creating second result for Mannequin
-    await prisma.fittingResult.create({
-      data: {
-        fitting_id: fittingId,
-        user_id: userId,
-        result_img_url: mannequinUrl,
-        generation_prompt: 'AI Mannequin Transformation'
       }
     });
 
@@ -205,18 +189,70 @@ exports.generateFittingImage = async (userId, fittingId) => {
     await notificationService.createNotification({
       userId,
       title: 'AI 피팅 완료',
-      message: '피팅 결과(착용샷 + 마네킹)가 생성되었습니다.',
+      message: '가상 피팅(Real) 결과가 생성되었습니다.',
       type: 'GENERAL',
       url: `/fittings/${fittingId}`,
       data: { fitting_id: fittingId },
     });
 
-    return { tryOn: tryOnUrl, mannequin: mannequinUrl };
+    return { tryOn: tryOnUrl };
   } catch (error) {
     await prisma.fitting.update({
       where: { fitting_id: fittingId },
       data: { status: 'FAILED' },
     });
+    throw error;
+  }
+};
+
+exports.generateMannequinImage = async (userId, fittingId) => {
+  const fitting = await prisma.fitting.findUnique({
+    where: { fitting_id: fittingId },
+    include: { results: true }
+  });
+  if (!fitting || fitting.user_id !== userId) {
+    throw createError(404, '피팅을 찾을 수 없습니다.');
+  }
+
+  // Find the Try-On result to use as input
+  // Look for the latest result that is NOT a mannequin result (heuristic based on prompt or just latest)
+  // Or simpler: The prompt 'AI Virtual Try-On'
+  const tryOnResult = fitting.results
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    .find(r => r.generation_prompt === 'AI Virtual Try-On');
+
+  if (!tryOnResult) {
+    throw createError(400, '먼저 가상 피팅(Real)을 생성해야 마네킹 변환이 가능합니다.');
+  }
+
+  try {
+    console.log(`[FittingService] Starting Mannequin generation for Fitting ID: ${fittingId}`);
+
+    // Generate Mannequin Ver.
+    const mannequinUrl = await aiService.generateMannequinResult(fittingId, tryOnResult.result_img_url);
+
+    // Create Result Record for Mannequin
+    await prisma.fittingResult.create({
+      data: {
+        fitting_id: fittingId,
+        user_id: userId,
+        result_img_url: mannequinUrl,
+        generation_prompt: 'AI Mannequin Transformation'
+      }
+    });
+
+    await notificationService.createNotification({
+      userId,
+      title: '마네킹 변환 완료',
+      message: '마네킹 피팅 결과가 생성되었습니다.',
+      type: 'GENERAL',
+      url: `/fittings/${fittingId}`,
+      data: { fitting_id: fittingId },
+    });
+
+    return { mannequin: mannequinUrl };
+  } catch (error) {
+    console.error('Mannequin generation failed:', error);
     throw error;
   }
 };

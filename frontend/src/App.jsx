@@ -30,6 +30,7 @@ import {
   createCloth,
   deleteCloth,
   createFitting,
+  generateMannequin,
   generateDesign as apiGenerateDesign,
 } from "./api/services";
 import Tshirt from "./Tshirt";
@@ -143,8 +144,9 @@ function App() {
     is_public: false,
   });
   const [generatedDesigns, setGeneratedDesigns] = useState([]);
-  const [fittingLayers, setFittingLayers] = useState([]);
-  const [fittingLayersDraft, setFittingLayersDraft] = useState([]);
+  const [fittingLayers, setFittingLayers] = useState([]); // The finalized layers being worn
+  const [fittingLayersDraft, setFittingLayersDraft] = useState([]); // Draft layers in panel
+  const [currentFittingId, setCurrentFittingId] = useState(null); // ID of the latest fitting session
   const [focusClothingId, setFocusClothingId] = useState(null);
   const [isComposing, setIsComposing] = useState(false);
   const [fittingView, setFittingView] = useState("real");
@@ -5603,28 +5605,52 @@ function App() {
                         style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                       />
                     ) : (
-                      fittingLayers.length === 0 ? (
-                        <div style={{
-                          textAlign: 'center',
-                          color: '#666',
-                          fontSize: '16px',
-                          fontWeight: '500'
-                        }}>
-                          Fitting을 누르면 마네킹이 형성됩니다
-                        </div>
-                      ) : (
-                        /* Placeholder while waiting for result, show layers stacked? */
-                        <div className="fitting-mannequin-result" style={{
-                          width: '100%',
-                          height: '100%',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }}>
-                          {/* Reusing layer stack logic for feedback */}
-                          {/* Layer stack removed as per user request */}
-                        </div>
-                      )
+                      <div style={{
+                        width: '100%',
+                        height: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexDirection: 'column',
+                        gap: '20px'
+                      }}>
+                        {currentFittingId && fittingRealResult ? (
+                          <div style={{ textAlign: 'center' }}>
+                            <p style={{ marginBottom: '16px', color: '#666' }}>
+                              가상 피팅(Real)이 완료되었습니다.<br />마네킹 변환을 진행하시겠습니까?
+                            </p>
+                            <button
+                              className="virtual-try-on-btn" // Reuse style
+                              style={{ width: 'auto', padding: '12px 24px', margin: '0 auto' }}
+                              onClick={async () => {
+                                setIsComposing(true);
+                                try {
+                                  const response = await generateMannequin(currentFittingId);
+                                  if (response && response.mannequin) {
+                                    setFittingMannequinResult(normalizeAssetUrl(response.mannequin));
+                                  }
+                                } catch (err) {
+                                  console.error("Mannequin Generation Failed:", err);
+                                  alert("마네킹 생성 실패: " + (err.response?.data?.error?.message || err.message));
+                                } finally {
+                                  setIsComposing(false);
+                                }
+                              }}
+                            >
+                              마네킹 만들기
+                            </button>
+                          </div>
+                        ) : (
+                          <div style={{
+                            textAlign: 'center',
+                            color: '#666',
+                            fontSize: '16px',
+                            fontWeight: '500'
+                          }}>
+                            Fitting을 누르면 시작됩니다
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
                 ) : (
@@ -5752,18 +5778,25 @@ function App() {
 
                           const response = await createFitting(payload);
 
-                          // Response structure: { fitting: {...}, results: { tryOn: 'url', mannequin: 'url' } }
+                          // Response structure: { fitting: {...}, results: { tryOn: 'url' } }
+                          if (response && response.fitting && response.fitting.fitting_id) {
+                            // Store fitting ID for step 2 (Mannequin)
+                            // We need a state for this if not exist. 
+                            // Assuming we can use a ref or state. Let's add specific state for current session fitting ID.
+                            // But since I can't easily add top-level state here without context, I'll set it to a ref or assume user stays on page.
+                            // Better: Add `currentFittingId` state at top level.
+                            // For now, let's look at how to persist it.
+                            setCurrentFittingId(response.fitting.fitting_id);
+                          }
+
                           if (response && response.results) {
                             setFittingRealResult(normalizeAssetUrl(response.results.tryOn));
-                            if (response.results.mannequin) {
-                              setFittingMannequinResult(normalizeAssetUrl(response.results.mannequin));
-                            }
-                            // Auto-switch to Real view to see result first? Or keep current.
-                            // User typically wants to see the result.
-                            if (fittingView === '3d') {
-                              // If on mannequin, we likely want to stay there if it generated.
-                              // But typically real try-on is primary.
-                            }
+                            // Mannequin is NOT generated yet.
+                            setFittingMannequinResult(null);
+
+                            // Auto-switch to Real view to see result
+                            setFittingView("real");
+                            setActiveTab("fitting");
                           }
                         } catch (error) {
                           console.error("Fitting Generation Failed:", error);

@@ -127,7 +127,19 @@ exports.generateFitting = async (req, res, next) => {
       req.user.userId,
       Number(req.params.fittingId)
     );
-    return success(res, result, 'AI 피팅이 시작되었습니다.');
+    return success(res, result, '가상 피팅(Real)이 시작되었습니다.');
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.generateMannequin = async (req, res, next) => {
+  try {
+    const result = await fittingService.generateMannequinImage(
+      req.user.userId,
+      Number(req.params.fittingId)
+    );
+    return success(res, result, '마네킹 변환이 시작되었습니다.');
   } catch (error) {
     next(error);
   }
