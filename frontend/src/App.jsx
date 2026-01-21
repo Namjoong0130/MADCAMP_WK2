@@ -146,7 +146,7 @@ function App() {
   const [fittingLayersDraft, setFittingLayersDraft] = useState([]);
   const [focusClothingId, setFocusClothingId] = useState(null);
   const [isComposing, setIsComposing] = useState(false);
-  const [fittingView, setFittingView] = useState("3d");
+  const [fittingView, setFittingView] = useState("real");
   const [fittingZoom, setFittingZoom] = useState(0.9);
   const [fittingRealBaseUrl, setFittingRealBaseUrl] = useState(
     userBase.base_photo_url || "/image7.png",
@@ -367,16 +367,16 @@ function App() {
         try {
           const myClothes = await getClothes({ brand_id: myBrandId });
           const designs = myClothes.map(cloth => ({
-            id: cloth.id,
-            name: cloth.name || `Design ${cloth.id}`,
+            id: cloth.clothing_id || cloth.id,
+            name: cloth.clothing_name || cloth.name || `Design ${cloth.id}`,
             savedAt: formatTimestamp(new Date(cloth.created_at)),
-            design_img_url: cloth.design_img_url,
+            design_img_url: cloth.final_result_front_url || cloth.thumbnail_url || cloth.design_img_url,
             final_result_all_url: cloth.final_result_all_url,
             final_result_front_url: cloth.final_result_front_url,
             final_result_back_url: cloth.final_result_back_url,
             description: cloth.description,
             price: cloth.price,
-            category: cloth.category,
+            category: cloth.category || cloth.sub_category,
             style: cloth.style
           }));
           setGeneratedDesigns(designs);
@@ -2380,42 +2380,46 @@ function App() {
       front: await resolvePhotoData(studioSidePhotos.front, "front.png"),
       back: await resolvePhotoData(studioSidePhotos.back, "back.png"),
     };
-    setTempDesigns((prev) => [
-      {
-        id: nextId,
-        name: name || "임시 스케치",
-        savedAt: formatTimestamp(new Date()),
-        design_prompt: name || prompt.trim() || "임시 스케치",
+    // Persistent Save to Server
+    try {
+      const payload = {
+        clothing_name: name || "내 디자인",
+        category: designCategory || "TOP",
+        sub_category: designCategory,
+        gender: designGender,
         design_img_url: previewUrl,
-        resultDesign: currentDesignPreview
-          ? {
-            id: currentDesignPreview.id,
-            name: currentDesignPreview.name,
-            design_img_url: currentDesignPreview.design_img_url,
-          }
-          : null,
-        studioState: {
-          activeSide: studioSide,
-          sideImages: { ...studioSideImages },
-          sidePhotos: storedSidePhotos,
-          prompt,
-          designGender,
-          designCategory,
-          designLength,
-          designTool,
-          designColor,
-          designSize,
-          sizeRange: [...sizeRange],
-          sizeDetailSelected,
-          sizeDetailInputs: { ...sizeDetailInputs },
-          designScale,
-          designViewSide,
-          fabric: { ...fabric },
-        },
-        isTemp: true,
-      },
-      ...prev,
-    ]);
+        final_result_front_url: previewUrl,
+        prompt: prompt || name || "",
+        clothing_img_url: previewUrl,
+        style: "casual", // Default or detect
+        price: 0,
+        is_public: true, // Default to true or false?
+        // Basic physics params
+        stretch: 5,
+        weight: 5,
+        stiffness: 5,
+        thickness: 5,
+        // Body dimensions (optional, attached to user)
+      };
+
+      const newDesign = await createCloth(payload);
+      if (newDesign) {
+        // Map backend response to frontend design object
+        const designToAdd = {
+          ...newDesign,
+          savedAt: formatTimestamp(new Date(newDesign.created_at || Date.now())),
+          // Ensure name is correct (backend sends name, but just in case)
+          name: newDesign.name || newDesign.clothing_name || name
+        };
+        setGeneratedDesigns((prev) => [designToAdd, ...prev]);
+        alert("디자인이 저장되었습니다.");
+
+        // Clear current canvas tracking if needed, or keep for further editing
+      }
+    } catch (error) {
+      console.error("Failed to save design:", error);
+      alert(`저장 실패: ${error.message || "알 수 없는 오류"}`);
+    }
   };
 
   const loadSavedDesign = async (item) => {
@@ -5577,23 +5581,72 @@ function App() {
                   저장
                 </button>
                 {fittingView === "3d" ? (
-                  <Canvas
-                    camera={{ position: [0, 0, 1.5], fov: 45 }}
-                    gl={{ preserveDrawingBuffer: true }}
-                    onCreated={({ gl }) => {
-                      fittingCanvasRef.current = gl.domElement;
-                    }}
-                  >
-                    <ambientLight intensity={0.6} />
-                    <directionalLight position={[2, 2, 2]} intensity={0.8} />
-                    <OrbitControls enablePan={false} />
-                    <Suspense fallback={null}>
-                      <Environment preset="city" />
-                      <Center>
-                        <Tshirt />
-                      </Center>
-                    </Suspense>
-                  </Canvas>
+                  /* Preserving 3D Canvas logic for later GLB integration, but replacing with 2D view for now */
+                  false ? (
+                    <Canvas
+                      camera={{ position: [0, 0, 1.5], fov: 45 }}
+                      gl={{ preserveDrawingBuffer: true }}
+                      onCreated={({ gl }) => {
+                        fittingCanvasRef.current = gl.domElement;
+                      }}
+                    >
+                      <ambientLight intensity={0.6} />
+                      <directionalLight position={[2, 2, 2]} intensity={0.8} />
+                      <OrbitControls enablePan={false} />
+                      <Suspense fallback={null}>
+                        <Environment preset="city" />
+                        <Center>
+                          <Tshirt />
+                        </Center>
+                      </Suspense>
+                    </Canvas>
+                  ) : (
+                    <div className="fitting-mannequin-2d" style={{
+                      width: '100%',
+                      height: '100%',
+                      backgroundColor: '#f0f0f0',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      position: 'relative',
+                      overflow: 'hidden'
+                    }}>
+                      {fittingLayers.length === 0 ? (
+                        <div style={{
+                          textAlign: 'center',
+                          color: '#666',
+                          fontSize: '16px',
+                          fontWeight: '500'
+                        }}>
+                          Fitting을 누르면 마네킹이 형성됩니다
+                        </div>
+                      ) : (
+                        /* Placeholder for Mannequin Photo */
+                        <div className="fitting-mannequin-result" style={{
+                          width: '100%',
+                          height: '100%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}>
+                          {/* Reusing layer stack logic for now, or just empty background with layers */}
+                          <div className="layer-stack" style={{
+                            transform: `scale(${fittingZoom})`,
+                            transformOrigin: "center"
+                          }}>
+                            {fittingLayers.map((id) => (
+                              <img
+                                key={id}
+                                src={clothingMap[id]?.design_img_url}
+                                alt={clothingMap[id]?.name}
+                              />
+                            ))}
+                          </div>
+                          {/* Add a placeholder mannequin base if desired, but user just said "photo here" */}
+                        </div>
+                      )}
+                    </div>
+                  )
                 ) : (
                   <div
                     className="fitting-real"
@@ -5665,8 +5718,8 @@ function App() {
                 {isComposing && <div className="compose">AI 합성 중...</div>}
               </div>
 
-              <div className="fitting-panel">
-                <div className="panel-block layer-panel">
+              <div className="fitting-panel" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                <div className="panel-block layer-panel" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                   <div className="layer-panel-header">
                     <h3>레이어링 피팅</h3>
                     <button
@@ -5677,44 +5730,153 @@ function App() {
                       Fitting
                     </button>
                   </div>
-                  <div className="layer-list">
-                    {fittingLayersDraft.map((id, index) => (
-                      <div key={id} className="layer-item">
-                        <span>
-                          {index + 1}. {clothingMap[id]?.name}
-                        </span>
-                        <div>
-                          <button
-                            type="button"
-                            onClick={() => moveLayer(id, "up")}
-                          >
-                            ↑
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => moveLayer(id, "down")}
-                          >
-                            ↓
-                          </button>
-                          <button type="button" onClick={() => removeLayer(id)}>
-                            제거
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                    {fittingLayersDraft.length === 0 && (
-                      <p>현재 레이어가 비어 있습니다.</p>
-                    )}
-                  </div>
-                </div>
 
-                <div className="panel-block">
-                  <h3>AI 매칭 점수</h3>
-                  <div className="score">
-                    <strong>{fitAnalysis.score}</strong>
-                    <span>점</span>
+                  {/* Tops Group */}
+                  <div className="layer-group" style={{
+                    border: '2px solid #ddd',
+                    borderRadius: '12px',
+                    padding: '12px',
+                    marginBottom: '10px',
+                    flex: 1,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden',
+                    minHeight: 0
+                  }}>
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      marginBottom: '8px',
+                      color: '#555',
+                      fontWeight: '600',
+                      fontSize: '14px',
+                      flexShrink: 0
+                    }}>
+                      {/* Simple Shirt Icon SVG */}
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M20.38 3.4a1.6 1.6 0 00-1.58-1c-.5.03-1 .27-1.34.69L12 9.5 6.54 3.09c-.34-.42-.84-.66-1.34-.69a1.6 1.6 0 00-1.58 1L2.1 12l.14.7H6v8h12v-8h3.76l.14-.7-1.52-8.6z" />
+                      </svg>
+                      Tops
+                    </div>
+                    <div className="layer-list" style={{ flex: 1, overflowY: 'auto' }}>
+                      {fittingLayersDraft
+                        .filter(id => {
+                          const cat = clothingMap[id]?.category;
+                          if (!cat) return true;
+                          const upper = String(cat).toUpperCase();
+                          // If it is NOT bottom/shoes/acc, it goes to Tops
+                          return !['BOTTOM', 'SHOES', 'ACC', 'PANTS', 'SKIRT'].includes(upper);
+                        })
+                        .map((id, index) => (
+                          <div key={id} className="layer-item">
+                            <span>
+                              {clothingMap[id]?.name}
+                            </span>
+                            <div>
+                              <button
+                                type="button"
+                                onClick={() => moveLayer(id, "up")}
+                                aria-label="Move up"
+                              >
+                                ↑
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => moveLayer(id, "down")}
+                                aria-label="Move down"
+                              >
+                                ↓
+                              </button>
+                              <button type="button" onClick={() => removeLayer(id)}>
+                                제거
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      {fittingLayersDraft.filter(id => {
+                        const cat = clothingMap[id]?.category;
+                        if (!cat) return true;
+                        const upper = String(cat).toUpperCase();
+                        // If it is NOT bottom/shoes/acc, it goes to Tops
+                        return !['BOTTOM', 'SHOES', 'ACC', 'PANTS', 'SKIRT'].includes(upper);
+                      }).length === 0 && (
+                          <p style={{ color: '#aaa', fontSize: '13px', textAlign: 'center', padding: '10px 0' }}>선택된 상의가 없습니다.</p>
+                        )}
+                    </div>
                   </div>
-                  <p>{fitAnalysis.message}</p>
+
+                  {/* Bottoms Group */}
+                  <div className="layer-group" style={{
+                    border: '2px solid #ddd',
+                    borderRadius: '12px',
+                    padding: '12px',
+                    flex: 1,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden',
+                    minHeight: 0
+                  }}>
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      marginBottom: '8px',
+                      color: '#555',
+                      fontWeight: '600',
+                      fontSize: '14px',
+                      flexShrink: 0
+                    }}>
+                      {/* Pants Icon SVG */}
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M4 22h16M4 2v20M20 2v20M8 2v13M16 2v13" />
+                      </svg>
+                      Bottoms
+                    </div>
+                    <div className="layer-list" style={{ flex: 1, overflowY: 'auto' }}>
+                      {fittingLayersDraft
+                        .filter(id => {
+                          const cat = clothingMap[id]?.category;
+                          if (!cat) return false;
+                          const upper = String(cat).toUpperCase();
+                          return ['BOTTOM', 'SHOES', 'ACC', 'PANTS', 'SKIRT'].includes(upper);
+                        })
+                        .map((id, index) => (
+                          <div key={id} className="layer-item">
+                            <span>
+                              {clothingMap[id]?.name}
+                            </span>
+                            <div>
+                              <button
+                                type="button"
+                                onClick={() => moveLayer(id, "up")}
+                                aria-label="Move up"
+                              >
+                                ↑
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => moveLayer(id, "down")}
+                                aria-label="Move down"
+                              >
+                                ↓
+                              </button>
+                              <button type="button" onClick={() => removeLayer(id)}>
+                                제거
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      {fittingLayersDraft.filter(id => {
+                        const cat = clothingMap[id]?.category;
+                        if (!cat) return false;
+                        const upper = String(cat).toUpperCase();
+                        return ['BOTTOM', 'SHOES', 'ACC', 'PANTS', 'SKIRT'].includes(upper);
+                      }).length === 0 && (
+                          <p style={{ color: '#aaa', fontSize: '13px', textAlign: 'center', padding: '10px 0' }}>선택된 하의가 없습니다.</p>
+                        )}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -6874,6 +7036,7 @@ function App() {
             className={`studio-gallery-content ${generatedDesigns.length + tempDesigns.length <= 2 ? "compact" : ""
               }`}
             onClick={(event) => event.stopPropagation()}
+            style={{ width: "95%", maxWidth: "1400px", height: "85vh", maxHeight: "900px" }}
           >
             <button
               type="button"
@@ -6886,15 +7049,15 @@ function App() {
             <div className="studio-gallery-header">
               <h3>Generated Gallery</h3>
               <span className="studio-gallery-count">
-                현재 디자인 수: {generatedDesigns.length} / 10
+                현재 디자인 수: {generatedDesigns.length + tempDesigns.length} / 10
               </span>
             </div>
 
             <div className="gallery-grid">
-              {generatedDesigns.length === 0 ? (
+              {generatedDesigns.length + tempDesigns.length === 0 ? (
                 <p className="empty">아직 생성된 디자인이 없습니다.</p>
               ) : null}
-              {generatedDesigns
+              {[...tempDesigns, ...generatedDesigns]
                 .slice(0, 10)
                 .map((item, index) => (
                   <div
@@ -6939,16 +7102,7 @@ function App() {
                           >
                             불러오기
                           </button>
-                          <button
-                            type="button"
-                            className="album-load-btn"
-                            onClick={() => {
-                              setIsGalleryOpen(false);
-                              openMyBrandPage();
-                            }}
-                          >
-                            내 브랜드
-                          </button>
+
                         </div>
                       </div>
                       <span>{item.savedAt}</span>

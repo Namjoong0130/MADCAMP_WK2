@@ -121,13 +121,22 @@ exports.generateFittingImage = async (userId, fittingId) => {
       const cloths = await prisma.cloth.findMany({
         where: { clothing_id: { in: fitting.internal_cloth_ids } }
       });
-      cloths.forEach((c, idx) => {
-        clothingList.push({
-          category: c.category,
-          order: c.layer_order || (idx + 1),
-          name: c.clothing_name,
-          url: c.final_result_front_url // Pass the design image
-        });
+
+      // Create a lookup map
+      const clothMap = new Map();
+      cloths.forEach(c => clothMap.set(c.clothing_id, c));
+
+      // Iterate in the order of IDs preserved in fitting record
+      fitting.internal_cloth_ids.forEach((id, idx) => {
+        const c = clothMap.get(id);
+        if (c) {
+          clothingList.push({
+            category: c.sub_category || c.category, // Use sub-category if available (e.g. detailed 'Top', 'Dress')
+            order: idx + 1, // Strict user order
+            name: c.clothing_name,
+            url: c.final_result_front_url
+          });
+        }
       });
     }
 
