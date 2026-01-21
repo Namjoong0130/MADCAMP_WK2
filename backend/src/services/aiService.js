@@ -43,23 +43,13 @@ const resolveImageUrl = async (imgUrl) => {
     fullPath = path.join(publicRoot, imgUrl);
   }
 
-  // Check existence
   if (fullPath && fs.existsSync(fullPath)) {
     const fileBuffer = fs.readFileSync(fullPath);
     const base64 = fileBuffer.toString('base64');
     const mimeType = fullPath.endsWith('.jpg') ? 'image/jpeg' : 'image/png';
     return `data:${mimeType};base64,${base64}`;
   } else {
-    // If not found, try to strip leading slash and check in UPLOAD_ROOT directly
-    // e.g. /image6.png -> public/images/image6.png
-    const alternativePath = path.join(UPLOAD_ROOT, imgUrl.replace(/^\//, ''));
-    if (fs.existsSync(alternativePath)) {
-      const fileBuffer = fs.readFileSync(alternativePath);
-      const base64 = fileBuffer.toString('base64');
-      return `data:image/png;base64,${base64}`;
-    }
-
-    // FALLBACK: If typical dummy/seed image is missing, use dummy.png if available
+    // Fallback logic...
     console.warn(`[AI Service] Missing local file: ${imgUrl}. Trying dummy fallback.`);
     const dummyPath = path.join(UPLOAD_ROOT, 'dummy.png');
     if (fs.existsSync(dummyPath)) {
@@ -67,8 +57,7 @@ const resolveImageUrl = async (imgUrl) => {
       return `data:image/png;base64,${fileBuffer.toString('base64')}`;
     }
   }
-
-  return imgUrl;
+  return imgUrl; // Return original if all else fails
 };
 
 const { removeBackground: removeBackgroundImgly } = require('@imgly/background-removal-node');
