@@ -66,7 +66,37 @@ router.get('/album', authMiddleware, fittingController.listFittingAlbum);
  *         description: Fitting details
  */
 router.get('/:fittingId', authMiddleware, fittingController.getFittingDetail);
-router.post('/', authMiddleware, fittingController.createFitting);
+
+/**
+ * @swagger
+ * /api/fittings/{fittingId}:
+ *   patch:
+ *     summary: Update fitting details (e.g. note/title)
+ *     tags: [Fittings]
+ *     parameters:
+ *       - in: path
+ *         name: fittingId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               note:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Fitting updated
+ */
+router.patch('/:fittingId', authMiddleware, fittingController.updateFitting);
+
+// Upload middleware for cloth_image
+const uploadMiddleware = require('../middlewares/uploadMiddleware');
+router.post('/', authMiddleware, uploadMiddleware.array('cloth_image'), fittingController.createFitting);
 
 /**
  * @swagger
@@ -85,6 +115,7 @@ router.post('/', authMiddleware, fittingController.createFitting);
  *         description: Result added
  */
 router.post('/:fittingId/results', authMiddleware, fittingController.createFittingResult);
+
 /**
  * @swagger
  * /api/fittings/{fittingId}/generate:
@@ -101,6 +132,24 @@ router.post('/:fittingId/results', authMiddleware, fittingController.createFitti
  *       200:
  *         description: Fitting initiated successfully
  */
-router.post('/:fittingId/generate', authMiddleware, fittingController.generateFitting); // Added
+router.post('/:fittingId/generate', authMiddleware, fittingController.generateFitting);
+
+/**
+ * @swagger
+ * /api/fittings/{fittingId}/mannequin:
+ *   post:
+ *     summary: Trigger AI Mannequin generation (Step 2)
+ *     tags: [Fittings]
+ *     parameters:
+ *       - in: path
+ *         name: fittingId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Mannequin generation initiated
+ */
+router.post('/:fittingId/mannequin', authMiddleware, fittingController.generateMannequin);
 
 module.exports = router;

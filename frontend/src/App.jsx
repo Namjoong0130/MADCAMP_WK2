@@ -1,9 +1,43 @@
-﻿import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+﻿import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Route, Routes } from "react-router-dom";
 import "./App.css";
 import MyFitting from "./pages/MyFitting";
 import { Canvas } from "@react-three/fiber";
 import { Center, Environment, OrbitControls } from "@react-three/drei";
+import {
+  login,
+  signup,
+  getMe,
+  getProfile,
+  updateProfile,
+  updateBodyMetrics,
+  deleteAccount,
+  uploadProfilePhoto
+} from "./api/auth";
+import {
+  getBrandProfiles,
+  createBrand,
+  updateBrand,
+  deleteBrand,
+  uploadBrandLogo,
+  getClothes,
+  getFundingFeed,
+  toggleLike,
+  getFundComments,
+  createFundComment,
+  updateFundComment,
+  deleteFundComment,
+  createCloth,
+  deleteCloth,
+
+  createFitting,
+  generateMannequin,
+  updateFitting,
+  getMyFittings,
+  generateDesign as apiGenerateDesign,
+  getNotifications,
+  markNotificationAsRead,
+} from "./api/services";
 import Tshirt from "./Tshirt";
 import {
   initialClothing,
@@ -31,7 +65,7 @@ import {
   Filter,
   User,
   Pencil,
-  Eraser,
+  Palette,
   Trash2,
 } from "lucide-react";
 
@@ -42,6 +76,134 @@ const buildDefaultBrandDetails = (brandName) => ({
   location: "Seoul",
   logoUrl: "/logo.png",
 });
+
+const buildEmptyBrandDetails = () => ({
+  brand: "이름을 입력해주세요.",
+  handle: "",
+  bio: "소개를 입력해주세요.",
+  location: "지역을 입력해주세요.",
+  logoUrl: "",
+});
+
+const brandPlaceholders = {
+  brand: "이름을 입력해주세요.",
+  bio: "소개를 입력해주세요.",
+};
+
+const getBackendBaseUrl = () => {
+  if (
+    typeof import.meta !== "undefined" &&
+    import.meta.env &&
+    import.meta.env.VITE_API_PROXY_TARGET
+  ) {
+    return import.meta.env.VITE_API_PROXY_TARGET;
+  }
+  return "";
+};
+
+const normalizeAssetUrl = (value) => {
+  if (!value) return "";
+  if (value.startsWith("http")) return value;
+  const base = getBackendBaseUrl();
+  return base ? `${base}${value}` : value;
+};
+
+const TEMP_DESIGN_STORAGE_KEY = "modifTempDesigns";
+
+const CATEGORY_ALIASES = {
+  TOP: "Top",
+  TOPS: "Top",
+  Top: "Top",
+  Knit: "Knit",
+  KNIT: "Knit",
+  Shirt: "Shirt",
+  SHIRT: "Shirt",
+  Jacket: "Jacket",
+  JACKET: "Jacket",
+  자켓: "Jacket",
+  Coat: "Coat",
+  COAT: "Coat",
+  코트: "Coat",
+  Outerwear: "Outerwear",
+  OUTERWEAR: "Outerwear",
+  아우터: "Outerwear",
+  Pants: "Pants",
+  PANTS: "Pants",
+  Bottom: "Pants",
+  Bottoms: "Pants",
+  BOTTOMS: "Pants",
+  BOTTOM: "Pants",
+  하의: "Pants",
+  Skirt: "Skirt",
+  SKIRT: "Skirt",
+  스커트: "Skirt",
+  Dress: "Dress",
+  DRESS: "Dress",
+  Onepiece: "Dress",
+  ONEPIECE: "Dress",
+  원피스: "Dress",
+  Concept: "Concept",
+  CONCEPT: "Concept",
+  상의: "Top",
+};
+
+const CATEGORY_LABELS = {
+  Top: "탑",
+  Knit: "니트",
+  Shirt: "셔츠",
+  Jacket: "자켓",
+  Coat: "코트",
+  Outerwear: "아우터",
+  Pants: "하의",
+  Skirt: "스커트",
+  Dress: "원피스",
+  Concept: "컨셉",
+};
+
+const STYLE_LABELS = {
+  Minimal: "미니멀",
+  Street: "스트릿",
+  Classic: "클래식",
+  Sport: "스포티",
+  Romantic: "로맨틱",
+};
+
+const GENDER_LABELS = {
+  MALE: "남자",
+  FEMALE: "여자",
+  UNISEX: "공용",
+  Mens: "남자",
+  Womens: "여자",
+  Unisex: "공용",
+};
+
+const labelToKeyMap = (map) =>
+  Object.fromEntries(Object.entries(map).map(([key, value]) => [value, key]));
+
+const CATEGORY_LABEL_TO_KEY = labelToKeyMap(CATEGORY_LABELS);
+const STYLE_LABEL_TO_KEY = labelToKeyMap(STYLE_LABELS);
+const GENDER_LABEL_TO_KEY = labelToKeyMap(GENDER_LABELS);
+
+const normalizeCategoryValue = (value) => {
+  if (!value) return "";
+  const trimmed = String(value).trim();
+  if (!trimmed) return "";
+  return CATEGORY_ALIASES[trimmed] || CATEGORY_ALIASES[trimmed.toUpperCase()] || trimmed;
+};
+
+const readFileAsDataUrl = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+
+const dataUrlToFile = async (dataUrl, filename) => {
+  const response = await fetch(dataUrl);
+  const blob = await response.blob();
+  return new File([blob], filename, { type: blob.type || "image/png" });
+};
 
 function App() {
   const [activeTab, setActiveTab] = useState("discover");
@@ -57,6 +219,7 @@ function App() {
   const [comments, setComments] = useState(initialComments);
   const [detailItem, setDetailItem] = useState(null);
   const [detailTab, setDetailTab] = useState("overview");
+  const [detailImageIndex, setDetailImageIndex] = useState(0);
   const [darkMode, setDarkMode] = useState(false);
   const [prompt, setPrompt] = useState("");
   const [fabric, setFabric] = useState({ stretch: 5, weight: 5, stiffness: 5 });
@@ -67,13 +230,20 @@ function App() {
     is_public: false,
   });
   const [generatedDesigns, setGeneratedDesigns] = useState([]);
-  const [fittingLayers, setFittingLayers] = useState([]);
-  const [fittingLayersDraft, setFittingLayersDraft] = useState([]);
+  const [fittingLayers, setFittingLayers] = useState([]); // The finalized layers being worn
+  const [fittingLayersDraft, setFittingLayersDraft] = useState([]); // Draft layers in panel
+  const [currentFittingId, setCurrentFittingId] = useState(null); // ID of the latest fitting session
+  const [fittingAlbumTab, setFittingAlbumTab] = useState("real"); // 'real' or 'mannequin'
   const [focusClothingId, setFocusClothingId] = useState(null);
   const [isComposing, setIsComposing] = useState(false);
-  const [fittingView, setFittingView] = useState("3d");
+  const [fittingView, setFittingView] = useState("real");
   const [fittingZoom, setFittingZoom] = useState(0.9);
-  const [fittingRealBaseUrl, setFittingRealBaseUrl] = useState("/image7.png");
+  const [fittingRealBaseUrl, setFittingRealBaseUrl] = useState(
+    userBase.base_photo_url || "/image7.png",
+  );
+  const [fittingRealResult, setFittingRealResult] = useState(null);
+  const [fittingMannequinResult, setFittingMannequinResult] = useState(null);
+  const [currentUserId, setCurrentUserId] = useState(null);
   const [userProfile, setUserProfile] = useState(userBase);
   const [brands, setBrands] = useState(initialBrands);
   const [notificationOpen, setNotificationOpen] = useState(false);
@@ -85,6 +255,7 @@ function App() {
   const [hasBrandPage, setHasBrandPage] = useState(false);
   const [brandPageReady, setBrandPageReady] = useState(false);
   const [brandFollowerOverride, setBrandFollowerOverride] = useState(null);
+  const [myBrandId, setMyBrandId] = useState(null);
   const [fittingAlbumOpen, setFittingAlbumOpen] = useState(false);
   const [portfolioTab, setPortfolioTab] = useState("investee");
   const [investments, setInvestments] = useState(initialInvestments);
@@ -97,6 +268,7 @@ function App() {
     open: false,
     investmentId: null,
   });
+  const [brandCreatePromptOpen, setBrandCreatePromptOpen] = useState(false);
   const [brandPageRequiredOpen, setBrandPageRequiredOpen] = useState(false);
   const [brandDeleteConfirmOpen, setBrandDeleteConfirmOpen] = useState(false);
   const [accountDeleteConfirmOpen, setAccountDeleteConfirmOpen] =
@@ -119,8 +291,32 @@ function App() {
   const [designCoinAlertClosing, setDesignCoinAlertClosing] = useState(false);
   const [designGenerateConfirmOpen, setDesignGenerateConfirmOpen] =
     useState(false);
-  const [designPhoto, setDesignPhoto] = useState(null);
-  const designPhotoInputRef = useRef(null);
+  const [studioSidePhotos, setStudioSidePhotos] = useState({
+    front: null,
+    back: null,
+  });
+  const [designViewSide, setDesignViewSide] = useState("front");
+  const [designScale, setDesignScale] = useState(0.8); // Initial scale
+  const isDraggingDesign = useRef(false);
+
+  const lastMouseY = useRef(0);
+
+  const frontPhotoInputRef = useRef(null);
+  const backPhotoInputRef = useRef(null);
+  const [galleryScales, setGalleryScales] = useState({});
+  const [activeGalleryDrag, setActiveGalleryDrag] = useState(null);
+  const [previewImage, setPreviewImage] = useState(null);
+  const [showResult, setShowResult] = useState(false);
+  const [modalViewSide, setModalViewSide] = useState("front");
+
+  // Reset result view when entering Studio tab
+  useEffect(() => {
+    if (activeTab === "studio" || activeTab === "design") {
+      setShowResult(false);
+    }
+  }, [activeTab]);
+
+  const prevTabRef = useRef(activeTab);
   const aiPhotoInputRef = useRef(null);
   const fittingCanvasRef = useRef(null);
   const [alreadyFundedAlertOpen, setAlreadyFundedAlertOpen] = useState(false);
@@ -140,27 +336,17 @@ function App() {
     description: "",
     story: "",
   });
+  const [isGenerating, setIsGenerating] = useState(false);
   const [loginModalOpen, setLoginModalOpen] = useState(false);
   const [loginDraft, setLoginDraft] = useState({ handle: "", password: "" });
   const [myBrandDetails, setMyBrandDetails] = useState(() =>
     buildDefaultBrandDetails(brand.name),
   );
-  const [introOpen, setIntroOpen] = useState(() => {
-    try {
-      return window.localStorage.getItem("modifLoggedIn") !== "true";
-    } catch {
-      return true;
-    }
-  });
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [introOpen, setIntroOpen] = useState(!isLoggedIn);
+  const [authSelectionOpen, setAuthSelectionOpen] = useState(false);
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState(0);
-  const [isLoggedIn, setIsLoggedIn] = useState(() => {
-    try {
-      return window.localStorage.getItem("modifLoggedIn") === "true";
-    } catch {
-      return false;
-    }
-  });
   const [pendingTab, setPendingTab] = useState(null);
   const [measurementMode, setMeasurementMode] = useState("manual");
   const [signupDraft, setSignupDraft] = useState(() => ({
@@ -168,9 +354,12 @@ function App() {
     name: userBase.name,
     password: "",
     passwordConfirm: "",
+    profile_img_url: null,
     base_photo_url: null,
+    gender: "MALE",
     measurements: { ...userBase.measurements },
   }));
+  const [signupPhotoFile, setSignupPhotoFile] = useState(null);
   const [selectedStyleIds, setSelectedStyleIds] = useState([]);
   const [profilePasswordDraft, setProfilePasswordDraft] = useState({
     password: "",
@@ -205,19 +394,115 @@ function App() {
   const [designTool, setDesignTool] = useState("brush");
   const [designColor, setDesignColor] = useState("#111111");
   const [designSize, setDesignSize] = useState(6);
-  const [showClearBubble, setShowClearBubble] = useState(false);
+  const [sizeRange, setSizeRange] = useState([2, 5]);
+  const [sizeDetailSelected, setSizeDetailSelected] = useState("M");
+  const [sizeDetailInputs, setSizeDetailInputs] = useState({});
   const [studioSide, setStudioSide] = useState("front");
   const [studioSideImages, setStudioSideImages] = useState({
     front: null,
     back: null,
   });
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
-  const [tempDesigns, setTempDesigns] = useState([]);
+  const [tempDesigns, setTempDesigns] = useState(() => {
+    try {
+      const stored = window.localStorage.getItem(TEMP_DESIGN_STORAGE_KEY);
+      if (!stored) return [];
+      const parsed = JSON.parse(stored);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
   const [profilePhotoMode, setProfilePhotoMode] = useState("profile");
   const designCanvasRef = useRef(null);
+  const frontCanvasRef = useRef(null);
+  const backCanvasRef = useRef(null);
+  const activeCanvasSideRef = useRef("front");
   const canvasPopupRef = useRef(null);
-  const drawMetaRef = useRef({ moved: false });
+  const slideTimerRef = useRef(null);
   const [fittingHistory, setFittingHistory] = useState(initialFittingHistory);
+  const [hoveredCardId, setHoveredCardId] = useState(null);
+  const [slideIndexMap, setSlideIndexMap] = useState({});
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Public Data
+        const [clothesData, fundsData, brandsData] = await Promise.all([
+          getClothes(),
+          getFundingFeed(),
+          getBrandProfiles()
+        ]);
+        if (clothesData) setClothing(clothesData);
+        if (fundsData) setFundings(fundsData);
+        if (brandsData) setBrandProfiles(brandsData);
+
+        // Authenticated Data
+        if (isLoggedIn) {
+          const fittingsData = await getMyFittings();
+          if (fittingsData) setFittingHistory(fittingsData);
+
+          // Fetch notifications
+          const notificationsData = await getNotifications();
+          if (notificationsData) {
+            setNotifications(notificationsData.map(noti => ({
+              id: noti.id,
+              title: noti.title,
+              message: noti.message,
+              target: noti.target,
+              is_read: noti.is_read,
+              removing: false,
+            })));
+          }
+        } else {
+          // Reset fitting history and notifications if logged out
+          setNotifications([]);
+        }
+      } catch (err) {
+        console.error("Failed to fetch initial data", err);
+      }
+    };
+    fetchData();
+  }, [isLoggedIn]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        TEMP_DESIGN_STORAGE_KEY,
+        JSON.stringify(tempDesigns),
+      );
+    } catch {
+      // Ignore storage failures (private mode, quota, etc.).
+    }
+  }, [tempDesigns]);
+
+  // Fetch My Designs (Persistence)
+  useEffect(() => {
+    const fetchMyDesigns = async () => {
+      if (isLoggedIn && myBrandId) {
+        try {
+          const myClothes = await getClothes({ brand_id: myBrandId });
+          const designs = myClothes.map(cloth => ({
+            id: cloth.clothing_id || cloth.id,
+            name: cloth.clothing_name || cloth.name || `Design ${cloth.id}`,
+            savedAt: formatTimestamp(new Date(cloth.created_at)),
+            design_img_url: cloth.final_result_front_url || cloth.thumbnail_url || cloth.design_img_url,
+            final_result_all_url: cloth.final_result_all_url,
+            final_result_front_url: cloth.final_result_front_url,
+            final_result_back_url: cloth.final_result_back_url,
+            description: cloth.description,
+            price: cloth.price,
+            category: cloth.category || cloth.sub_category,
+            style: cloth.style
+          }));
+          setGeneratedDesigns(designs);
+        } catch (error) {
+          console.error("Failed to fetch my designs", error);
+        }
+      }
+    };
+    fetchMyDesigns();
+  }, [isLoggedIn, myBrandId]);
 
   const fundingsFeed = useMemo(() => {
     return [...fundings]
@@ -250,7 +535,7 @@ function App() {
   }, [brandProfiles]);
 
   const followerSeries = useMemo(() => {
-    const values = [176, 182, 188, 195, 201, 208, 214];
+    const values = [0, 0, 0, 0, 0, 0, 0];
     return values.map((value, index) => {
       const date = new Date();
       date.setDate(date.getDate() - (values.length - 1 - index));
@@ -264,9 +549,9 @@ function App() {
     () =>
       brandFollowerOverride !== null
         ? followerSeries.map((item) => ({
-            ...item,
-            value: brandFollowerOverride,
-          }))
+          ...item,
+          value: brandFollowerOverride,
+        }))
         : followerSeries,
     [brandFollowerOverride, followerSeries],
   );
@@ -307,6 +592,116 @@ function App() {
     }),
     [],
   );
+  const sizeLabels = useMemo(
+    () => ["XS", "S", "M", "L", "XL", "2XL", "3XL"],
+    [],
+  );
+  const sizeDetailFields = useMemo(() => {
+    const base = {
+      neckCircum: "목둘레",
+      shoulderWidth: "어깨너비",
+      chestCircum: "가슴둘레",
+      armLength: "팔길이",
+      waistCircum: "허리둘레",
+      hipCircum: "엉덩이 둘레",
+      legLength: "다리길이",
+    };
+    if (designCategory === "상의") {
+      return ["neckCircum", "shoulderWidth", "chestCircum", "armLength"].map(
+        (key) => ({ key, label: base[key] }),
+      );
+    }
+    if (designCategory === "하의") {
+      return ["waistCircum", "hipCircum", "legLength"].map((key) => ({
+        key,
+        label: base[key],
+      }));
+    }
+    if (designCategory === "원피스") {
+      return [
+        "neckCircum",
+        "shoulderWidth",
+        "chestCircum",
+        "armLength",
+        "waistCircum",
+        "hipCircum",
+        "legLength",
+      ].map((key) => ({ key, label: base[key] }));
+    }
+    if (designCategory === "아우터") {
+      const needsFull = ["하프", "롱"].includes(designLength);
+      const fields = needsFull
+        ? [
+          "neckCircum",
+          "shoulderWidth",
+          "chestCircum",
+          "armLength",
+          "waistCircum",
+          "hipCircum",
+          "legLength",
+        ]
+        : ["neckCircum", "shoulderWidth", "chestCircum", "armLength"];
+      return fields.map((key) => ({ key, label: base[key] }));
+    }
+    return [];
+  }, [designCategory, designLength]);
+  const sizeRangeLabels = useMemo(() => {
+    const min = Math.min(sizeRange[0], sizeRange[1]);
+    const max = Math.max(sizeRange[0], sizeRange[1]);
+    return sizeLabels.slice(min, max + 1);
+  }, [sizeLabels, sizeRange]);
+  const activeSizeKey = useMemo(() => {
+    if (sizeRangeLabels.length === 0) return "M";
+    return sizeRangeLabels.includes(sizeDetailSelected)
+      ? sizeDetailSelected
+      : sizeRangeLabels[0];
+  }, [sizeRangeLabels, sizeDetailSelected]);
+  const sizeRangeStyle = useMemo(() => {
+    const maxIndex = Math.max(1, sizeLabels.length - 1);
+    const min = Math.min(sizeRange[0], sizeRange[1]);
+    const max = Math.max(sizeRange[0], sizeRange[1]);
+    const minPct = (min / maxIndex) * 100;
+    const maxPct = (max / maxIndex) * 100;
+    return {
+      background: `linear-gradient(90deg, #d9d9d9 ${minPct}%, #111111 ${minPct}%, #111111 ${maxPct}%, #d9d9d9 ${maxPct}%)`,
+    };
+  }, [sizeLabels.length, sizeRange]);
+  const fabricFields = useMemo(
+    () => [
+      { key: "stretch", label: "신축성" },
+      { key: "weight", label: "두께감" },
+      { key: "stiffness", label: "탄탄함" },
+    ],
+    [],
+  );
+
+  const getClothImages = useCallback((cloth) => {
+    if (!cloth) return [];
+    const candidates = [
+      cloth.design_img_url,
+      cloth.final_result_front_url,
+      cloth.final_result_back_url,
+      cloth.thumbnail_url,
+    ];
+    if (Array.isArray(cloth.input_images)) {
+      candidates.push(...cloth.input_images);
+    }
+    if (Array.isArray(cloth.images)) {
+      candidates.push(...cloth.images);
+    }
+    if (typeof cloth.ai_result_url === "string") {
+      candidates.push(cloth.ai_result_url);
+    } else if (Array.isArray(cloth.ai_result_url)) {
+      candidates.push(...cloth.ai_result_url);
+    }
+    const unique = [];
+    candidates.forEach((url) => {
+      if (!url) return;
+      if (unique.includes(url)) return;
+      unique.push(url);
+    });
+    return unique;
+  }, []);
 
   const formatTimestamp = (date) => {
     const hours = String(date.getHours()).padStart(2, "0");
@@ -333,19 +728,22 @@ function App() {
   const followingCount = followedBrands.length;
 
   const selectedBrandProfile = useMemo(() => {
-    if (!selectedBrandKey) return null;
+    if (!selectedBrandKey && !hasBrandPage) return null;
     if (
+      selectedBrandKey === "my-brand" ||
       selectedBrandKey === myBrandDetails.handle ||
       selectedBrandKey === myBrandDetails.brand
     ) {
+      if (!hasBrandPage) return null;
       return {
-        id: "my-brand",
+        id: myBrandId || "my-brand",
         brand: myBrandDetails.brand,
         handle: myBrandDetails.handle,
         followerCount: currentFollowerCount,
         followingCount,
         bio: myBrandDetails.bio,
         location: myBrandDetails.location,
+        logoUrl: myBrandDetails.logoUrl,
       };
     }
     return (
@@ -359,8 +757,28 @@ function App() {
     brandProfiles,
     currentFollowerCount,
     followingCount,
+    hasBrandPage,
     myBrandDetails,
+    myBrandId,
     selectedBrandKey,
+  ]);
+
+  const canEditBrandDesigns = useMemo(() => {
+    if (!selectedBrandProfile) return false;
+    if (selectedBrandKey === "my-brand") return true;
+    const selectedHandle = (selectedBrandProfile.handle || "").toLowerCase();
+    const myHandle = (myBrandDetails.handle || "").toLowerCase();
+    const selectedBrand = (selectedBrandProfile.brand || "").toLowerCase();
+    const myBrand = (myBrandDetails.brand || "").toLowerCase();
+    return (
+      (selectedHandle && myHandle && selectedHandle === myHandle) ||
+      (selectedBrand && myBrand && selectedBrand === myBrand)
+    );
+  }, [
+    selectedBrandKey,
+    selectedBrandProfile,
+    myBrandDetails.handle,
+    myBrandDetails.brand,
   ]);
 
   const searchResults = useMemo(() => {
@@ -391,14 +809,14 @@ function App() {
       if ((matchesBrand || matchesHandle) && !seenBrands.has(brandKey)) {
         const profile = brandProfileMap[brandKey] ||
           brandProfileMap[handleKey] || {
-            id: brandKey,
-            brand: entry.brand,
-            handle: entry.designer_handle,
-            followerCount: 0,
-            followingCount: 0,
-            bio: "브랜드 프로필이 준비 중입니다.",
-            location: "Seoul",
-          };
+          id: brandKey,
+          brand: entry.brand,
+          handle: entry.designer_handle,
+          followerCount: 0,
+          followingCount: 0,
+          bio: "브랜드 프로필이 준비 중입니다.",
+          location: "Seoul",
+        };
         results.push({
           type: "brand",
           label: profile.brand,
@@ -414,10 +832,14 @@ function App() {
 
   const categoryToMain = useMemo(
     () => ({
+      Top: "Tops",
       Knit: "Tops",
+      Shirt: "Tops",
       Jacket: "Outer",
       Outerwear: "Outer",
       Coat: "Outer",
+      Pants: "Bottoms",
+      Skirt: "Bottoms",
       Dress: "Dress",
       Concept: "Tops",
     }),
@@ -427,7 +849,9 @@ function App() {
   const categories = useMemo(() => {
     const set = new Set();
     fundingsFeed.forEach((item) => {
-      const category = clothingMap[item.clothing_id]?.category;
+      const category = normalizeCategoryValue(
+        clothingMap[item.clothing_id]?.category,
+      );
       if (category) {
         set.add(category);
       }
@@ -478,11 +902,12 @@ function App() {
     const filtered = fundingsFeed.filter((item) => {
       const cloth = clothingMap[item.clothing_id];
       if (!cloth) return false;
-      const mappedMain = categoryToMain[cloth.category] || "Tops";
+      const clothCategory = normalizeCategoryValue(cloth.category);
+      const mappedMain = categoryToMain[clothCategory] || "Tops";
       const matchesMain =
         selectedMainCategory === "All" || mappedMain === selectedMainCategory;
       const matchesSub =
-        selectedSubCategory === "All" || cloth.category === selectedSubCategory;
+        selectedSubCategory === "All" || clothCategory === selectedSubCategory;
       const matchesGender =
         selectedGender === "All" || cloth.gender === selectedGender;
       const matchesStyle =
@@ -491,6 +916,22 @@ function App() {
     });
     const sorted = [...filtered];
     switch (selectedSort) {
+      case "recommended":
+        // Sort by matching style tags first, then by likes
+        sorted.sort((a, b) => {
+          const clothA = clothingMap[a.clothing_id];
+          const clothB = clothingMap[b.clothing_id];
+          const styleTagsUser = userProfile.styleTags || [];
+
+          const matchA = styleTagsUser.includes(clothA?.style) ? 1 : 0;
+          const matchB = styleTagsUser.includes(clothB?.style) ? 1 : 0;
+
+          if (matchA !== matchB) {
+            return matchB - matchA; // Matching styles first
+          }
+          return b.likes - a.likes; // Then by popularity
+        });
+        break;
       case "latest":
         sorted.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
         break;
@@ -513,66 +954,135 @@ function App() {
     selectedGender,
     selectedStyle,
     selectedSort,
+    userProfile.styleTags,
   ]);
   const onboardingStyleItems = useMemo(() => {
     const items = [];
+    const userGender = signupDraft.gender; // "MALE" or "FEMALE"
+
     for (const item of clothing) {
       if (!item.design_img_url) continue;
-      items.push(item);
-      if (items.length >= 12) break;
+
+      // Filter by gender: show items that match user's gender or are Unisex
+      // API returns "Mens", "Womens", "Unisex" - need to normalize for comparison
+      const itemGender = (item.gender || '').toUpperCase();
+      const isUnisex = itemGender === 'UNISEX' || itemGender === 'UNISEX';
+      const matchesMale = userGender === 'MALE' && (itemGender === 'MALE' || itemGender === 'MENS');
+      const matchesFemale = userGender === 'FEMALE' && (itemGender === 'FEMALE' || itemGender === 'WOMENS');
+
+      if (isUnisex || matchesMale || matchesFemale) {
+        items.push(item);
+        if (items.length >= 10) break;
+      }
     }
     return items;
-  }, [clothing]);
+  }, [clothing, signupDraft.gender]);
 
-  const generateDesign = () => {
-    if (designCoins <= 0) {
+  const ensureBrandForDesign = () => {
+    if (hasBrandPage) return true;
+    return false;
+  };
+
+  const generateDesign = async ({ consumeToken = false } = {}) => {
+    if (consumeToken && designCoins <= 0) {
+      alert("디자인 토큰이 부족합니다.");
       return;
     }
-    const trimmed = prompt.trim();
-    const nextId = Math.max(...clothing.map((item) => item.id), 0) + 1;
-    const nextImage = `/image${
-      ((clothing.length + generatedDesigns.length) % 7) + 1
-    }.jpg`;
-    const newDesign = {
-      id: nextId,
-      name: trimmed || `AI 컨셉 ${nextId}`,
-      savedAt: formatTimestamp(new Date()),
-      category: "Concept",
-      design_img_url: nextImage,
-      gender: "Unisex",
-      style: "Minimal",
-      price: 169000,
-      size_specs: { shoulder: 44, chest: 98, waist: 82 },
-      design_prompt: trimmed || "미니멀 테일러링 실루엣",
-      description:
-        trimmed ||
-        "AI가 생성한 컨셉을 기반으로 실루엣과 소재 밸런스를 설계했습니다.",
-      story:
-        "AI가 트렌드 데이터를 분석해 감각적인 컬렉션 스토리를 구성했습니다. 디자이너가 세부 디테일을 다듬을 수 있도록 여지를 남겨두었습니다.",
-    };
 
-    setClothing((prev) => [...prev, newDesign]);
-    setGeneratedDesigns((prev) => [newDesign, ...prev]);
-    setBrand((prev) => ({ ...prev, clothes_count: prev.clothes_count + 1 }));
-    setPrompt("");
-    setDesignCoins((prev) => Math.max(0, prev - 1));
-    setDetailTab("overview");
-    setAiDesignDraft({
-      name: newDesign.name,
-      price: newDesign.price,
-      category: newDesign.category,
-      style: newDesign.style,
-      gender: newDesign.gender,
-      description: newDesign.description || "",
-      story: newDesign.story || "",
-    });
-    setAiDesignEditMode(false);
-    setAiDesignModal({ open: true, design: newDesign });
+    // Prepare inputs
+    const files = [];
+    if (studioSidePhotos.front?.file) files.push(studioSidePhotos.front.file);
+    if (studioSidePhotos.back?.file) files.push(studioSidePhotos.back.file);
+
+    // Validate inputs locally
+    if (files.length !== 2) {
+      alert("앞면과 뒷면 도안 이미지가 모두 필요합니다.");
+      return;
+    }
+
+    if (consumeToken) {
+      setDesignCoins((prev) => Math.max(0, prev - 1));
+    }
+
+    const trimmed = prompt.trim();
+    setIsGenerating(true);
+
+    try {
+      console.log('Calling generateDesign API with:', { prompt: trimmed, fileCount: files.length });
+
+      // 1. Create a placeholder cloth to attach the design to
+      const placeholderCloth = {
+        name: trimmed || "AI Concept Design",
+        category: "TOP",
+        layer_order: 1,
+        description: "AI Generated Design Concept",
+        is_public: false,
+      };
+
+      console.log('Creating placeholder cloth...');
+      const createdCloth = await createCloth(placeholderCloth);
+      const clothId = createdCloth.clothing_id || createdCloth.id;
+      console.log('Placeholder cloth created, ID:', clothId);
+
+      // 2. Generate Design for this cloth
+      const result = await apiGenerateDesign(clothId, trimmed, files);
+
+      console.log('API Result:', result);
+
+      const nextId = Math.max(...clothing.map((item) => item.id), 0) + 1;
+
+      const newDesign = {
+        id: nextId,
+        name: trimmed || `AI 컨셉 ${nextId}`,
+        savedAt: formatTimestamp(new Date()),
+        category: "Concept",
+        design_img_url: result.front || result.all,
+        final_result_all_url: result.all,
+        final_result_front_url: result.front,
+        final_result_back_url: result.back,
+        gender: "Unisex",
+        style: "Minimal",
+        price: 169000,
+        size_specs: { shoulder: 44, chest: 98, waist: 82 },
+        design_prompt: trimmed || "미니멀 테일러링 실루엣",
+        description: trimmed || "AI가 생성한 컨셉을 기반으로 실루엣과 소재 밸런스를 설계했습니다.",
+        story: "AI가 트렌드 데이터를 분석해 감각적인 컬렉션 스토리를 구성했습니다.",
+      };
+
+      setClothing((prev) => [...prev, newDesign]);
+      setGeneratedDesigns((prev) => [newDesign, ...prev]);
+      setBrand((prev) => ({ ...prev, clothes_count: prev.clothes_count + 1 }));
+      setDetailTab("overview");
+      setAiDesignDraft({
+        name: newDesign.name,
+        price: newDesign.price,
+        category: newDesign.category,
+        style: newDesign.style,
+        gender: newDesign.gender,
+        description: newDesign.description || "",
+        story: newDesign.story || "",
+      });
+      setAiDesignEditMode(false);
+      setShowResult(true);
+
+    } catch (error) {
+      if (consumeToken) {
+        setDesignCoins((prev) => prev + 1);
+      }
+      console.error("Design Generation Failed:", error);
+      alert(error.response?.data?.message || "디자인 생성에 실패했습니다.");
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const confirmGenerateDesign = () => {
+    if (!ensureBrandForDesign()) {
+      setDesignGenerateConfirmOpen(false);
+      return;
+    }
     setDesignGenerateConfirmOpen(false);
-    generateDesign();
+    generateDesign({ consumeToken: true });
   };
 
   const handleAiDesignEditToggle = () => {
@@ -589,7 +1099,10 @@ function App() {
         description:
           aiDesignDraft.description.trim() ||
           aiDesignModal.design.description,
-        story: aiDesignDraft.story.trim() || aiDesignModal.design.story,
+        story:
+          aiDesignDraft.story.trim() ||
+          myBrandDetails.bio?.trim() ||
+          aiDesignModal.design.story,
       };
       setAiDesignModal((prev) => ({ ...prev, design: nextDesign }));
       setClothing((prev) =>
@@ -612,12 +1125,130 @@ function App() {
       style: aiDesignModal.design.style || "",
       gender: aiDesignModal.design.gender || "",
       description: aiDesignModal.design.description || "",
-      story: aiDesignModal.design.story || "",
+      story: myBrandDetails.bio || aiDesignModal.design.story || "",
     });
     setAiDesignEditMode(true);
   };
 
+  const handleAiDesignUpload = () => {
+    if (!aiDesignModal.design) return;
+    if (!hasBrandPage) {
+      setBrandPageRequiredOpen(true);
+      return;
+    }
+    const brandName = myBrandDetails.brand?.trim() || brand.name;
+    const designerHandle = myBrandDetails.handle?.trim() || "@motif.studio";
+    const designId = aiDesignModal.design.id;
+
+    setFundings((prev) => {
+      const exists = prev.some(
+        (entry) =>
+          entry.clothing_id === designId && entry.brand === brandName,
+      );
+      if (exists) return prev;
+      const nextId = Math.max(0, ...prev.map((entry) => entry.id)) + 1;
+      const nextFunding = {
+        id: nextId,
+        clothing_id: designId,
+        brand: brandName,
+        designer_handle: designerHandle,
+        participant_count: 0,
+        likes: 0,
+        liked: false,
+        status: "FUNDING",
+        goal_amount: 2000000,
+        current_amount: 0,
+        created_at: formatDate(new Date()),
+      };
+      return [nextFunding, ...prev];
+    });
+
+    setAiDesignModal({ open: false, design: null });
+    setAiDesignEditMode(false);
+    setActiveTab("portfolio");
+    setPortfolioTab("investee");
+    setSelectedBrandKey("my-brand");
+  };
+
+  const designResultItems = useMemo(
+    () => [...generatedDesigns],
+    [generatedDesigns],
+  );
+  const [designResultIndex, setDesignResultIndex] = useState(0);
+
+  useEffect(() => {
+    setDesignResultIndex((prev) => {
+      if (designResultItems.length === 0) return 0;
+      return Math.min(prev, designResultItems.length - 1);
+    });
+  }, [designResultItems.length]);
+
+  const currentDesignPreview = useMemo(
+    () => designResultItems[designResultIndex] || null,
+    [designResultItems, designResultIndex],
+  );
+  const openUploadPreview = () => {
+    if (!currentDesignPreview) {
+      alert("먼저 디자인을 생성하세요.");
+      return;
+    }
+    const brandStoryText = myBrandDetails.bio?.trim() || "";
+    setAiDesignModal({ open: true, design: currentDesignPreview });
+    setAiDesignDraft({
+      name: currentDesignPreview.name || "",
+      price: currentDesignPreview.price || 0,
+      category: designCategory,
+      style: currentDesignPreview.style || "",
+      gender: designGender,
+      description: currentDesignPreview.description || prompt.trim(),
+      story: brandStoryText,
+    });
+    setDetailTab("overview");
+    setAiDesignEditMode(false);
+  };
+
+  const resetStudioState = () => {
+    setPrompt("");
+    setStudioSide("front");
+    setStudioSideImages({ front: null, back: null });
+    setStudioSidePhotos({ front: null, back: null });
+    setDesignTool("brush");
+    setDesignColor("#111111");
+    setDesignSize(6);
+    setDesignGender("Unisex");
+    setDesignCategory("상의");
+    setDesignLength("민소매");
+    setSizeRange([2, 5]);
+    setSizeDetailSelected("M");
+    setSizeDetailInputs({});
+    setFabric({ stretch: 5, weight: 5, stiffness: 5 });
+    setDesignResultIndex(0);
+    setIsGalleryOpen(false);
+    if (frontPhotoInputRef.current) {
+      frontPhotoInputRef.current.value = "";
+    }
+    if (backPhotoInputRef.current) {
+      backPhotoInputRef.current.value = "";
+    }
+    const canvas = designCanvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (canvas && ctx) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  };
+
+  useEffect(() => {
+    if (prevTabRef.current === "studio" && activeTab !== "studio") {
+      resetStudioState();
+    }
+    prevTabRef.current = activeTab;
+  }, [activeTab]);
+
   const handleTryOn = (clothingId) => {
+    if (!isLoggedIn) {
+      openAuthModal("login-required");
+      return;
+    }
     setActiveTab("fitting");
     setFocusClothingId(clothingId);
     setFittingLayers((prev) =>
@@ -627,11 +1258,13 @@ function App() {
     window.setTimeout(() => setIsComposing(false), 1200);
   };
 
-  const handleLike = (fundingId) => {
+  const handleLike = async (fundingId) => {
     if (!isLoggedIn) {
       openAuthModal("login-required");
       return;
     }
+
+    // Optimistic Update
     setFundings((prev) =>
       prev.map((item) => {
         if (item.id !== fundingId) return item;
@@ -648,6 +1281,30 @@ function App() {
         return nextItem;
       }),
     );
+
+    try {
+      const result = await toggleLike(fundingId);
+      // Confirm with server data
+      setFundings((prev) =>
+        prev.map((item) => {
+          if (item.id !== fundingId) return item;
+          const nextItem = {
+            ...item,
+            liked: result.liked,
+            likes: result.likes,
+          };
+          setDetailItem((current) => {
+            if (!current || current.funding.id !== fundingId) return current;
+            return { ...current, funding: nextItem };
+          });
+          return nextItem;
+        })
+      );
+    } catch (error) {
+      console.error("Like failed", error);
+      // Revert (simplified: just fetch feed again or trust user notices error)
+      //Ideally we'd revert the optimistic update here.
+    }
   };
 
   const removeLayer = (clothingId) => {
@@ -707,6 +1364,31 @@ function App() {
     }));
   };
 
+  const normalizeHandle = useCallback((value) => {
+    if (!value) return "";
+    return value.startsWith("@") ? value : `@${value}`;
+  }, []);
+
+  const applyUserProfile = useCallback((profile) => {
+    if (!profile) return;
+    setUserProfile((prev) => ({
+      ...prev,
+      name: profile.name ?? prev.name,
+      handle: normalizeHandle(profile.handle ?? profile.name ?? prev.handle),
+      followerCount: profile.followerCount ?? prev.followerCount,
+      followingCount: profile.followingCount ?? prev.followingCount,
+      profile_photo_url: profile.profile_img_url ?? prev.profile_photo_url,
+      base_photo_url: profile.base_photo_url ?? prev.base_photo_url,
+      measurements: {
+        ...prev.measurements,
+        ...(profile.measurements || {}),
+      },
+      bodyTypeLabel: profile.bodyTypeLabel ?? prev.bodyTypeLabel,
+      styleTags: Array.isArray(profile.styleTags) ? profile.styleTags : prev.styleTags,
+      updatedAt: profile.updatedAt ?? prev.updatedAt,
+    }));
+  }, [normalizeHandle]);
+
   const updateProfileField = (key, value) => {
     setUserProfile((prev) => ({
       ...prev,
@@ -715,7 +1397,7 @@ function App() {
     }));
   };
 
-  const handleProfilePhotoUpload = (event) => {
+  const handleProfilePhotoUpload = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
     const url = URL.createObjectURL(file);
@@ -723,6 +1405,76 @@ function App() {
       updateProfileField("profile_photo_url", url);
     } else {
       updateProfileField("base_photo_url", url);
+    }
+
+    try {
+      const type = profilePhotoMode === "body" ? "body" : "profile";
+      await uploadProfilePhoto(file, type);
+      const profile = await getProfile();
+      applyUserProfile(profile);
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.message || "프로필 이미지 업로드에 실패했습니다.");
+    }
+  };
+
+  const handleProfileSave = async () => {
+    if (!isLoggedIn) return;
+
+    const profilePayload = {
+      name: userProfile.name?.trim(),
+      profile_img_url: userProfile.profile_photo_url ?? null,
+      base_photo_url: userProfile.base_photo_url ?? null,
+      styleTags: Array.isArray(userProfile.styleTags)
+        ? userProfile.styleTags
+        : undefined,
+      bodyTypeLabel: userProfile.bodyTypeLabel,
+    };
+
+    Object.keys(profilePayload).forEach((key) => {
+      if (profilePayload[key] === undefined || profilePayload[key] === "") {
+        delete profilePayload[key];
+      }
+    });
+
+    const metricPayload = {
+      height: userProfile.measurements.height,
+      weight: userProfile.measurements.weight,
+      neckCircum: userProfile.measurements.neckCircum,
+      shoulderWidth: userProfile.measurements.shoulderWidth,
+      chestCircum: userProfile.measurements.chestCircum,
+      waistCircum: userProfile.measurements.waistCircum,
+      hipCircum: userProfile.measurements.hipCircum,
+      armLength: userProfile.measurements.armLength,
+      legLength: userProfile.measurements.legLength,
+      wristCircum: userProfile.measurements.wristCircum,
+      footSize: userProfile.measurements.shoeSize,
+    };
+
+    const safeMetrics = Object.fromEntries(
+      Object.entries(metricPayload)
+        .map(([key, value]) => [key, Number(value)])
+        .filter(([, value]) => !Number.isNaN(value)),
+    );
+
+    try {
+      const tasks = [];
+      if (Object.keys(profilePayload).length > 0) {
+        tasks.push(updateProfile(profilePayload));
+      }
+      if (Object.keys(safeMetrics).length > 0) {
+        tasks.push(updateBodyMetrics(safeMetrics));
+      }
+      if (tasks.length > 0) {
+        await Promise.all(tasks);
+      }
+      const profile = await getProfile();
+      applyUserProfile(profile);
+      setIsProfileEditing(false);
+      setProfilePasswordDraft({ password: "", confirm: "" });
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.message || "프로필 저장에 실패했습니다.");
     }
   };
 
@@ -740,46 +1492,101 @@ function App() {
     { id: "pro", label: "Pro 30", amount: 30, price: 8900 },
   ];
 
-  const submitComment = () => {
-    const trimmed = commentDraft.text.trim();
-    if (!detailItem?.clothing?.id || !trimmed) return;
-    if (editingCommentId) {
-      setComments((prev) =>
-        prev.map((item) =>
-          item.id === editingCommentId
-            ? { ...item, rating: commentDraft.rating, text: trimmed }
-            : item,
-        ),
-      );
-    } else {
-      const nextId = Math.max(0, ...comments.map((item) => item.id)) + 1;
-      setComments((prev) => [
-        {
-          id: nextId,
-          clothing_id: detailItem.clothing.id,
-          user: "test.user",
-          rating: commentDraft.rating,
-          text: trimmed,
-          created_at: formatDate(new Date()),
-          parent_id: null,
-          is_creator: false,
-        },
-        ...prev,
-      ]);
+  const replaceCommentsForClothing = useCallback((clothingId, nextComments) => {
+    setComments((prev) => {
+      const keep = prev.filter((comment) => comment.clothing_id !== clothingId);
+      return [...nextComments, ...keep];
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!detailItem?.funding?.id || !detailItem?.clothing?.id) return;
+    let active = true;
+    (async () => {
+      try {
+        const data = await getFundComments(detailItem.funding.id);
+        if (!active) return;
+        replaceCommentsForClothing(detailItem.clothing.id, data);
+      } catch (err) {
+        console.error("Failed to fetch comments", err);
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [detailItem?.funding?.id, detailItem?.clothing?.id, replaceCommentsForClothing]);
+
+  const refreshDetailComments = useCallback(async () => {
+    if (!detailItem?.funding?.id || !detailItem?.clothing?.id) return;
+    try {
+      const data = await getFundComments(detailItem.funding.id);
+      replaceCommentsForClothing(detailItem.clothing.id, data);
+    } catch (err) {
+      console.error("Failed to refresh comments", err);
     }
-    setCommentDraft((prev) => ({ ...prev, text: "" }));
-    setEditingCommentId(null);
+  }, [detailItem?.clothing?.id, detailItem?.funding?.id, replaceCommentsForClothing]);
+
+  const submitComment = async () => {
+    const trimmed = commentDraft.text.trim();
+    if (!detailItem?.funding?.id || !detailItem?.clothing?.id || !trimmed) return;
+    if (!isLoggedIn) {
+      openAuthModal("login-required");
+      return;
+    }
+
+    try {
+      if (editingCommentId) {
+        await updateFundComment(detailItem.funding.id, editingCommentId, {
+          content: trimmed,
+          rating: commentDraft.rating,
+        });
+      } else {
+        await createFundComment(detailItem.funding.id, {
+          content: trimmed,
+          rating: commentDraft.rating,
+          parent_id: null,
+        });
+      }
+      await refreshDetailComments();
+      setCommentDraft({ rating: 5, text: "" });
+      setEditingCommentId(null);
+    } catch (err) {
+      console.error("Comment submit failed", err);
+      alert(err.response?.data?.message || "댓글 등록에 실패했습니다.");
+    }
   };
+
+  const canManageComment = useCallback(
+    (comment) => {
+      if (!isLoggedIn) return false;
+      const userIdMatch =
+        currentUserId &&
+        comment.user_id &&
+        Number(comment.user_id) === Number(currentUserId);
+      const profileName = userProfile?.name?.trim();
+      const profileHandle = normalizeHandle(userProfile?.handle || "").replace(
+        /^@/,
+        "",
+      );
+      const authorName = comment.user ? String(comment.user).trim() : "";
+      const nameMatch =
+        authorName &&
+        (authorName === profileName || authorName === profileHandle);
+      return Boolean(userIdMatch || nameMatch);
+    },
+    [currentUserId, isLoggedIn, normalizeHandle, userProfile?.handle, userProfile?.name],
+  );
 
   const detailProgress = detailItem
     ? clamp(
-        Math.round(
-          (detailItem.funding.current_amount / detailItem.funding.goal_amount) *
-            100,
-        ),
-        0,
+      Math.round(
+        (detailItem.funding.current_amount / detailItem.funding.goal_amount) *
         100,
-      )
+      ),
+      0,
+      100,
+    )
     : 0;
 
   const detailAverageRating = useMemo(() => {
@@ -794,73 +1601,42 @@ function App() {
 
   const detailTags = useMemo(() => {
     if (!detailItem?.clothing) return [];
-    const categoryMap = {
-      Knit: "니트",
-      Jacket: "자켓",
-      Coat: "코트",
-      Dress: "원피스",
-      Top: "상의",
-      Bottom: "하의",
-      Shirt: "셔츠",
-    };
-    const styleMap = {
-      Minimal: "미니멀",
-      Street: "스트릿",
-      Classic: "클래식",
-      Sport: "스포티",
-      Romantic: "로맨틱",
-    };
-    const genderMap = { Mens: "남자", Womens: "여자", Unisex: "공용" };
+    const categoryValue = normalizeCategoryValue(detailItem.clothing.category);
     const tags = [
-      categoryMap[detailItem.clothing.category] ||
-        detailItem.clothing.category,
-      styleMap[detailItem.clothing.style] || detailItem.clothing.style,
-      genderMap[detailItem.clothing.gender] || detailItem.clothing.gender,
+      CATEGORY_LABELS[categoryValue] || categoryValue,
+      STYLE_LABELS[detailItem.clothing.style] || detailItem.clothing.style,
+      GENDER_LABELS[detailItem.clothing.gender] || detailItem.clothing.gender,
     ].filter(Boolean);
     return Array.from(new Set(tags));
   }, [detailItem]);
 
-  const handleDetailTagClick = (tag) => {
-    const categoryMap = {
-      Knit: "니트",
-      Jacket: "자켓",
-      Coat: "코트",
-      Dress: "원피스",
-      Top: "상의",
-      Bottom: "하의",
-      Shirt: "셔츠",
-    };
-    const styleMap = {
-      Minimal: "미니멀",
-      Street: "스트릿",
-      Classic: "클래식",
-      Sport: "스포티",
-      Romantic: "로맨틱",
-    };
-    const genderMap = { Mens: "남자", Womens: "여자", Unisex: "공용" };
-    const categoryLabelMap = Object.fromEntries(
-      Object.entries(categoryMap).map(([key, value]) => [value, key]),
-    );
-    const styleLabelMap = Object.fromEntries(
-      Object.entries(styleMap).map(([key, value]) => [value, key]),
-    );
-    const genderLabelMap = Object.fromEntries(
-      Object.entries(genderMap).map(([key, value]) => [value, key]),
-    );
+  const detailBrandStory = useMemo(() => {
+    if (!detailItem?.funding) return "";
+    const profile =
+      brandProfileMap[detailItem.funding.designer_handle?.toLowerCase()] ||
+      brandProfileMap[detailItem.funding.brand.toLowerCase()];
+    return profile?.description || profile?.bio || "";
+  }, [brandProfileMap, detailItem]);
 
-    if (categoryLabelMap[tag]) {
-      const category = categoryLabelMap[tag];
+  const handleDetailTagClick = (tag) => {
+    const category =
+      CATEGORY_LABEL_TO_KEY[tag] || (categoryToMain[tag] ? tag : null);
+    const style = STYLE_LABEL_TO_KEY[tag] || (STYLE_LABELS[tag] ? tag : null);
+    const gender =
+      GENDER_LABEL_TO_KEY[tag] || (GENDER_LABELS[tag] ? tag : null);
+
+    if (category) {
       setSelectedMainCategory(categoryToMain[category] || "Tops");
       setSelectedSubCategory(category);
       setSelectedStyle("All");
       setSelectedGender("All");
-    } else if (styleLabelMap[tag]) {
-      setSelectedStyle(styleLabelMap[tag]);
+    } else if (style) {
+      setSelectedStyle(style);
       setSelectedMainCategory("All");
       setSelectedSubCategory("All");
       setSelectedGender("All");
-    } else if (genderLabelMap[tag]) {
-      setSelectedGender(genderLabelMap[tag]);
+    } else if (gender) {
+      setSelectedGender(gender);
       setSelectedMainCategory("All");
       setSelectedSubCategory("All");
       setSelectedStyle("All");
@@ -905,27 +1681,161 @@ function App() {
 
   const myBrandProfile = useMemo(
     () => ({
-      id: "my-brand",
+      id: myBrandId || "my-brand",
       brand: myBrandDetails.brand,
       handle: myBrandDetails.handle,
       followerCount: currentFollowerCount,
       followingCount,
       bio: myBrandDetails.bio,
       location: myBrandDetails.location,
+      logoUrl: myBrandDetails.logoUrl,
     }),
-    [currentFollowerCount, followingCount, myBrandDetails],
+    [currentFollowerCount, followingCount, myBrandDetails, myBrandId],
   );
 
   const createBrandPage = () => {
     setHasBrandPage(true);
     setBrandPageReady(false);
     setBrandFollowerOverride(0);
-    setSelectedBrandKey(myBrandDetails.handle);
+    setMyBrandDetails(buildEmptyBrandDetails());
+    setSelectedBrandKey("my-brand");
     setActiveTab("brand");
     setBrandEditing(true);
     setAiDesignModal({ open: false, design: null });
     setAiDesignEditMode(false);
+    setBrandCreatePromptOpen(false);
     setBrandPageRequiredOpen(false);
+  };
+
+  const validateBrandProfile = () => {
+    const brandName = myBrandDetails.brand?.trim() || "";
+    if (!brandName || brandName === brandPlaceholders.brand) {
+      alert("브랜드 이름을 입력해주세요.");
+      return false;
+    }
+    const bio = myBrandDetails.bio?.trim() || "";
+    if (!bio || bio === brandPlaceholders.bio) {
+      alert("브랜드 소개를 입력해주세요.");
+      return false;
+    }
+    if (!myBrandDetails.logoUrl) {
+      alert("브랜드 로고를 등록해주세요.");
+      return false;
+    }
+    return true;
+  };
+
+  const handleCreateBrand = async () => {
+    if (!validateBrandProfile()) return;
+    if (!window.localStorage.getItem("token")) {
+      openAuthModal("login-required");
+      return;
+    }
+
+    try {
+      const payload = {
+        brand_name: myBrandDetails.brand.trim(),
+        brand_logo: myBrandDetails.logoUrl,
+        brand_story: myBrandDetails.bio.trim(),
+        is_public: true,
+      };
+      const created = await createBrand(payload);
+      setMyBrandId(created.brand_id ?? created.id ?? null);
+      setHasBrandPage(true);
+      setBrandEditing(false);
+      setBrandPageReady(true);
+      setSelectedBrandKey("my-brand");
+      setActiveTab("brand");
+
+      const profiles = await getBrandProfiles();
+      const normalized = profiles.map((profile) => ({
+        ...profile,
+        logoUrl: normalizeAssetUrl(profile.brand_logo || profile.logoUrl),
+        bio: profile.bio || "",
+      }));
+      setBrandProfiles(normalized);
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.message || "브랜드 생성에 실패했습니다.");
+    }
+  };
+
+  const handleUpdateBrand = async () => {
+    if (!validateBrandProfile()) return;
+    const brandId = myBrandId || selectedBrandProfile?.id;
+    if (!brandId) {
+      alert("브랜드 정보를 찾을 수 없습니다.");
+      return;
+    }
+    try {
+      const payload = {
+        brand_name: myBrandDetails.brand.trim(),
+        brand_logo: myBrandDetails.logoUrl,
+        brand_story: myBrandDetails.bio.trim(),
+        is_public: true,
+      };
+      console.log("Updating brand...", brandId, payload);
+      await updateBrand(brandId, payload);
+
+      // Update local state to reflect changes immediately without waiting for fetch
+      setMyBrandDetails(prev => ({
+        ...prev,
+        brand: payload.brand_name,
+        logoUrl: payload.brand_logo,
+        bio: payload.brand_story
+      }));
+
+      setBrandEditing(false);
+      setBrandPageReady(true);
+      setHasBrandPage(true); // Ensure this is true
+      setSelectedBrandKey("my-brand");
+
+      // Refetch in background
+      const profiles = await getBrandProfiles();
+      const normalized = profiles.map((profile) => ({
+        ...profile,
+        logoUrl: normalizeAssetUrl(profile.brand_logo || profile.logoUrl),
+        bio: profile.bio || "",
+      }));
+      setBrandProfiles(normalized);
+      alert("브랜드 정보가 수정되었습니다.");
+    } catch (err) {
+      console.error("Brand Update Error:", err);
+      let msg = "브랜드 저장에 실패했습니다.";
+      if (err.response) {
+        msg += `\nStatus: ${err.response.status}`;
+        msg += `\nMessage: ${err.response.data?.message || JSON.stringify(err.response.data)}`;
+      } else {
+        msg += `\nError: ${err.message}`;
+      }
+      alert(msg);
+    }
+  };
+
+  const handleDeleteBrandPage = async () => {
+    const brandId = myBrandId || selectedBrandProfile?.id;
+    if (!brandId) {
+      resetBrandPage();
+      setActiveTab("discover");
+      return;
+    }
+
+    try {
+      await deleteBrand(brandId);
+      setMyBrandId(null);
+      resetBrandPage();
+      setActiveTab("discover");
+      const profiles = await getBrandProfiles();
+      const normalized = profiles.map((profile) => ({
+        ...profile,
+        logoUrl: normalizeAssetUrl(profile.brand_logo || profile.logoUrl),
+        bio: profile.bio || "",
+      }));
+      setBrandProfiles(normalized);
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.message || "브랜드 삭제에 실패했습니다.");
+    }
   };
 
   const resetBrandPage = () => {
@@ -935,10 +1845,21 @@ function App() {
     setSelectedBrandKey(null);
     setFollowedBrands([]);
     setBrandFollowerOverride(null);
-    setMyBrandDetails(buildDefaultBrandDetails(brand.name));
+    setMyBrandDetails(buildEmptyBrandDetails());
+    setMyBrandId(null);
     setBrandDeleteConfirmOpen(false);
-    setActiveTab("portfolio");
   };
+
+  const resetMyBrandState = useCallback(() => {
+    setHasBrandPage(false);
+    setBrandPageReady(false);
+    setBrandEditing(false);
+    setBrandFollowerOverride(null);
+    setMyBrandDetails(buildEmptyBrandDetails());
+    setMyBrandId(null);
+    setBrandDeleteConfirmOpen(false);
+    setBrandCreatePromptOpen(false);
+  }, []);
 
   const followerProfiles = useMemo(
     () => [
@@ -975,61 +1896,7 @@ function App() {
       .filter((entry) => entry.clothing);
   }, [clothingMap, fundings, selectedBrandProfile]);
 
-  const handleCanvasDraw = (event) => {
-    const canvas = event.currentTarget;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    drawMetaRef.current.moved = false;
-    ctx.lineWidth = designSize;
-    ctx.lineCap = "round";
-    if (designTool === "eraser") {
-      ctx.globalCompositeOperation = "destination-out";
-      ctx.strokeStyle = "rgba(0, 0, 0, 1)";
-    } else {
-      ctx.globalCompositeOperation = "source-over";
-      ctx.strokeStyle = designColor;
-    }
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    const startX = (event.clientX - rect.left) * scaleX;
-    const startY = (event.clientY - rect.top) * scaleY;
-    drawMetaRef.current.startX = startX;
-    drawMetaRef.current.startY = startY;
-    ctx.beginPath();
-    ctx.moveTo(startX, startY);
-
-    const draw = (moveEvent) => {
-      drawMetaRef.current.moved = true;
-      const x = (moveEvent.clientX - rect.left) * scaleX;
-      const y = (moveEvent.clientY - rect.top) * scaleY;
-      const dx = x - drawMetaRef.current.startX;
-      const dy = y - drawMetaRef.current.startY;
-      if (Math.hypot(dx, dy) < 3) {
-        return;
-      }
-      ctx.lineTo(x, y);
-      ctx.stroke();
-    };
-
-    const stop = () => {
-      ctx.globalCompositeOperation = "source-over";
-      window.removeEventListener("mousemove", draw);
-      window.removeEventListener("mouseup", stop);
-      if (!drawMetaRef.current.moved) {
-        openCanvasZoom();
-      }
-    };
-
-    window.addEventListener("mousemove", draw);
-    window.addEventListener("mouseup", stop);
-  };
-
-  const openCanvasZoom = () => {
-    if (designPhoto?.url) {
-      setImagePreview(designPhoto.url);
-      return;
-    }
+  const openCanvasZoom = (side = studioSide) => {
     if (canvasPopupRef.current && !canvasPopupRef.current.closed) {
       canvasPopupRef.current.focus();
       return;
@@ -1045,8 +1912,9 @@ function App() {
     canvasPopupRef.current = popup;
     popup.moveTo(0, 0);
     popup.resizeTo(width, height);
+    activeCanvasSideRef.current = side;
     const source = designCanvasRef.current;
-    const dataUrl = source ? source.toDataURL("image/png") : "";
+    const dataUrl = studioSideImages[side] || (source ? source.toDataURL("image/png") : "");
     const payload = {
       dataUrl,
       color: designColor,
@@ -1579,7 +2447,33 @@ function App() {
     popup.document.close();
   };
 
-  const saveTempDesign = (name) => {
+  const openCanvasForSide = (side) => {
+    setStudioSide(side);
+    openCanvasZoom(side);
+  };
+
+  const drawPreviewCanvas = useCallback((canvas, dataUrl) => {
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (!dataUrl) return;
+    const image = new Image();
+    image.onload = () => {
+      const scale = Math.min(
+        canvas.width / image.width,
+        canvas.height / image.height,
+      );
+      const drawWidth = image.width * scale;
+      const drawHeight = image.height * scale;
+      const offsetX = (canvas.width - drawWidth) / 2;
+      const offsetY = (canvas.height - drawHeight) / 2;
+      ctx.drawImage(image, offsetX, offsetY, drawWidth, drawHeight);
+    };
+    image.src = dataUrl;
+  }, []);
+
+  const saveTempDesign = async (name) => {
     const totalDesignCount = generatedDesigns.length + tempDesigns.length;
     if (totalDesignCount >= 10) {
       openLimitAlert(
@@ -1588,36 +2482,252 @@ function App() {
       return;
     }
     const canvas = designCanvasRef.current;
-    if (!canvas) return;
-    const dataUrl = canvas.toDataURL("image/png");
+    const dataUrl =
+      studioSideImages[studioSide] ||
+      (canvas ? canvas.toDataURL("image/png") : "");
+    const previewUrl =
+      studioSideImages.front || studioSideImages.back || dataUrl;
+    if (!previewUrl) return;
     const nextId = `temp-${Date.now()}`;
-    setTempDesigns((prev) => [
-      {
-        id: nextId,
-        name: name || "임시 스케치",
-        savedAt: formatTimestamp(new Date()),
-        design_prompt: name || prompt.trim() || "임시 스케치",
-        design_img_url: dataUrl,
-        isTemp: true,
-      },
-      ...prev,
-    ]);
+    const resolvePhotoData = async (photo, fallbackName) => {
+      if (!photo) return null;
+      if (photo.dataUrl) {
+        return { url: photo.dataUrl, name: photo.name || fallbackName, dataUrl: photo.dataUrl };
+      }
+      if (photo.file) {
+        const dataUrlValue = await readFileAsDataUrl(photo.file);
+        return { url: dataUrlValue, name: photo.name || fallbackName, dataUrl: dataUrlValue };
+      }
+      if (photo.url) {
+        if (photo.url.startsWith("data:")) {
+          return { url: photo.url, name: photo.name || fallbackName, dataUrl: photo.url };
+        }
+        try {
+          const response = await fetch(photo.url);
+          const blob = await response.blob();
+          const dataUrlValue = await readFileAsDataUrl(blob);
+          return { url: dataUrlValue, name: photo.name || fallbackName, dataUrl: dataUrlValue };
+        } catch (error) {
+          console.error("Failed to persist studio photo", error);
+        }
+      }
+      return null;
+    };
+    const storedSidePhotos = {
+      front: await resolvePhotoData(studioSidePhotos.front, "front.png"),
+      back: await resolvePhotoData(studioSidePhotos.back, "back.png"),
+    };
+    // Persistent Save to Server
+    try {
+      const payload = {
+        clothing_name: name || "내 디자인",
+        category: designCategory || "TOP",
+        sub_category: designCategory,
+        gender: designGender,
+        design_img_url: previewUrl,
+        final_result_front_url: previewUrl,
+        prompt: prompt || name || "",
+        clothing_img_url: previewUrl,
+        style: "casual", // Default or detect
+        price: 0,
+        is_public: true, // Default to true or false?
+        // Basic physics params
+        stretch: 5,
+        weight: 5,
+        stiffness: 5,
+        thickness: 5,
+        // Body dimensions (optional, attached to user)
+      };
+
+      const newDesign = await createCloth(payload);
+      if (newDesign) {
+        // Map backend response to frontend design object
+        const designToAdd = {
+          ...newDesign,
+          savedAt: formatTimestamp(new Date(newDesign.created_at || Date.now())),
+          // Ensure name is correct (backend sends name, but just in case)
+          name: newDesign.name || newDesign.clothing_name || name
+        };
+        setGeneratedDesigns((prev) => [designToAdd, ...prev]);
+        alert("디자인이 저장되었습니다.");
+
+        // Clear current canvas tracking if needed, or keep for further editing
+      }
+    } catch (error) {
+      console.error("Failed to save design:", error);
+      alert(`저장 실패: ${error.message || "알 수 없는 오류"}`);
+    }
   };
 
-  const removeDesign = (designId, isTemp) => {
+  const loadSavedDesign = async (item) => {
+    // Use saved state if available (for temp designs)
+    if (item?.studioState) {
+      const state = item.studioState;
+      const restorePhoto = async (photo, fallbackName) => {
+        if (!photo) return null;
+        const dataUrl = photo.dataUrl || photo.url;
+        if (!dataUrl) return null;
+        let file = photo.file;
+        if (!file) {
+          try {
+            file = await dataUrlToFile(dataUrl, photo.name || fallbackName);
+          } catch (error) {
+            console.error("Failed to restore studio photo file", error);
+          }
+        }
+        return { url: dataUrl, name: photo.name || fallbackName, file };
+      };
+      const restoredPhotos = {
+        front: await restorePhoto(state.sidePhotos?.front, "front.png"),
+        back: await restorePhoto(state.sidePhotos?.back, "back.png"),
+      };
+      setPrompt(state.prompt || "");
+      setDesignGender(state.designGender || "Unisex");
+      setDesignCategory(state.designCategory || "상의");
+      setDesignLength(state.designLength || "민소매");
+      setDesignTool(state.designTool || "brush");
+      setDesignColor(state.designColor || "#111111");
+      setDesignSize(state.designSize || 6);
+      setDesignScale(state.designScale || 0.8);
+      setDesignViewSide(state.designViewSide || "front");
+      setSizeRange(state.sizeRange || [2, 5]);
+      setSizeDetailSelected(state.sizeDetailSelected || "M");
+      setSizeDetailInputs(state.sizeDetailInputs || {});
+      setFabric(state.fabric || { stretch: 5, weight: 5, stiffness: 5 });
+      setStudioSidePhotos(restoredPhotos || { front: null, back: null });
+      setStudioSideImages(state.sideImages || { front: null, back: null });
+      setStudioSide(state.activeSide || "front");
+
+      const activeSide = state.activeSide || "front";
+      const nextUrl =
+        state.sideImages?.[activeSide] || restoredPhotos?.[activeSide]?.url;
+      if (nextUrl) {
+        loadDesignToCanvas(nextUrl);
+      } else {
+        const canvas = designCanvasRef.current;
+        if (canvas) {
+          const ctx = canvas.getContext("2d");
+          if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+      }
+      setIsGalleryOpen(false);
+      return;
+    }
+
+    // Load from Backend Data
+    const frontUrl = item.final_result_front_url || item.design_img_url;
+    const backUrl = item.final_result_back_url;
+
+    try {
+      let frontData = null;
+      let backData = null;
+
+      if (frontUrl) {
+        const res = await fetch(frontUrl);
+        const blob = await res.blob();
+        const file = new File([blob], "front_design.png", { type: "image/png" });
+        frontData = { url: frontUrl, file, name: "front_design.png" };
+      }
+
+      if (backUrl) {
+        const res = await fetch(backUrl);
+        const blob = await res.blob();
+        const file = new File([blob], "back_design.png", { type: "image/png" });
+        backData = { url: backUrl, file, name: "back_design.png" };
+      }
+
+      setStudioSidePhotos({
+        front: frontData,
+        back: backData
+      });
+
+    } catch (err) {
+      console.error("Failed to load design images", err);
+    }
+
+    setPrompt(item.description || "");
+    if (item.category) setDesignCategory(item.category);
+    // Try to clear canvas as we are loading photos
+    const canvas = designCanvasRef.current;
+    if (canvas) {
+      const ctx = canvas.getContext("2d");
+      if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    setIsGalleryOpen(false);
+
+    // Sync the result view to show the loaded design
+    const index = generatedDesigns.findIndex(d => d.id === item.id);
+    if (index !== -1) {
+      setDesignResultIndex(index);
+      setShowResult(true);
+      setDesignViewSide("front");
+    }
+  };
+
+  const removeDesign = async (designId, isTemp) => {
     if (isTemp) {
       setTempDesigns((prev) => prev.filter((item) => item.id !== designId));
       return;
     }
-    setGeneratedDesigns((prev) => prev.filter((item) => item.id !== designId));
+
+    // Confirmation Dialog
+    if (window.confirm("디자인이 영구적으로 삭제됩니다. 계속하시겠습니까?")) {
+      try {
+        await deleteCloth(designId);
+        setGeneratedDesigns((prev) => prev.filter((item) => item.id !== designId));
+
+        // Also update brand count locally if possible
+        setBrand((prev) => ({ ...prev, clothes_count: Math.max(0, prev.clothes_count - 1) }));
+      } catch (error) {
+        console.error("Failed to delete design", error);
+        alert("디자인 삭제에 실패했습니다.");
+      }
+    }
   };
 
-  const clearDesignCanvas = () => {
-    const canvas = designCanvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const removeBrandDesign = async (clothingId) => {
+    if (!clothingId) return;
+    if (!confirm('정말 이 디자인을 삭제하시겠습니까?')) return;
+
+    try {
+      await deleteCloth(clothingId);
+
+      setFundings((prev) =>
+        prev.filter(
+          (entry) =>
+            entry.clothing_id !== clothingId ||
+            entry.brand !== myBrandDetails.brand,
+        ),
+      );
+      setClothing((prev) => prev.filter((item) => item.id !== clothingId));
+      setGeneratedDesigns((prev) => prev.filter((item) => item.id !== clothingId));
+      setDetailItem((current) =>
+        current?.clothing?.id === clothingId ? null : current,
+      );
+
+      alert('디자인이 삭제되었습니다.');
+    } catch (err) {
+      console.error('Failed to delete design', err);
+      alert('삭제에 실패했습니다: ' + (err.response?.data?.message || err.message));
+    }
+  };
+
+  const openBrandDesignEditor = (design) => {
+    if (!design) return;
+    setAiDesignModal({ open: true, design });
+    setAiDesignDraft({
+      name: design.name || "",
+      price: design.price || 0,
+      category: design.category || "",
+      style: design.style || "",
+      gender: design.gender || "",
+      description: design.description || "",
+      story: myBrandDetails.bio || design.story || "",
+    });
+    setDetailTab("overview");
+    setModalViewSide("front");
+    setAiDesignEditMode(true);
   };
 
   const resetFilters = () => {
@@ -1643,9 +2753,19 @@ function App() {
   };
 
   const startOnboarding = () => {
+    if (isLoggedIn) {
+      setIntroOpen(false);
+    } else {
+      setIntroOpen(false);
+      setAuthSelectionOpen(true);
+    }
+  };
+
+  const openIntroDiscover = () => {
     setIntroOpen(false);
-    resetOnboarding();
-    setOnboardingOpen(true);
+    setAuthSelectionOpen(false);
+    setActiveTab("discover");
+    setPendingTab(null);
   };
 
   const openLoginFlow = () => {
@@ -1659,10 +2779,6 @@ function App() {
 
   const closeAuthModal = () => {
     setAuthModal({ open: false, mode: null });
-  };
-
-  const closeLoginModal = () => {
-    setLoginModalOpen(false);
   };
 
   const closeCancelFundingModal = () => {
@@ -1701,15 +2817,35 @@ function App() {
     }, 250);
   };
 
-  const submitLogin = () => {
+  const submitLogin = async () => {
     if (!loginDraft.handle.trim() || !loginDraft.password.trim()) return;
-    setIsLoggedIn(true);
-    setLoginModalOpen(false);
-    setActiveTab(pendingTab || "discover");
-    setPendingTab(null);
+    try {
+      const result = await login(loginDraft.handle, loginDraft.password);
+      const token = result?.data?.token;
+      if (!token) {
+        throw new Error("로그인 토큰을 받지 못했습니다.");
+      }
+      window.localStorage.setItem("token", token);
+
+      const loginUser = result?.data?.user;
+      resetMyBrandState();
+      if (loginUser?.userName) {
+        applyUserProfile({ name: loginUser.userName, handle: loginUser.userName });
+      }
+
+      setIsLoggedIn(true);
+      setLoginModalOpen(false);
+      setActiveTab(pendingTab || "discover");
+      setPendingTab(null);
+      setLoginDraft({ handle: "", password: "" });
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.message || "로그인에 실패했습니다.");
+    }
   };
 
   const handleLogout = () => {
+    window.localStorage.removeItem("token");
     setIsLoggedIn(false);
     setActiveTab("discover");
     setDetailItem(null);
@@ -1719,6 +2855,16 @@ function App() {
     setSelectedBrandKey(null);
     setPendingTab(null);
     setLoginDraft({ handle: "", password: "" });
+    setHasBrandPage(false);
+    setBrandPageReady(false);
+    setBrandEditing(false);
+    setBrandFollowerOverride(null);
+    setMyBrandDetails(buildEmptyBrandDetails());
+    setMyBrandId(null);
+    setBrandDeleteConfirmOpen(false);
+    setBrandCreatePromptOpen(false);
+    setUserProfile(userBase);
+    setCurrentUserId(null);
     setFundings((prev) =>
       prev.map((item) =>
         item.liked
@@ -1728,23 +2874,29 @@ function App() {
     );
   };
 
-  const handleAccountDelete = () => {
-    handleLogout();
-    resetBrandPage();
-    setUserProfile(userBase);
-    setSignupDraft({
-      handle: userBase.handle,
-      name: userBase.name,
-      password: "",
-      passwordConfirm: "",
-      base_photo_url: null,
-      measurements: { ...userBase.measurements },
-    });
-    setSelectedStyleIds([]);
-    setMeasurementMode("manual");
-    setIntroOpen(true);
-    setOnboardingOpen(false);
-    setAccountDeleteConfirmOpen(false);
+  const handleAccountDelete = async () => {
+    try {
+      await deleteAccount();
+      handleLogout();
+      resetBrandPage();
+      setUserProfile(userBase);
+      setSignupDraft({
+        handle: userBase.handle,
+        name: userBase.name,
+        password: "",
+        passwordConfirm: "",
+        base_photo_url: null,
+        measurements: { ...userBase.measurements },
+      });
+      setSelectedStyleIds([]);
+      setMeasurementMode("manual");
+      setIntroOpen(true);
+      setOnboardingOpen(false);
+      setAccountDeleteConfirmOpen(false);
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.message || "탈퇴에 실패했습니다.");
+    }
   };
 
   const handleRestrictedNav = (nextTab) => {
@@ -1768,32 +2920,38 @@ function App() {
     }));
   };
 
-const handleProfilePhotoChange = (event) => {
-  const file = event.target.files[0];
+  const handleProfilePhotoChange = (event) => {
+    const file = event.target.files[0];
 
-  if (file) {
-    // 1. 파일을 미리보기용 주소(URL)로 변환! (이게 빠져서 안 떴던 거야)
-    const imageUrl = URL.createObjectURL(file);
+    if (file) {
+      // 1. 파일을 미리보기용 주소(URL)로 변환! (이게 빠져서 안 떴던 거야)
+      const imageUrl = URL.createObjectURL(file);
 
-    // 2. 상태 업데이트 (사진 주소 저장)
-    setSignupDraft((prev) => ({
-      ...prev,
-      base_photo_url: imageUrl,
-    }));
-  }
-};
+      // 2. 상태 업데이트 (사진 주소 저장)
+      setSignupDraft((prev) => ({
+        ...prev,
+        profile_img_url: imageUrl,
+      }));
+      setSignupPhotoFile(file);
+    }
+  };
 
-  const handleDesignPhotoChange = (event) => {
+  const handleStudioSidePhotoChange = (side, event) => {
     const file = event.target.files[0];
     if (!file) return;
     const url = URL.createObjectURL(file);
-    setDesignPhoto({ url, name: file.name });
+    setStudioSidePhotos((prev) => ({
+      ...prev,
+      [side]: { url, name: file.name, file },
+    }));
   };
 
-  const clearDesignPhoto = () => {
-    setDesignPhoto(null);
-    if (designPhotoInputRef.current) {
-      designPhotoInputRef.current.value = "";
+  const clearStudioSidePhoto = (side) => {
+    setStudioSidePhotos((prev) => ({ ...prev, [side]: null }));
+    const targetRef =
+      side === "front" ? frontPhotoInputRef.current : backPhotoInputRef.current;
+    if (targetRef) {
+      targetRef.value = "";
     }
   };
 
@@ -1802,7 +2960,9 @@ const handleProfilePhotoChange = (event) => {
     if (!canvas || !src) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+
     const image = new Image();
+    image.crossOrigin = "anonymous";
     image.onload = () => {
       const canvasWidth = canvas.width;
       const canvasHeight = canvas.height;
@@ -1820,21 +2980,48 @@ const handleProfilePhotoChange = (event) => {
     image.src = src;
   };
 
-  const switchStudioSide = (nextSide) => {
-    if (nextSide === studioSide) return;
-    const canvas = designCanvasRef.current;
-    if (canvas) {
-      const currentUrl = canvas.toDataURL("image/png");
-      setStudioSideImages((prev) => ({ ...prev, [studioSide]: currentUrl }));
-    }
-    const nextUrl = studioSideImages[nextSide];
-    setStudioSide(nextSide);
-    if (nextUrl) {
-      loadDesignToCanvas(nextUrl);
-    } else {
-      clearDesignCanvas();
-    }
+  const handleDesignMouseDown = (e) => {
+    e.preventDefault();
+    isDraggingDesign.current = true;
+    lastMouseY.current = e.clientY;
   };
+
+  const handleDesignMouseMove = (e) => {
+    if (!isDraggingDesign.current) return;
+    const deltaY = lastMouseY.current - e.clientY;
+    lastMouseY.current = e.clientY;
+    setDesignScale((prev) => clamp(prev + deltaY * 0.005, 0.4, 3.0));
+  };
+
+  const handleDesignMouseUp = () => {
+    isDraggingDesign.current = false;
+  };
+
+  const handleGalleryMouseDown = (e, id) => {
+    e.preventDefault();
+    setActiveGalleryDrag(id);
+    lastMouseY.current = e.clientY;
+  };
+
+  useEffect(() => {
+    if (!activeGalleryDrag) return;
+    const onMove = (e) => {
+      const deltaY = lastMouseY.current - e.clientY;
+      lastMouseY.current = e.clientY;
+      setGalleryScales((prev) => {
+        const currentScale = prev[activeGalleryDrag] || 1;
+        const newScale = clamp(currentScale + deltaY * 0.005, 0.5, 3.0);
+        return { ...prev, [activeGalleryDrag]: newScale };
+      });
+    };
+    const onUp = () => setActiveGalleryDrag(null);
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, [activeGalleryDrag]);
 
   const loadImage = (src) =>
     new Promise((resolve, reject) => {
@@ -1846,66 +3033,34 @@ const handleProfilePhotoChange = (event) => {
     });
 
   const saveFittingSnapshot = async (name, view) => {
-    if (fittingHistory.length >= 10) {
-      openLimitAlert(
-        "피팅 앨범은 10장까지만 저장할 수 있습니다. 기존 항목을 삭제한 뒤 다시 시도해주세요.",
-      );
-      return;
-    }
-    const timestamp = formatTimestamp(new Date());
-    const targetView = view || fittingView;
-    if (targetView === "3d") {
-      if (!fittingCanvasRef.current) return;
-      const dataUrl = fittingCanvasRef.current.toDataURL("image/png");
-      setFittingHistory((prev) => [
-        {
-          id: `fit-${Date.now()}`,
-          title: name || "3D Snapshot",
-          image: dataUrl,
-          date: timestamp,
-        },
-        ...prev,
-      ]);
+    // Check if we have a current session
+    if (!currentFittingId || (!fittingRealResult && !fittingMannequinResult)) {
+      alert("저장할 피팅 결과가 없습니다.");
       return;
     }
 
     try {
-      const baseImage = await loadImage("/image7.png");
-      const canvas = document.createElement("canvas");
-      canvas.width = baseImage.width;
-      canvas.height = baseImage.height;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-      const centerX = canvas.width / 2;
-      const centerY = canvas.height / 2;
-      ctx.save();
-      ctx.translate(centerX, centerY);
-      ctx.scale(fittingZoom, fittingZoom);
-      ctx.translate(-centerX, -centerY);
-      ctx.drawImage(baseImage, 0, 0, canvas.width, canvas.height);
-      const layerWidth = canvas.width * 0.6;
-      const layerHeight = canvas.height * 0.6;
-      const layerX = (canvas.width - layerWidth) / 2;
-      const layerY = (canvas.height - layerHeight) / 2;
-      for (const id of fittingLayers) {
-        const src = clothingMap[id]?.design_img_url;
-        if (!src) continue;
-        const layerImage = await loadImage(src);
-        ctx.drawImage(layerImage, layerX, layerY, layerWidth, layerHeight);
-      }
-      ctx.restore();
-      const dataUrl = canvas.toDataURL("image/png");
-      setFittingHistory((prev) => [
-        {
-          id: `fit-${Date.now()}`,
-          title: name || "Real Snapshot",
-          image: dataUrl,
-          date: timestamp,
-        },
-        ...prev,
-      ]);
-    } catch {
-      // Ignore snapshot failures (missing assets, tainted canvas).
+      // Update the note/title of the current fitting in backend
+      await updateFitting(currentFittingId, { note: name });
+
+      // Refresh the fitting history from backend to get the latest state
+      const updatedHistory = await getMyFittings();
+      // Transform if necessary, but getMyFittings usually returns formatted data if services.js does.
+      // Wait, services.js returns response.data.data which is array of fitting objects.
+      // We need to transform them using the transformer logic? 
+      // Actually services.js `getMyFittings` calls `/api/fittings` which calls `fittingController.listFittings` 
+      // which uses `toFrontendFittingHistory`. So it's already formatted.
+      // EXCEPT `toFrontendFittingHistory` was updated in backend.
+
+      // We need to fetch it properly.
+      // Let's assume getMyFittings returns the list as per the controller.
+      setFittingHistory(updatedHistory);
+
+      alert("피팅이 저장되었습니다.");
+
+    } catch (error) {
+      console.error("Failed to save fitting:", error);
+      alert("저장에 실패했습니다: " + (error.response?.data?.error?.message || error.message));
     }
   };
 
@@ -1917,32 +3072,139 @@ const handleProfilePhotoChange = (event) => {
     );
   };
 
-  const finalizeOnboarding = () => {
-    const nextStyleTags = Array.from(
-      new Set(
-        selectedStyleIds.map((id) => clothingMap[id]?.style).filter(Boolean),
-      ),
-    );
-    setUserProfile((prev) => ({
-      ...prev,
-      handle: signupDraft.handle,
-      name: signupDraft.name,
-      base_photo_url: signupDraft.base_photo_url,
-      measurements: { ...prev.measurements, ...signupDraft.measurements },
-      styleTags: nextStyleTags.length ? nextStyleTags : prev.styleTags,
-      updatedAt: formatDate(new Date()),
-    }));
-    setFundings((prev) =>
-      prev.map((item) => {
-        if (!selectedStyleIds.includes(item.clothing_id)) return item;
-        if (item.liked) return item;
-        return { ...item, liked: true, likes: item.likes + 1 };
-      }),
-    );
-    setIsLoggedIn(true);
-    setOnboardingOpen(false);
-    setActiveTab(pendingTab || "discover");
-    setPendingTab(null);
+  const validateSignupRequired = () => {
+    if (!signupDraft.profile_img_url) {
+      // Optional: alert("프로필 사진을 업로드해주세요.");
+      // If we want it mandatory: return false;
+    }
+    if (!signupDraft.handle.trim()) {
+      alert("이메일을 입력해주세요.");
+      return false;
+    }
+    if (!signupDraft.name.trim()) {
+      alert("실명을 입력해주세요.");
+      return false;
+    }
+    if (!passwordReady) {
+      alert("비밀번호를 확인해주세요.");
+      return false;
+    }
+    if (measurementMode === "ai") {
+      if (!aiFileName) {
+        alert("전신 사진을 업로드해 신체 수치를 측정해주세요.");
+        return false;
+      }
+    } else if (
+      !signupMeasurementFields.every(
+        (field) => Number(signupDraft.measurements[field.key]) > 0,
+      )
+    ) {
+      alert("신체 수치를 모두 입력해주세요.");
+      return false;
+    }
+    if (selectedStyleIds.length < requiredStyleCount) {
+      alert(`취향을 최소 ${requiredStyleCount}개 이상 선택해주세요.`);
+      return false;
+    }
+    return true;
+  };
+
+  const finalizeOnboarding = async () => {
+    if (!validateSignupRequired()) return;
+    try {
+      const email = signupDraft.handle;
+      const password = signupDraft.password;
+
+      // Collect style tags from selected clothing items
+      const selectedClothes = clothing.filter(item => selectedStyleIds.includes(item.id));
+      const styleTags = [...new Set(selectedClothes.map(item => item.style).filter(Boolean))];
+
+      // Backend expects: email, password, userName, height, weight
+      const userData = {
+        email,
+        password,
+        userName: signupDraft.name,
+        height: Number(signupDraft.measurements.height) || 0,
+        weight: Number(signupDraft.measurements.weight) || 0,
+        gender: signupDraft.gender,
+        styleTags: styleTags.length > 0 ? styleTags : ['Minimal'],
+      };
+
+      await signup(userData);
+
+      let token = null;
+      try {
+        const loginResult = await login(email, password);
+        token = loginResult?.data?.token || null;
+        if (token) {
+          window.localStorage.setItem("token", token);
+          setIsLoggedIn(true);
+          resetMyBrandState();
+        }
+      } catch (err) {
+        console.error(err);
+      }
+
+      if (!token) {
+        alert("회원가입이 완료되었습니다. 로그인에 실패했습니다. 다시 로그인해주세요.");
+        setSignupPhotoFile(null);
+        setOnboardingOpen(false);
+        setIntroOpen(false);
+        setLoginDraft({ handle: email, password: "" });
+        setLoginModalOpen(true);
+        return;
+      }
+
+      if (signupPhotoFile) {
+        try {
+          const uploadResult = await uploadProfilePhoto(signupPhotoFile, "profile");
+          // Backend returns updated user object with snake_case keys
+          const profileUrl = uploadResult?.data?.profile_img_url;
+          if (profileUrl) {
+            await updateProfile({ profile_img_url: profileUrl });
+          }
+
+        } catch (err) {
+          console.error(err);
+          // alert(err.response?.data?.message || "프로필 이미지 업로드에 실패했습니다.");
+        }
+      }
+
+      const rawMetrics = {
+        height: signupDraft.measurements.height,
+        weight: signupDraft.measurements.weight,
+        neckCircum: signupDraft.measurements.neckCircum,
+        shoulderWidth: signupDraft.measurements.shoulderWidth,
+        chestCircum: signupDraft.measurements.chestCircum,
+        waistCircum: signupDraft.measurements.waistCircum,
+        hipCircum: signupDraft.measurements.hipCircum,
+        armLength: signupDraft.measurements.armLength,
+        legLength: signupDraft.measurements.legLength,
+        footSize: signupDraft.measurements.shoeSize,
+      };
+
+      const bodyMetrics = Object.fromEntries(
+        Object.entries(rawMetrics)
+          .map(([key, value]) => [key, Number(value)])
+          .filter(([, value]) => !Number.isNaN(value) && value > 0),
+      );
+
+      if (Object.keys(bodyMetrics).length > 0) {
+        await updateBodyMetrics(bodyMetrics);
+      }
+
+      const profile = await getProfile();
+      applyUserProfile(profile);
+
+      alert("회원가입이 완료되었습니다.");
+      setSignupPhotoFile(null);
+      setOnboardingOpen(false);
+      setIntroOpen(false);
+      setLoginModalOpen(false);
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.message || "회원가입에 실패했습니다.");
+    }
   };
 
   useEffect(() => {
@@ -1954,26 +3216,139 @@ const handleProfilePhotoChange = (event) => {
   }, [isLoggedIn]);
 
   useEffect(() => {
+    if (!isLoggedIn) return;
+    const token = window.localStorage.getItem("token");
+    if (!token) {
+      setIsLoggedIn(false);
+      return;
+    }
+
+    let active = true;
+    (async () => {
+      try {
+        const profile = await getProfile();
+        if (active) {
+          applyUserProfile(profile);
+        }
+        const me = await getMe();
+        if (active) {
+          setCurrentUserId(me?.user_id ?? null);
+        }
+      } catch (err) {
+        const status = err.response?.status;
+        if (status === 401 || status === 403) {
+          window.localStorage.removeItem("token");
+          setIsLoggedIn(false);
+          setCurrentUserId(null);
+        } else {
+          console.error(err);
+        }
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [applyUserProfile, isLoggedIn, currentUserId]);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const profiles = await getBrandProfiles();
+        if (!active) return;
+        const normalized = profiles.map((profile) => ({
+          ...profile,
+          logoUrl: normalizeAssetUrl(profile.brand_logo || profile.logoUrl),
+          bio: profile.bio || "",
+        }));
+        setBrandProfiles(normalized);
+
+        if (!isLoggedIn || brandEditing) {
+          if (!isLoggedIn) {
+            resetMyBrandState();
+          }
+          return;
+        }
+
+        const myProfile = normalized.find(
+          (profile) =>
+            currentUserId && profile.owner_id === currentUserId,
+        );
+        if (myProfile && !brandEditing) {
+          setHasBrandPage(true);
+          setBrandPageReady(true);
+          setMyBrandId(myProfile.id);
+          setMyBrandDetails((prev) => ({
+            ...prev,
+            brand: myProfile.brand,
+            handle: myProfile.handle,
+            bio: myProfile.bio || brandPlaceholders.bio,
+            logoUrl: myProfile.logoUrl,
+          }));
+        } else if (!brandEditing) {
+          resetMyBrandState();
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [brandEditing, currentUserId, isLoggedIn, resetMyBrandState]);
+
+  useEffect(() => {
+    if (!userProfile.handle) return;
+    setMyBrandDetails((prev) => ({ ...prev, handle: userProfile.handle }));
+  }, [userProfile.handle]);
+
+  useEffect(() => {
     const handleMessage = (event) => {
       const payload = event?.data;
       if (!payload || typeof payload !== "object") return;
       if (payload.type !== "modif-canvas-save") return;
       if (!payload.dataUrl) return;
-      const target = designCanvasRef.current;
-      if (!target) return;
-      const ctx = target.getContext("2d");
-      if (!ctx) return;
-      const image = new Image();
-      image.onload = () => {
-        ctx.clearRect(0, 0, target.width, target.height);
-        ctx.drawImage(image, 0, 0, target.width, target.height);
-      };
-      image.src = payload.dataUrl;
+      const side = activeCanvasSideRef.current || "front";
+      setStudioSideImages((prev) => ({ ...prev, [side]: payload.dataUrl }));
     };
 
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
   }, []);
+
+  useEffect(() => {
+    drawPreviewCanvas(frontCanvasRef.current, studioSideImages.front);
+    drawPreviewCanvas(backCanvasRef.current, studioSideImages.back);
+  }, [drawPreviewCanvas, studioSideImages]);
+
+  useEffect(() => {
+    setDetailImageIndex(0);
+  }, [detailItem?.clothing?.id]);
+
+  useEffect(() => {
+    if (!hoveredCardId) return undefined;
+    const cloth = clothingMap[hoveredCardId];
+    if (!cloth) return undefined;
+    const images = getClothImages(cloth);
+    if (images.length < 2) return undefined;
+
+    slideTimerRef.current = window.setInterval(() => {
+      setSlideIndexMap((prev) => {
+        const current = prev[hoveredCardId] ?? 0;
+        const next = (current + 1) % images.length;
+        return { ...prev, [hoveredCardId]: next };
+      });
+    }, 1200);
+
+    return () => {
+      if (slideTimerRef.current) {
+        window.clearInterval(slideTimerRef.current);
+        slideTimerRef.current = null;
+      }
+    };
+  }, [clothingMap, getClothImages, hoveredCardId]);
 
   useEffect(() => {
     document.body.classList.toggle("intro-open", introOpen);
@@ -2039,6 +3414,28 @@ const handleProfilePhotoChange = (event) => {
     };
   }, [introOpen]);
 
+  useEffect(() => {
+    if (!authSelectionOpen) return;
+    // Force visibility for auth selection elements since the observer might not run
+    const timer = setTimeout(() => {
+      const elements = document.querySelectorAll(".intro-overlay .intro-heading, .intro-overlay .intro-actions");
+      elements.forEach(el => el.classList.add("is-visible"));
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [authSelectionOpen]);
+
+  useEffect(() => {
+    if (fittingView !== "real") return;
+    if (!userProfile.base_photo_url) return;
+    setFittingRealBaseUrl(userProfile.base_photo_url);
+  }, [fittingView, userProfile.base_photo_url]);
+
+  useEffect(() => {
+    if (sizeRangeLabels.length === 0) return;
+    if (sizeRangeLabels.includes(sizeDetailSelected)) return;
+    setSizeDetailSelected(sizeRangeLabels[0]);
+  }, [sizeDetailSelected, sizeRangeLabels]);
+
   const openClothingDetail = (clothingId) => {
     const funding = fundings.find((entry) => entry.clothing_id === clothingId);
     const cloth = clothingMap[clothingId];
@@ -2049,13 +3446,74 @@ const handleProfilePhotoChange = (event) => {
     setSearchOpen(false);
   };
 
+  const openMyBrandPage = () => {
+    if (!isLoggedIn) {
+      setSelectedBrandKey("my-brand");
+      setPendingTab("brand");
+      openAuthModal("login-required");
+      return;
+    }
+
+    if (!currentUserId) {
+      console.warn("OpenMyBrandPage: Logged in but no currentUserId yet. Waiting...");
+      alert("사용자 정보를 불러오는 중입니다. 잠시 후 다시 시도해주세요.");
+      return;
+    }
+
+    // Direct lookup for robustness with Type Safety
+    console.log("OpenMyBrandPage Check:", { currentUserId, profilesCount: brandProfiles.length });
+
+    const directProfile = brandProfiles.find(p => Number(p.owner_id) === Number(currentUserId));
+    console.log("Found Direct Profile:", directProfile);
+
+    const brandExists = !!directProfile || hasBrandPage || (myBrandId !== null && myBrandId !== "my-brand");
+
+    setSelectedBrandKey("my-brand");
+    setActiveTab("brand");
+    setDetailItem(null);
+
+    if (brandExists) {
+      // Brand exists -> Show brand profile
+      const profile = directProfile || myBrandProfile;
+
+      // Sync state if needed
+      if (directProfile && myBrandId !== directProfile.id) {
+        setMyBrandId(directProfile.id);
+        setHasBrandPage(true);
+        setBrandPageReady(true);
+        setMyBrandDetails(prev => ({
+          ...prev,
+          brand: directProfile.brand,
+          logoUrl: directProfile.logoUrl,
+          bio: directProfile.bio
+        }));
+      }
+
+      if (profile) {
+        openBrandProfile(profile);
+      }
+      setBrandCreatePromptOpen(false);
+    } else {
+      // Brand does not exist -> Show Create Prompt
+      setBrandCreatePromptOpen(true);
+      setBrandEditing(false);
+    }
+  };
+
   const openBrandProfile = (profile) => {
     if (!profile) return;
-    const key = profile.handle || profile.brand;
+    const key = profile.handle || profile.brand || profile.id;
     setSelectedBrandKey(key);
     setActiveTab("brand");
     setDetailItem(null);
     setSearchOpen(false);
+    if (
+      profile.handle === myBrandDetails.handle &&
+      hasBrandPage &&
+      brandPageReady
+    ) {
+      setBrandEditing(false);
+    }
   };
 
   const openNotificationTarget = (notice) => {
@@ -2086,12 +3544,12 @@ const handleProfilePhotoChange = (event) => {
         current.map((profile) =>
           profile.handle === handle
             ? {
-                ...profile,
-                followerCount: Math.max(
-                  0,
-                  profile.followerCount + (isFollowed ? -1 : 1),
-                ),
-              }
+              ...profile,
+              followerCount: Math.max(
+                0,
+                profile.followerCount + (isFollowed ? -1 : 1),
+              ),
+            }
             : profile,
         ),
       );
@@ -2108,40 +3566,24 @@ const handleProfilePhotoChange = (event) => {
     signupDraft.password === signupDraft.passwordConfirm;
   const showPasswordHint =
     signupDraft.passwordConfirm.trim().length > 0 && !passwordReady;
+  const measurementsReady =
+    measurementMode === "ai"
+      ? Boolean(aiFileName)
+      : signupMeasurementFields.every(
+        (field) => Number(signupDraft.measurements[field.key]) > 0,
+      );
   const canProceedProfile =
+    Boolean(signupDraft.profile_img_url) &&
     signupDraft.handle.trim().length > 0 &&
     signupDraft.name.trim().length > 0 &&
-    passwordReady;
+    passwordReady &&
+    measurementsReady;
   const canFinishOnboarding =
     canProceedProfile && selectedStyleIds.length >= requiredStyleCount;
 
   if (onboardingOpen) {
     return (
       <div className="onboarding-page">
-        <div className="onboarding-actions">
-          <button
-            type="button"
-            className="onboarding-back"
-            onClick={() => {
-              setOnboardingOpen(false);
-              setIntroOpen(true);
-              resetOnboarding();
-            }}
-          >
-            돌아가기
-          </button>
-          <button
-            type="button"
-            className="onboarding-login"
-            onClick={() => {
-              setOnboardingOpen(false);
-              setIntroOpen(false);
-              openAuthModal("login-required");
-            }}
-          >
-            로그인
-          </button>
-        </div>
         <video
           className="onboarding-video"
           src="/background.mp4"
@@ -2168,7 +3610,18 @@ const handleProfilePhotoChange = (event) => {
                 <div className="onboarding-section-inner compact">
                   <span className="onboarding-step">Step 1</span>
                   <div className="onboarding-panel">
-                    <h3>기본 정보</h3>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <h3>기본 정보</h3>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOnboardingOpen(false);
+                          setIntroOpen(true);
+                          resetOnboarding();
+                        }}
+                        style={{ background: 'none', border: 'none', fontSize: '24px', color: '#999', cursor: 'pointer', padding: 0 }}
+                      >×</button>
+                    </div>
                     <div className="onboarding-grid">
                       <div className="profile-photo-upload">
                         <input
@@ -2176,33 +3629,33 @@ const handleProfilePhotoChange = (event) => {
                           accept="image/*"
                           onChange={handleProfilePhotoChange}
                         />
-                        {signupDraft.base_photo_url && (
+                        {signupDraft.profile_img_url && (
                           <button
                             type="button"
                             className="profile-remove"
                             aria-label="Remove profile photo"
-                            onClick={() =>
+                            onClick={() => {
                               setSignupDraft((prev) => ({
                                 ...prev,
-                                base_photo_url: null,
-                              }))
-                            }
+                                profile_img_url: null,
+                              }));
+                              setSignupPhotoFile(null);
+                            }}
                           >
                             ×
                           </button>
                         )}
                         <div
-                          className={`profile-icon ${
-                            signupDraft.base_photo_url ? "has-photo" : ""
-                          }`}
+                          className={`profile-icon ${signupDraft.profile_img_url ? "has-photo" : ""
+                            }`}
                         >
                           {/* 1. 항상 'profile' 글자를 배경에 깔아둡니다 */}
                           <span className="profile-text">profile</span>
 
                           {/* 2. 이미지가 있으면 그 위에 덮어씌웁니다 */}
-                          {signupDraft.base_photo_url && (
+                          {signupDraft.profile_img_url && (
                             <img
-                              src={signupDraft.base_photo_url}
+                              src={signupDraft.profile_img_url}
                               alt="Profile"
                               /* ✨ 핵심: 이미지가 깨지면(에러나면) 스스로를 숨겨서 뒤에 있는 글자가 보이게 함 */
                               onError={(e) => (e.target.style.display = "none")}
@@ -2210,15 +3663,17 @@ const handleProfilePhotoChange = (event) => {
                           )}
                         </div>
                       </div>
+
                       <div className="name-fields">
+
                         <label className="onboarding-field">
-                          아이디
+                          이메일
                           <input
                             value={signupDraft.handle}
                             onChange={(event) =>
                               updateSignupField("handle", event.target.value)
                             }
-                            placeholder="your.id"
+                            placeholder="name@example.com"
                           />
                         </label>
                         <label className="onboarding-field">
@@ -2259,12 +3714,31 @@ const handleProfilePhotoChange = (event) => {
                       </div>
                     </div>
                     <p
-                      className={`onboarding-hint ${
-                        showPasswordHint ? "is-visible" : "is-hidden"
-                      }`}
+                      className={`onboarding-hint ${showPasswordHint ? "is-visible" : "is-hidden"
+                        }`}
                     >
                       비밀번호가 일치하지 않습니다.
                     </p>
+                    <div className="onboarding-divider" />
+                    <h4 style={{ marginBottom: '12px' }}>성별</h4>
+                    <div style={{ display: 'flex', gap: '12px', marginBottom: '20px' }}>
+                      <button
+                        type="button"
+                        className={signupDraft.gender === 'MALE' ? 'tab-btn active' : 'tab-btn'}
+                        onClick={() => updateSignupField('gender', 'MALE')}
+                        style={{ flex: 1, padding: '12px' }}
+                      >
+                        남성
+                      </button>
+                      <button
+                        type="button"
+                        className={signupDraft.gender === 'FEMALE' ? 'tab-btn active' : 'tab-btn'}
+                        onClick={() => updateSignupField('gender', 'FEMALE')}
+                        style={{ flex: 1, padding: '12px' }}
+                      >
+                        여성
+                      </button>
+                    </div>
                     <div className="onboarding-divider" />
                     <div className="measurements-head">
                       <h4>신체 수치</h4>
@@ -2384,7 +3858,7 @@ const handleProfilePhotoChange = (event) => {
                         </div>
                       )}
                     </div>
-                    <div className="onboarding-submit">
+                    <div className="onboarding-submit align-right">
                       <button
                         type="button"
                         className="primary"
@@ -2393,6 +3867,28 @@ const handleProfilePhotoChange = (event) => {
                       >
                         다음
                       </button>
+                      <div style={{ marginTop: '16px', fontSize: '14px', color: '#666' }}>
+                        이미 계정이 있으신가요?{" "}
+                        <button
+                          type="button"
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: '#111',
+                            fontWeight: '600',
+                            textDecoration: 'underline',
+                            cursor: 'pointer',
+                            padding: 0,
+                            fontFamily: 'inherit'
+                          }}
+                          onClick={() => {
+                            setOnboardingOpen(false);
+                            setLoginModalOpen(true);
+                          }}
+                        >
+                          로그인하기
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -2417,9 +3913,8 @@ const handleProfilePhotoChange = (event) => {
                         <button
                           key={item.id}
                           type="button"
-                          className={`style-pick-card ${
-                            selectedStyleIds.includes(item.id) ? "selected" : ""
-                          }`}
+                          className={`style-pick-card ${selectedStyleIds.includes(item.id) ? "selected" : ""
+                            }`}
                           onClick={() => toggleStyleSelection(item.id)}
                         >
                           <div className="style-pick-media">
@@ -2463,9 +3958,8 @@ const handleProfilePhotoChange = (event) => {
 
   const appContent = (
     <div
-      className={`app ${sidebarOpen ? "" : "sidebar-collapsed"} ${
-        darkMode ? "dark" : ""
-      }`}
+      className={`app ${sidebarOpen ? "" : "sidebar-collapsed"} ${darkMode ? "dark" : ""
+        }`}
     >
       {introOpen && (
         <div className="intro-overlay" role="dialog" aria-modal="true">
@@ -2532,16 +4026,72 @@ const handleProfilePhotoChange = (event) => {
                 <button
                   type="button"
                   className="intro-btn"
-                  onClick={() => {
-                    setIntroOpen(false);
-                    setActiveTab("discover");
-                  }}
+                  onClick={openIntroDiscover}
                 >
                   둘러보기
                 </button>
               </div>
             </div>
           </section>
+        </div>
+      )}
+      {authSelectionOpen && (
+        <div className="intro-overlay" role="dialog" aria-modal="true">
+          <section className="intro-hero">
+            <video
+              className="intro-video"
+              src="/background.mp4"
+              autoPlay
+              muted
+              loop
+              playsInline
+            />
+            <div className="intro-fade" />
+          </section>
+
+          <div className="auth-selection">
+            <div className="auth-selection-card">
+              <h3 className="auth-selection-title">Modif 시작하기</h3>
+              <p className="auth-selection-subtitle">
+                AI와 함께하는 새로운 패션의 시작
+              </p>
+
+              <div className="auth-selection-actions">
+                <button
+                  type="button"
+                  className="auth-selection-btn auth-selection-btn--primary"
+                  onClick={() => {
+                    setAuthSelectionOpen(false);
+                    setLoginModalOpen(true);
+                  }}
+                >
+                  로그인
+                </button>
+                <button
+                  type="button"
+                  className="auth-selection-btn auth-selection-btn--ghost"
+                  onClick={() => {
+                    setAuthSelectionOpen(false);
+                    resetOnboarding();
+                    setOnboardingOpen(true);
+                  }}
+                >
+                  회원가입
+                </button>
+              </div>
+
+              <button
+                type="button"
+                className="auth-selection-back"
+                onClick={() => {
+                  setAuthSelectionOpen(false);
+                  setIntroOpen(true);
+                }}
+              >
+                돌아가기
+              </button>
+            </div>
+          </div>
         </div>
       )}
       <aside className="sidebar">
@@ -2577,13 +4127,13 @@ const handleProfilePhotoChange = (event) => {
               icon: <Search size={20} strokeWidth={1.5} />,
             },
             {
-              key: "studio",
-              label: "Studio",
+              key: "brand",
+              label: "My Brand",
               icon: <Sparkles size={20} strokeWidth={1.5} />, // 별 모양 ✨
             },
             {
               key: "fitting",
-              label: "My Fitting",
+              label: "Fitting",
               icon: <Shirt size={20} strokeWidth={1.5} />, // 티셔츠 모양 👕
             },
             {
@@ -2598,7 +4148,9 @@ const handleProfilePhotoChange = (event) => {
               onClick={() =>
                 item.key === "discover"
                   ? setActiveTab(item.key)
-                  : handleRestrictedNav(item.key)
+                  : item.key === "brand"
+                    ? openMyBrandPage()
+                    : handleRestrictedNav(item.key)
               }
               type="button"
             >
@@ -2723,7 +4275,7 @@ const handleProfilePhotoChange = (event) => {
                   }
                 }}
               >
-                {notifications.length > 0 && (
+                {notifications.filter(n => !n.is_read).length > 0 && (
                   <span className="notif-dot" aria-hidden="true" />
                 )}
                 <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -2736,7 +4288,7 @@ const handleProfilePhotoChange = (event) => {
                   <div className="notif-header">
                     <div className="notif-title">
                       <strong>알림</strong>
-                      <span>{notifications.length} new</span>
+                      <span>{notifications.filter(n => !n.is_read).length} new</span>
                     </div>
                   </div>
                   <ul>
@@ -2751,10 +4303,26 @@ const handleProfilePhotoChange = (event) => {
                           <button
                             type="button"
                             className="notif-item"
-                            onClick={() => openNotificationTarget(item)}
+                            onClick={async () => {
+                              if (!item.is_read) {
+                                try {
+                                  await markNotificationAsRead(item.id);
+                                  setNotifications((prev) =>
+                                    prev.map((notice) =>
+                                      notice.id === item.id
+                                        ? { ...notice, is_read: true }
+                                        : notice,
+                                    ),
+                                  );
+                                } catch (err) {
+                                  console.error('Failed to mark notification as read', err);
+                                }
+                              }
+                              openNotificationTarget(item);
+                            }}
                           >
-                            <strong>{item.title}</strong>
-                            <span>{item.message}</span>
+                            <strong style={{ opacity: item.is_read ? 0.6 : 1 }}>{item.title}</strong>
+                            <span style={{ opacity: item.is_read ? 0.6 : 1 }}>{item.message}</span>
                           </button>
                           <button
                             className="notif-item-close"
@@ -2785,25 +4353,25 @@ const handleProfilePhotoChange = (event) => {
                   </ul>
                 </div>
               )}
+              <button
+                className="icon-btn"
+                type="button"
+                aria-label="Profile"
+                onClick={() => {
+                  if (isLoggedIn) {
+                    setActiveTab("profile");
+                    setDetailItem(null);
+                  } else {
+                    openAuthModal("login-required");
+                  }
+                }}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="12" cy="8" r="4" />
+                  <path d="M4 20c2-4 14-4 16 0" />
+                </svg>
+              </button>
             </div>
-            <button
-              className="icon-btn"
-              type="button"
-              aria-label="Profile"
-              onClick={() => {
-                if (isLoggedIn) {
-                  setActiveTab("profile");
-                  setDetailItem(null);
-                } else {
-                  openAuthModal("login-required");
-                }
-              }}
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <circle cx="12" cy="8" r="4" />
-                <path d="M4 20c2-4 14-4 16 0" />
-              </svg>
-            </button>
           </div>
         </header>
 
@@ -2822,9 +4390,8 @@ const handleProfilePhotoChange = (event) => {
                       <button
                         key={category}
                         type="button"
-                        className={`tag ${
-                          selectedMainCategory === category ? "active" : ""
-                        }`}
+                        className={`tag ${selectedMainCategory === category ? "active" : ""
+                          }`}
                         onClick={() => {
                           setSelectedMainCategory(category);
                           setSelectedSubCategory("All");
@@ -2863,12 +4430,13 @@ const handleProfilePhotoChange = (event) => {
                         <button
                           key={category}
                           type="button"
-                          className={`tag ${
-                            selectedSubCategory === category ? "active" : ""
-                          }`}
+                          className={`tag ${selectedSubCategory === category ? "active" : ""
+                            }`}
                           onClick={() => setSelectedSubCategory(category)}
                         >
-                          <span className="tag-label">{category}</span>
+                          <span className="tag-label">
+                            {CATEGORY_LABELS[category] || category}
+                          </span>
                           {selectedSubCategory === category && (
                             <span
                               className="tag-clear"
@@ -2966,6 +4534,11 @@ const handleProfilePhotoChange = (event) => {
             <div className="feed-grid">
               {filteredFundings.map((item, index) => {
                 const cloth = clothingMap[item.clothing_id];
+                const slideshowImages = getClothImages(cloth);
+                const slideshowIndex =
+                  slideIndexMap[cloth?.id] ?? 0;
+                const slideshowSrc =
+                  slideshowImages[slideshowIndex] || cloth?.design_img_url;
                 const progress = clamp(
                   Math.round((item.current_amount / item.goal_amount) * 100),
                   0,
@@ -2982,6 +4555,32 @@ const handleProfilePhotoChange = (event) => {
                       className="card-media"
                       role="button"
                       tabIndex={0}
+                      onMouseEnter={() => {
+                        if (!cloth?.id) return;
+                        if (slideshowImages.length < 2) return;
+                        setHoveredCardId(cloth.id);
+                      }}
+                      onMouseLeave={() => {
+                        if (!cloth?.id) return;
+                        setHoveredCardId(null);
+                        setSlideIndexMap((prev) => ({
+                          ...prev,
+                          [cloth.id]: 0,
+                        }));
+                      }}
+                      onFocus={() => {
+                        if (!cloth?.id) return;
+                        if (slideshowImages.length < 2) return;
+                        setHoveredCardId(cloth.id);
+                      }}
+                      onBlur={() => {
+                        if (!cloth?.id) return;
+                        setHoveredCardId(null);
+                        setSlideIndexMap((prev) => ({
+                          ...prev,
+                          [cloth.id]: 0,
+                        }));
+                      }}
                       onClick={() => {
                         openClothingDetail(cloth.id);
                       }}
@@ -2992,7 +4591,7 @@ const handleProfilePhotoChange = (event) => {
                         }
                       }}
                     >
-                      <img src={cloth?.design_img_url} alt={cloth?.name} />
+                      <img src={slideshowSrc} alt={cloth?.name} />
                       <div className="card-like">
                         <button
                           type="button"
@@ -3017,7 +4616,7 @@ const handleProfilePhotoChange = (event) => {
                             onClick={() => {
                               const profile =
                                 brandProfileMap[
-                                  item.designer_handle?.toLowerCase()
+                                item.designer_handle?.toLowerCase()
                                 ] || brandProfileMap[item.brand.toLowerCase()];
                               if (profile) {
                                 openBrandProfile(profile);
@@ -3085,10 +4684,10 @@ const handleProfilePhotoChange = (event) => {
                           onClick={() => {
                             const profile =
                               brandProfileMap[
-                                detailItem.funding.designer_handle?.toLowerCase()
+                              detailItem.funding.designer_handle?.toLowerCase()
                               ] ||
                               brandProfileMap[
-                                detailItem.funding.brand.toLowerCase()
+                              detailItem.funding.brand.toLowerCase()
                               ];
                             if (profile) {
                               openBrandProfile(profile);
@@ -3099,14 +4698,13 @@ const handleProfilePhotoChange = (event) => {
                         </button>
                         <p>{detailItem.clothing?.name}</p>
                       </div>
-                      <div className="pill-group">
+                      <div className="pill-group detail-tabs">
                         {["overview", "story", "feedback"].map((tab) => (
                           <button
                             key={tab}
                             type="button"
-                            className={`pill ${
-                              detailTab === tab ? "active" : ""
-                            }`}
+                            className={`pill ${detailTab === tab ? "active" : ""
+                              }`}
                             onClick={() => setDetailTab(tab)}
                           >
                             {tab === "overview" && "Overview"}
@@ -3118,19 +4716,56 @@ const handleProfilePhotoChange = (event) => {
                     </div>
                     <div className="modal-body">
                       <div className="detail-media">
-                        <button
-                          type="button"
-                          className="detail-media-btn"
-                          onClick={() =>
-                            setImagePreview(detailItem.clothing?.design_img_url)
-                          }
-                          aria-label="Expand image"
-                        >
-                          <img
-                            src={detailItem.clothing?.design_img_url}
-                            alt="detail"
-                          />
-                        </button>
+                        {(() => {
+                          const detailImages = getClothImages(detailItem.clothing);
+                          const detailImageSrc =
+                            detailImages[detailImageIndex] ||
+                            detailItem.clothing?.design_img_url;
+                          return (
+                            <>
+                              {detailImages.length > 1 && (
+                                <>
+                                  <button
+                                    type="button"
+                                    className="detail-media-nav prev"
+                                    aria-label="Previous image"
+                                    onClick={() =>
+                                      setDetailImageIndex((prev) =>
+                                        (prev - 1 + detailImages.length) %
+                                        detailImages.length,
+                                      )
+                                    }
+                                  >
+                                    &lt;
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="detail-media-nav next"
+                                    aria-label="Next image"
+                                    onClick={() =>
+                                      setDetailImageIndex((prev) =>
+                                        (prev + 1) % detailImages.length,
+                                      )
+                                    }
+                                  >
+                                    &gt;
+                                  </button>
+                                </>
+                              )}
+                              <button
+                                type="button"
+                                className="detail-media-btn"
+                                onClick={() => setImagePreview(detailImageSrc)}
+                                aria-label="Expand image"
+                              >
+                                <img
+                                  src={detailImageSrc}
+                                  alt={detailItem.clothing?.name || "detail"}
+                                />
+                              </button>
+                            </>
+                          );
+                        })()}
                         <button
                           type="button"
                           className="floating-tryon"
@@ -3140,12 +4775,11 @@ const handleProfilePhotoChange = (event) => {
                         </button>
                       </div>
                       <div
-                        className={`detail-scroll ${
-                          detailTab === "feedback" ? "detail-scroll-feedback" : ""
-                        }`}
+                        className={`detail-scroll ${detailTab === "feedback" ? "detail-scroll-feedback" : ""
+                          }`}
                       >
                         {detailTab === "overview" && (
-                          <div className="detail-block">
+                          <div className="detail-block detail-tab-panel">
                             <div className="price-row">
                               <div className="price-main">
                                 <span className="price-label">Price</span>
@@ -3165,9 +4799,8 @@ const handleProfilePhotoChange = (event) => {
                               <div className="price-like-row">
                                 <button
                                   type="button"
-                                  className={`like-count-inline subtle ${
-                                    detailItem.funding.liked ? "liked" : ""
-                                  }`}
+                                  className={`like-count-inline subtle ${detailItem.funding.liked ? "liked" : ""
+                                    }`}
                                   aria-label="Likes"
                                   onClick={() =>
                                     handleLike(detailItem.funding.id)
@@ -3238,10 +4871,11 @@ const handleProfilePhotoChange = (event) => {
                           </div>
                         )}
                         {detailTab === "story" && (
-                          <div className="detail-block">
+                          <div className="detail-block detail-tab-panel">
                             <h4>브랜드 스토리</h4>
                             <p>
-                              {detailItem.clothing?.story ||
+                              {detailBrandStory ||
+                                detailItem.clothing?.story ||
                                 `${detailItem.funding.brand}는 장인 정신과 데이터 기반 디자인을 결합해 지속 가능한 컬렉션을 선보입니다. 이번 라인업은 도시적인 실루엣과 실용적 디테일을 강조하며, 고객 피드백을 빠르게 반영하는 것을 목표로 합니다.`}
                             </p>
                             <div className="story-meta">
@@ -3271,7 +4905,7 @@ const handleProfilePhotoChange = (event) => {
                           </div>
                         )}
                         {detailTab === "feedback" && (
-                          <div className="detail-block feedback-block">
+                          <div className="detail-block feedback-block detail-tab-panel">
                             <div className="detail-title-row">
                               <h4>소셜 피드백</h4>
                               <div className="rating-summary">
@@ -3279,174 +4913,189 @@ const handleProfilePhotoChange = (event) => {
                                 <strong>{detailAverageRating}</strong>
                               </div>
                             </div>
-                            <div className="comment-list compact">
-                              {comments.filter(
-                                (comment) =>
-                                  comment.clothing_id ===
-                                  detailItem.clothing?.id,
-                              ).length === 0 ? (
-                                <div className="comment-empty">
-                                  첫 피드백을 등록해보세요
-                                </div>
-                              ) : (
-                                comments
-                                  .filter(
+                            <div className="card feedback-card">
+                              <div className="card-body feedback-card-body">
+                                <div className="comment-list compact feedback-list">
+                                  {comments.filter(
                                     (comment) =>
                                       comment.clothing_id ===
                                       detailItem.clothing?.id,
-                                  )
-                                  .map((comment) => (
-                                    <div
-                                      key={comment.id}
-                                      className={`comment compact ${
-                                        comment.parent_id && comment.is_creator
-                                          ? "reply"
-                                          : ""
-                                      }`}
-                                    >
-                                      {comment.parent_id && (
-                                        <span className="reply-icon" aria-hidden="true">
-                                          <svg
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            strokeWidth="2"
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                          >
-                                            <path d="M9 14l-4-4 4-4" />
-                                            <path d="M5 10h8a6 6 0 0 1 6 6v1" />
-                                          </svg>
-                                        </span>
-                                      )}
-                                      <div className="comment-rating">
-                                        {Array.from({ length: 5 }).map(
-                                          (_, index) => (
-                                            <span
-                                              key={index}
-                                              className={`star-icon ${
-                                                index < comment.rating
-                                                  ? "active"
-                                                  : ""
+                                  ).length === 0 ? (
+                                    <div className="comment-empty">
+                                      첫 피드백을 등록해보세요
+                                    </div>
+                                  ) : (
+                                    comments
+                                      .filter(
+                                        (comment) =>
+                                          comment.clothing_id ===
+                                          detailItem.clothing?.id,
+                                      )
+                                      .map((comment) => {
+                                        const canManage = canManageComment(comment);
+                                        return (
+                                          <div
+                                            key={comment.id}
+                                            className={`comment compact ${comment.parent_id && comment.is_creator
+                                              ? "reply"
+                                              : ""
                                               }`}
-                                            >
-                                              ★
-                                            </span>
-                                          ),
-                                        )}
-                                      </div>
-                                      <div className="comment-body">
-                                        <div className="comment-meta">
-                                          <div className="comment-user">
-                                            <strong>{comment.user}</strong>
-                                            {comment.parent_id &&
-                                              comment.is_creator && (
-                                                <span className="creator-badge">
-                                                  창작자
-                                                </span>
+                                          >
+                                            {comment.parent_id && (
+                                              <span className="reply-icon" aria-hidden="true">
+                                                <svg
+                                                  viewBox="0 0 24 24"
+                                                  fill="none"
+                                                  stroke="currentColor"
+                                                  strokeWidth="2"
+                                                  strokeLinecap="round"
+                                                  strokeLinejoin="round"
+                                                >
+                                                  <path d="M9 14l-4-4 4-4" />
+                                                  <path d="M5 10h8a6 6 0 0 1 6 6v1" />
+                                                </svg>
+                                              </span>
+                                            )}
+                                            <div className="comment-rating">
+                                              {Array.from({ length: 5 }).map(
+                                                (_, index) => (
+                                                  <span
+                                                    key={index}
+                                                    className={`star-icon ${index < comment.rating
+                                                      ? "active"
+                                                      : ""
+                                                      }`}
+                                                  >
+                                                    ★
+                                                  </span>
+                                                ),
                                               )}
+                                            </div>
+                                            <div className="comment-body">
+                                              <div className="comment-meta">
+                                                <div className="comment-user">
+                                                  <strong>{comment.user}</strong>
+                                                  {comment.is_creator && (
+                                                    <span className="creator-badge">
+                                                      창작자
+                                                    </span>
+                                                  )}
+                                                </div>
+                                              </div>
+                                              <span>{comment.text}</span>
+                                            </div>
+                                            <div className="comment-menu">
+                                              <span className="comment-time">
+                                                {formatRelative(
+                                                  comment.created_at || new Date(),
+                                                )}
+                                              </span>
+                                              {canManage && (
+                                                <>
+                                                  <button
+                                                    type="button"
+                                                    className="comment-menu-btn"
+                                                    aria-label="Comment actions"
+                                                    onClick={() =>
+                                                      setCommentMenuId((prev) =>
+                                                        prev === comment.id
+                                                          ? null
+                                                          : comment.id,
+                                                      )
+                                                    }
+                                                  >
+                                                    ...
+                                                  </button>
+                                                  {commentMenuId === comment.id && (
+                                                    <div className="comment-menu-pop">
+                                                      <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                          setCommentDraft({
+                                                            rating: comment.rating,
+                                                            text: comment.text,
+                                                          });
+                                                          setEditingCommentId(comment.id);
+                                                          setCommentMenuId(null);
+                                                        }}
+                                                      >
+                                                        수정
+                                                      </button>
+                                                      <button
+                                                        type="button"
+                                                        onClick={async () => {
+                                                          if (!detailItem?.funding?.id) return;
+                                                          try {
+                                                            await deleteFundComment(
+                                                              detailItem.funding.id,
+                                                              comment.id,
+                                                            );
+                                                            await refreshDetailComments();
+                                                            setCommentMenuId(null);
+                                                          } catch (err) {
+                                                            console.error("Comment delete failed", err);
+                                                            alert(
+                                                              err.response?.data?.message ||
+                                                              "댓글 삭제에 실패했습니다.",
+                                                            );
+                                                          }
+                                                        }}
+                                                      >
+                                                        삭제
+                                                      </button>
+                                                    </div>
+                                                  )}
+                                                </>
+                                              )}
+                                            </div>
                                           </div>
-                                        </div>
-                                        <span>{comment.text}</span>
-                                      </div>
-                                      <div className="comment-menu">
-                                        <span className="comment-time">
-                                          {formatRelative(
-                                            comment.created_at || new Date(),
-                                          )}
-                                        </span>
+                                        );
+                                      })
+                                  )}
+                                </div>
+                                <div className="comment-form compact feedback-input-container">
+                                  <div className="comment-input-row">
+                                    <div className="comment-rating-input">
+                                      {Array.from({ length: 5 }).map((_, index) => (
                                         <button
+                                          key={index}
                                           type="button"
-                                          className="comment-menu-btn"
-                                          aria-label="Comment actions"
+                                          className={`star-btn ${index < commentDraft.rating
+                                            ? "active"
+                                            : ""
+                                            }`}
+                                          aria-label={`Rate ${index + 1} stars`}
                                           onClick={() =>
-                                            setCommentMenuId((prev) =>
-                                              prev === comment.id
-                                                ? null
-                                                : comment.id,
-                                            )
+                                            setCommentDraft((prev) => ({
+                                              ...prev,
+                                              rating: index + 1,
+                                            }))
                                           }
                                         >
-                                          ...
+                                          ★
                                         </button>
-                                        {commentMenuId === comment.id && (
-                                          <div className="comment-menu-pop">
-                                            <button
-                                              type="button"
-                                              onClick={() => {
-                                                setCommentDraft({
-                                                  rating: comment.rating,
-                                                  text: comment.text,
-                                                });
-                                                setEditingCommentId(comment.id);
-                                                setCommentMenuId(null);
-                                              }}
-                                            >
-                                              수정
-                                            </button>
-                                            <button
-                                              type="button"
-                                              onClick={() => {
-                                                setComments((prev) =>
-                                                  prev.filter(
-                                                    (item) =>
-                                                      item.id !== comment.id,
-                                                  ),
-                                                );
-                                                setCommentMenuId(null);
-                                              }}
-                                            >
-                                              삭제
-                                            </button>
-                                          </div>
-                                        )}
-                                      </div>
+                                      ))}
                                     </div>
-                                  ))
-                              )}
-                            </div>
-                            <div className="comment-form compact">
-                              <div className="comment-input-row">
-                                <div className="comment-rating-input">
-                                  {Array.from({ length: 5 }).map((_, index) => (
-                                    <button
-                                      key={index}
-                                      type="button"
-                                      className={`star-btn ${
-                                        index < commentDraft.rating
-                                          ? "active"
-                                          : ""
-                                      }`}
-                                      aria-label={`Rate ${index + 1} stars`}
-                                      onClick={() =>
+                                    <input
+                                      value={commentDraft.text}
+                                      onChange={(event) =>
                                         setCommentDraft((prev) => ({
                                           ...prev,
-                                          rating: index + 1,
+                                          text: event.target.value,
                                         }))
                                       }
-                                    >
-                                      ★
-                                    </button>
-                                  ))}
+                                      placeholder="한 줄 피드백을 남겨주세요."
+                                    />
+                                  </div>
+                                  <button
+                                    type="button"
+                                    className="primary"
+                                    onClick={submitComment}
+                                  >
+                                    {editingCommentId ? "댓글 수정" : "댓글 등록"}
+                                  </button>
                                 </div>
-                                <input
-                                  value={commentDraft.text}
-                                  onChange={(event) =>
-                                    setCommentDraft((prev) => ({
-                                      ...prev,
-                                      text: event.target.value,
-                                    }))
-                                  }
-                                  placeholder="한 줄 피드백을 남겨주세요."
-                                />
                               </div>
-                              <button
-                                type="button"
-                                className="primary"
-                                onClick={submitComment}
-                              >
-                                {editingCommentId ? "댓글 수정" : "댓글 등록"}
-                              </button>
                             </div>
                           </div>
                         )}
@@ -3478,10 +5127,17 @@ const handleProfilePhotoChange = (event) => {
                 <h1>Studio</h1>
                 <p>상상이 현실이 되는 크리에이티브 공간</p>
               </div>
-              <div className="page-title-actions">
+              <div className="page-title-actions studio-title-actions">
                 <button
                   type="button"
                   className="secondary"
+                  onClick={openMyBrandPage}
+                >
+                  내 브랜드
+                </button>
+                <button
+                  type="button"
+                  className="secondary studio-saved-btn"
                   onClick={() => setIsGalleryOpen(true)}
                 >
                   저장된 디자인
@@ -3500,44 +5156,6 @@ const handleProfilePhotoChange = (event) => {
                   </div>
                   <div className="studio-workbench-actions">
                     <button
-                      type="button"
-                      className="design-coin"
-                      onClick={() => setDesignCoinModal(true)}
-                    >
-                      <span className="design-coin-icon" aria-hidden="true">
-                        <svg
-                          className="design-coin-brush"
-                          viewBox="0 0 24 24"
-                          aria-hidden="true"
-                        >
-                          <path
-                            d="M4 20c2.2 0 4-1.8 4-4 0-1.1.9-2 2-2h4"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                          <path
-                            d="M12 4l8 8-6 6-8-8z"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                          <path
-                            d="M10 6l8 8"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                          />
-                        </svg>
-                      </span>
-                      <span className="design-coin-count">{designCoins}</span>
-                    </button>
-                    <button
                       className="secondary temp-save-btn"
                       type="button"
                       onClick={() =>
@@ -3552,274 +5170,253 @@ const handleProfilePhotoChange = (event) => {
                       임시 저장
                     </button>
                     <button
-                      className="primary"
+                      className="secondary upload-dark"
                       type="button"
-                      onClick={() => {
-                        if (designCoins <= 0) return;
-                        setDesignGenerateConfirmOpen(true);
-                      }}
-                      disabled={designCoins <= 0}
+                      onClick={openUploadPreview}
                     >
-                      디자인 생성
+                      업로드
                     </button>
                   </div>
                 </div>
                 <div className="workbench-body">
                   <div className="workbench-canvas">
-                    <div className="design-toolbar">
-                      <div className="tool-group">
-                        <button
-                          type="button"
-                          className={`tool-btn ${
-                            designTool === "brush" ? "active" : ""
-                          }`}
-                          onClick={() => {
-                            setDesignTool("brush");
-                            setShowClearBubble(false);
-                          }}
-                          aria-label="Brush"
-                          title="Brush"
-                        >
-                          <Pencil size={16} strokeWidth={1.6} />
-                        </button>
-                        <div className="tool-anchor">
-                          <button
-                            type="button"
-                            className={`tool-btn ${
-                              designTool === "eraser" ? "active" : ""
-                            }`}
-                            onClick={() => {
-                              if (designTool === "eraser") {
-                                setShowClearBubble((prev) => !prev);
-                              } else {
-                                setDesignTool("eraser");
-                                setShowClearBubble(false);
-                              }
-                            }}
-                            aria-label="Eraser"
-                            title="Eraser"
-                          >
-                            <Eraser size={16} strokeWidth={1.6} />
-                          </button>
-                          <div
-                            className={`tool-sub ${
-                              designTool === "eraser" && showClearBubble
-                                ? "is-visible"
-                                : ""
-                            }`}
-                          >
-                            <div className="bubble">
-                              <button
-                                type="button"
-                                className="clear-btn"
-                                onClick={clearDesignCanvas}
-                              >
-                                모두 지우기
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      <label className="color-picker">
-                        색상
-                        <input
-                          type="color"
-                          value={designColor}
-                          onChange={(event) =>
-                            setDesignColor(event.target.value)
-                          }
-                          aria-label="Brush color"
-                        />
-                      </label>
-                      <label className="size-control">
-                        굵기
-                        <input
-                          type="range"
-                          min="2"
-                          max="14"
-                          value={designSize}
-                          onChange={(event) =>
-                            setDesignSize(Number(event.target.value))
-                          }
-                        />
-                      </label>
-                      <div className="canvas-photo-actions">
-                        <button
-                          type="button"
-                          className="canvas-photo-btn"
-                          onClick={() => designPhotoInputRef.current?.click()}
-                          aria-label="Upload photo"
-                        >
+                    <div className="workbench-canvas-actions">
+                      <button
+                        type="button"
+                        className="design-coin"
+                        onClick={() => setDesignCoinModal(true)}
+                      >
+                        <span className="design-coin-icon" aria-hidden="true">
                           <svg
+                            className="design-coin-brush"
                             viewBox="0 0 24 24"
                             aria-hidden="true"
-                            focusable="false"
                           >
                             <path
-                              d="M7 7l1.5-2h7L17 7h2a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h2z"
+                              d="M4 20c2.2 0 4-1.8 4-4 0-1.1.9-2 2-2h4"
                               fill="none"
                               stroke="currentColor"
-                              strokeWidth="1.6"
+                              strokeWidth="2"
                               strokeLinecap="round"
                               strokeLinejoin="round"
                             />
-                            <circle
-                              cx="12"
-                              cy="13"
-                              r="3.2"
+                            <path
+                              d="M12 4l8 8-6 6-8-8z"
                               fill="none"
                               stroke="currentColor"
-                              strokeWidth="1.6"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                            <path
+                              d="M10 6l8 8"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
                             />
                           </svg>
-                        </button>
-                        {designPhoto?.url && (
-                          <button
-                            type="button"
-                            className="canvas-photo-clear"
-                            onClick={clearDesignPhoto}
-                            aria-label="Remove photo"
-                          >
-                            ×
-                          </button>
-                        )}
-                      </div>
+                        </span>
+                        <span className="design-coin-count">{designCoins}</span>
+                      </button>
+                      <button
+                        className="primary"
+                        type="button"
+                        onClick={() => {
+                          if (!ensureBrandForDesign()) return;
+                          if (designCoins <= 0) return;
+                          setDesignGenerateConfirmOpen(true);
+                        }}
+                        disabled={designCoins <= 0}
+                      >
+                        디자인 생성
+                      </button>
                     </div>
                     <div className="design-canvas-wrap">
-                      <div className="design-canvas-area">
-                        <div className="design-canvas-frame">
-                          <div className="studio-side-toggle">
-                            <button
-                              type="button"
-                              className={studioSide === "front" ? "active" : ""}
-                              onClick={() => switchStudioSide("front")}
-                            >
-                              앞면
-                            </button>
-                            <button
-                              type="button"
-                              className={studioSide === "back" ? "active" : ""}
-                              onClick={() => switchStudioSide("back")}
-                            >
-                              뒷면
-                            </button>
+                      <div className="design-canvas-grid">
+                        <div className="design-canvas-card">
+                          <div className="design-canvas-title">
+                            <span className="design-canvas-label">앞면</span>
+                            <div className="canvas-side-actions">
+                              <button
+                                type="button"
+                                className="canvas-photo-btn"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  frontPhotoInputRef.current?.click();
+                                }}
+                                aria-label="Upload front photo"
+                              >
+                                <svg
+                                  viewBox="0 0 24 24"
+                                  aria-hidden="true"
+                                  focusable="false"
+                                >
+                                  <path
+                                    d="M7 7l1.5-2h7L17 7h2a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h2z"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="1.6"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  />
+                                  <circle
+                                    cx="12"
+                                    cy="13"
+                                    r="3.2"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="1.6"
+                                  />
+                                </svg>
+                              </button>
+                              {studioSidePhotos.front?.url && (
+                                <button
+                                  type="button"
+                                  className="canvas-photo-clear"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    clearStudioSidePhoto("front");
+                                  }}
+                                  aria-label="Remove front photo"
+                                >
+                                  ×
+                                </button>
+                              )}
+                            </div>
                           </div>
-                          {designPhoto?.url && (
-                            <img
-                              className="design-photo-preview"
-                              src={designPhoto.url}
-                              alt={designPhoto.name || "Design reference"}
+                          <button
+                            type="button"
+                            className="design-canvas-surface"
+                            onClick={() => {
+                              if (studioSidePhotos.front?.url) {
+                                setPreviewImage(studioSidePhotos.front.url);
+                              } else {
+                                openCanvasForSide("front");
+                              }
+                            }}
+                          >
+                            {studioSidePhotos.front?.url && (
+                              <img
+                                className="design-photo-preview"
+                                src={studioSidePhotos.front.url}
+                                alt={
+                                  studioSidePhotos.front.name ||
+                                  "Front reference"
+                                }
+                              />
+                            )}
+                            <canvas
+                              ref={frontCanvasRef}
+                              className="design-canvas-preview"
+                              width="320"
+                              height="200"
+                              aria-label="Front canvas preview"
                             />
-                          )}
-                          <canvas
-                            ref={designCanvasRef}
-                            className="design-canvas"
-                            style={{ cursor: "crosshair" }}
-                            width="720"
-                            height="420"
-                            onMouseDown={handleCanvasDraw}
-                            aria-label="Design canvas"
+                          </button>
+                          <input
+                            ref={frontPhotoInputRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={(event) =>
+                              handleStudioSidePhotoChange("front", event)
+                            }
+                            className="canvas-photo-input"
                           />
                         </div>
-                        <input
-                          ref={designPhotoInputRef}
-                          type="file"
-                          accept="image/*"
-                          onChange={handleDesignPhotoChange}
-                          className="canvas-photo-input"
-                        />
-                      </div>
-                      <p className="design-hint">
-                        {designCategory} 실루엣을 드로잉하세요. 클릭하면 전체
-                        화면으로 이동합니다.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="workbench-prompt">
-                    <div className="design-selects">
-                      <label className="field">
-                        성별
-                        <select
-                          value={designGender}
-                          onChange={(event) =>
-                            setDesignGender(event.target.value)
-                          }
-                        >
-                          {[
-                            { value: "Mens", label: "남자" },
-                            { value: "Womens", label: "여자" },
-                            { value: "Unisex", label: "공용" },
-                          ].map((item) => (
-                            <option key={item.value} value={item.value}>
-                              {item.label}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <label className="field">
-                        옷 종류
-                        <select
-                          value={designCategory}
-                          onChange={(event) => {
-                            const nextCategory = event.target.value;
-                            setDesignCategory(nextCategory);
-                            const nextOptions =
-                              designLengthOptions[nextCategory] || [];
-                            if (
-                              nextOptions.length &&
-                              !nextOptions.includes(designLength)
-                            ) {
-                              setDesignLength(nextOptions[0]);
-                            }
-                          }}
-                        >
-                          {["상의", "하의", "아우터", "원피스"].map((item) => (
-                            <option key={item} value={item}>
-                              {item}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <label className="field">
-                        기장
-                        <select
-                          value={designLength}
-                          onChange={(event) =>
-                            setDesignLength(event.target.value)
-                          }
-                        >
-                          {(designLengthOptions[designCategory] || []).map(
-                            (item) => (
-                              <option key={item} value={item}>
-                                {item}
-                              </option>
-                            ),
-                          )}
-                        </select>
-                      </label>
-                    </div>
-                    <div className="subsection">
-                      <h4>원단 특성</h4>
-                      {["신축성", "두께감", "탄탄함"].map((key) => (
-                        <label key={key} className="slider">
-                          <span>{key}</span>
+                        <div className="design-canvas-card">
+                          <div className="design-canvas-title">
+                            <span className="design-canvas-label">뒷면</span>
+                            <div className="canvas-side-actions">
+                              <button
+                                type="button"
+                                className="canvas-photo-btn"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  backPhotoInputRef.current?.click();
+                                }}
+                                aria-label="Upload back photo"
+                              >
+                                <svg
+                                  viewBox="0 0 24 24"
+                                  aria-hidden="true"
+                                  focusable="false"
+                                >
+                                  <path
+                                    d="M7 7l1.5-2h7L17 7h2a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h2z"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="1.6"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  />
+                                  <circle
+                                    cx="12"
+                                    cy="13"
+                                    r="3.2"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="1.6"
+                                  />
+                                </svg>
+                              </button>
+                              {studioSidePhotos.back?.url && (
+                                <button
+                                  type="button"
+                                  className="canvas-photo-clear"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    clearStudioSidePhoto("back");
+                                  }}
+                                  aria-label="Remove back photo"
+                                >
+                                  ×
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            className="design-canvas-surface"
+                            onClick={() => {
+                              if (studioSidePhotos.back?.url) {
+                                setPreviewImage(studioSidePhotos.back.url);
+                              } else {
+                                openCanvasForSide("back");
+                              }
+                            }}
+                          >
+                            {studioSidePhotos.back?.url && (
+                              <img
+                                className="design-photo-preview"
+                                src={studioSidePhotos.back.url}
+                                alt={
+                                  studioSidePhotos.back.name ||
+                                  "Back reference"
+                                }
+                              />
+                            )}
+                            <canvas
+                              ref={backCanvasRef}
+                              className="design-canvas-preview"
+                              width="320"
+                              height="200"
+                              aria-label="Back canvas preview"
+                            />
+                          </button>
                           <input
-                            type="range"
-                            min="1"
-                            max="10"
-                            value={fabric[key]}
+                            ref={backPhotoInputRef}
+                            type="file"
+                            accept="image/*"
                             onChange={(event) =>
-                              setFabric((prev) => ({
-                                ...prev,
-                                [key]: Number(event.target.value),
-                              }))
+                              handleStudioSidePhotoChange("back", event)
                             }
+                            className="canvas-photo-input"
                           />
-                          <span>{fabric[key]}/10</span>
-                        </label>
-                      ))}
+                        </div>
+                      </div>
                     </div>
-                    <label className="field">
+                    <label className="field prompt-field">
                       디자인 프롬프트
                       <textarea
                         value={prompt}
@@ -3827,6 +5424,281 @@ const handleProfilePhotoChange = (event) => {
                         placeholder="미니멀한 오버사이즈 코트, 대칭적인 라펠과 깊은 블랙 톤"
                       />
                     </label>
+                  </div>
+                  <div className="workbench-result">
+                    <div className="ai-result-card">
+                      <h4>디자인 결과</h4>
+                      <div className="ai-result-frame large">
+                        {isGenerating ? (
+                          <div className="ai-loading-state">
+                            <Sparkles className="ai-loading-icon" size={32} />
+                            <p>AI가 디자인을 생성하고 있습니다...</p>
+                          </div>
+                        ) : showResult && currentDesignPreview ? (
+                          <div
+                            className="ai-result-content"
+                            onMouseDown={handleDesignMouseDown}
+                            onMouseMove={handleDesignMouseMove}
+                            onMouseUp={handleDesignMouseUp}
+                            onMouseLeave={handleDesignMouseUp}
+                            style={{
+                              cursor: isDraggingDesign.current ? "grabbing" : "grab",
+                              overflow: "hidden",
+                              height: "100%",
+                              width: "100%",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              position: "relative"
+                            }}
+                          >
+                            <img
+                              src={
+                                designViewSide === "front"
+                                  ? currentDesignPreview.final_result_front_url || currentDesignPreview.design_img_url
+                                  : currentDesignPreview.final_result_back_url || currentDesignPreview.design_img_url
+                              }
+                              alt={currentDesignPreview.name}
+                              style={{
+                                transform: `scale(${designScale})`,
+                                transition: isDraggingDesign.current ? "none" : "transform 0.1s ease-out",
+                                height: "100%",
+                                width: "100%",
+                                objectFit: "contain",
+                                pointerEvents: "none", // Let container handle events
+                                userSelect: "none"
+                              }}
+                            />
+
+                            {/* Navigation Buttons - Only show if not generating */}
+                            {!isGenerating && (
+                              <>
+                                <button
+                                  type="button"
+                                  className="ai-result-arrow left"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setDesignViewSide("front");
+                                  }}
+                                  style={{
+                                    position: "absolute",
+                                    left: "10px",
+                                    zIndex: 10,
+                                    opacity: designViewSide === "front" ? 0.5 : 1,
+                                    pointerEvents: "auto"
+                                  }}
+                                >
+                                  &lt;
+                                </button>
+                                <button
+                                  type="button"
+                                  className="ai-result-arrow right"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setDesignViewSide("back");
+                                  }}
+                                  style={{
+                                    position: "absolute",
+                                    right: "10px",
+                                    zIndex: 10,
+                                    opacity: designViewSide === "back" ? 0.5 : 1,
+                                    pointerEvents: "auto"
+                                  }}
+                                >
+                                  &gt;
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        ) : (
+                          <span>아직 생성된 디자인이 없습니다.</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="studio-spec-panel">
+                  <div className="spec-left">
+                    <div className="spec-box">
+                      <h4>옷 세부정보</h4>
+                      <div className="design-selects">
+                        <label className="field">
+                          성별
+                          <select
+                            value={designGender}
+                            onChange={(event) =>
+                              setDesignGender(event.target.value)
+                            }
+                          >
+                            {[
+                              { value: "Mens", label: "남자" },
+                              { value: "Womens", label: "여자" },
+                              { value: "Unisex", label: "공용" },
+                            ].map((item) => (
+                              <option key={item.value} value={item.value}>
+                                {item.label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="field">
+                          옷 종류
+                          <select
+                            value={designCategory}
+                            onChange={(event) => {
+                              const nextCategory = event.target.value;
+                              setDesignCategory(nextCategory);
+                              const nextOptions =
+                                designLengthOptions[nextCategory] || [];
+                              if (
+                                nextOptions.length &&
+                                !nextOptions.includes(designLength)
+                              ) {
+                                setDesignLength(nextOptions[0]);
+                              }
+                            }}
+                          >
+                            {["상의", "하의", "아우터", "원피스"].map((item) => (
+                              <option key={item} value={item}>
+                                {item}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="field">
+                          기장
+                          <select
+                            value={designLength}
+                            onChange={(event) =>
+                              setDesignLength(event.target.value)
+                            }
+                          >
+                            {(designLengthOptions[designCategory] || []).map(
+                              (item) => (
+                                <option key={item} value={item}>
+                                  {item}
+                                </option>
+                              ),
+                            )}
+                          </select>
+                        </label>
+                      </div>
+                    </div>
+                    <div className="spec-box">
+                      <h4>원단 특성</h4>
+                      {fabricFields.map((field) => (
+                        <label key={field.key} className="slider">
+                          <span>{field.label}</span>
+                          <input
+                            type="range"
+                            min="1"
+                            max="10"
+                            value={fabric[field.key]}
+                            onChange={(event) =>
+                              setFabric((prev) => ({
+                                ...prev,
+                                [field.key]: Number(event.target.value),
+                              }))
+                            }
+                          />
+                          <span>{fabric[field.key]}/10</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="spec-right">
+                    <div className="spec-box size-box">
+                      <h4>사이즈</h4>
+                      <div className="size-slider">
+                        <div className="size-range">
+                          <div className="size-range-track" style={sizeRangeStyle} />
+                          <input
+                            type="range"
+                            min="0"
+                            max={sizeLabels.length - 1}
+                            value={sizeRange[0]}
+                            className="range-min"
+                            onChange={(event) => {
+                              const next = Math.min(
+                                Number(event.target.value),
+                                sizeRange[1],
+                              );
+                              setSizeRange([next, sizeRange[1]]);
+                            }}
+                          />
+                          <input
+                            type="range"
+                            min="0"
+                            max={sizeLabels.length - 1}
+                            value={sizeRange[1]}
+                            className="range-max"
+                            onChange={(event) => {
+                              const next = Math.max(
+                                Number(event.target.value),
+                                sizeRange[0],
+                              );
+                              setSizeRange([sizeRange[0], next]);
+                            }}
+                          />
+                        </div>
+                        <div className="size-labels">
+                          {sizeLabels.map((label, index) => (
+                            <span
+                              key={label}
+                              className={
+                                index >= sizeRange[0] && index <= sizeRange[1]
+                                  ? "active"
+                                  : ""
+                              }
+                            >
+                              {label}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="size-detail-panel">
+                        <div className="size-detail-title">상세 사이즈</div>
+                        <div className="size-detail-controls">
+                          <label className="size-detail-select">
+                            사이즈
+                            <select
+                              value={activeSizeKey}
+                              onChange={(event) =>
+                                setSizeDetailSelected(event.target.value)
+                              }
+                            >
+                              {sizeRangeLabels.map((label) => (
+                                <option key={label} value={label}>
+                                  {label}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          {sizeDetailFields.map((field) => (
+                            <label key={field.key} className="size-detail-input">
+                              {field.label}
+                              <input
+                                type="number"
+                                value={
+                                  sizeDetailInputs?.[activeSizeKey]?.[field.key] ||
+                                  ""
+                                }
+                                onChange={(event) => {
+                                  const value = event.target.value;
+                                  setSizeDetailInputs((prev) => ({
+                                    ...prev,
+                                    [activeSizeKey]: {
+                                      ...prev?.[activeSizeKey],
+                                      [field.key]: value,
+                                    },
+                                  }));
+                                }}
+                              />
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -3838,7 +5710,7 @@ const handleProfilePhotoChange = (event) => {
           <section className="content">
             <div className="page-title page-title-row">
               <div>
-                <h1>My Fitting</h1>
+                <h1>Fitting</h1>
                 <p>데이터로 완성하는 나만의 가상 드레스룸</p>
               </div>
               <div className="page-title-actions">
@@ -3857,17 +5729,17 @@ const handleProfilePhotoChange = (event) => {
                 <div className="fitting-toggle">
                   <button
                     type="button"
-                    className={fittingView === "3d" ? "active" : ""}
-                    onClick={() => setFittingView("3d")}
-                  >
-                    마네킹
-                  </button>
-                  <button
-                    type="button"
                     className={fittingView === "real" ? "active" : ""}
                     onClick={() => setFittingView("real")}
                   >
                     실물
+                  </button>
+                  <button
+                    type="button"
+                    className={fittingView === "3d" ? "active" : ""}
+                    onClick={() => setFittingView("3d")}
+                  >
+                    마네킹
                   </button>
                 </div>
                 <button
@@ -3886,24 +5758,75 @@ const handleProfilePhotoChange = (event) => {
                   저장
                 </button>
                 {fittingView === "3d" ? (
-                  <Canvas
-                    camera={{ position: [0, 0, 1.5], fov: 45 }}
-                    gl={{ preserveDrawingBuffer: true }}
-                    onCreated={({ gl }) => {
-                      fittingCanvasRef.current = gl.domElement;
-                    }}
-                  >
-                    <ambientLight intensity={0.6} />
-                    <directionalLight position={[2, 2, 2]} intensity={0.8} />
-                    <OrbitControls enablePan={false} />
-                    <Suspense fallback={null}>
-                      <Environment preset="city" />
-                      <Center>
-                        <Tshirt />
-                      </Center>
-                    </Suspense>
-                  </Canvas>
+                  /* Mannequin View */
+                  <div className="fitting-mannequin-2d" style={{
+                    width: '100%',
+                    height: '100%',
+                    backgroundColor: '#f0f0f0',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    position: 'relative',
+                    overflow: 'hidden'
+                  }}>
+                    {/* Show Mannequin Result if available, otherwise placeholder */}
+                    {fittingMannequinResult ? (
+                      <img
+                        src={fittingMannequinResult}
+                        alt="Mannequin Result"
+                        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                      />
+                    ) : (
+                      <div style={{
+                        width: '100%',
+                        height: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexDirection: 'column',
+                        gap: '20px'
+                      }}>
+                        {currentFittingId && fittingRealResult ? (
+                          <div style={{ textAlign: 'center' }}>
+                            <p style={{ marginBottom: '16px', color: '#666' }}>
+                              가상 피팅(Real)이 완료되었습니다.<br />마네킹 변환을 진행하시겠습니까?
+                            </p>
+                            <button
+                              className="virtual-try-on-btn" // Reuse style
+                              style={{ width: 'auto', padding: '12px 24px', margin: '0 auto' }}
+                              onClick={async () => {
+                                setIsComposing(true);
+                                try {
+                                  const response = await generateMannequin(currentFittingId);
+                                  if (response && response.mannequin) {
+                                    setFittingMannequinResult(normalizeAssetUrl(response.mannequin));
+                                  }
+                                } catch (err) {
+                                  console.error("Mannequin Generation Failed:", err);
+                                  alert("마네킹 생성 실패: " + (err.response?.data?.error?.message || err.message));
+                                } finally {
+                                  setIsComposing(false);
+                                }
+                              }}
+                            >
+                              마네킹 만들기
+                            </button>
+                          </div>
+                        ) : (
+                          <div style={{
+                            textAlign: 'center',
+                            color: '#666',
+                            fontSize: '16px',
+                            fontWeight: '500'
+                          }}>
+                            Fitting을 누르면 시작됩니다
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 ) : (
+                  /* Real View */
                   <div
                     className="fitting-real"
                     onWheel={(event) => {
@@ -3912,87 +5835,299 @@ const handleProfilePhotoChange = (event) => {
                       setFittingZoom((prev) => clamp(prev + delta, 0.7, 1.8));
                     }}
                   >
-                    <img
-                      className="fitting-real-base"
-                      src={fittingRealBaseUrl}
-                      alt="model"
-                      style={{
-                        transform: `scale(${fittingZoom})`,
-                        transformOrigin: "center",
-                      }}
-                    />
-                    {fittingLayers.length > 0 && (
-                      <div
-                        className="layer-stack"
+                    {/* Show Result if Available */}
+                    {fittingRealResult ? (
+                      <img
+                        src={fittingRealResult}
+                        alt="Fitting Result"
                         style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'contain',
                           transform: `scale(${fittingZoom})`,
-                          transformOrigin: "center",
+                          transformOrigin: "center"
                         }}
-                      >
-                        {fittingLayers.map((id) => (
+                      />
+                    ) : (
+                      !fittingRealBaseUrl ? (
+                        <div
+                          className="fitting-no-photo"
+                          onClick={() => {
+                            setActiveTab("profile");
+                            setProfilePhotoMode("body");
+                          }}
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            cursor: "pointer",
+                            color: "#666",
+                            fontSize: "16px",
+                            fontWeight: "500",
+                            backgroundColor: "#f5f5f5",
+                            flexDirection: "column",
+                            gap: "8px",
+                            textAlign: "center",
+                            padding: "20px"
+                          }}
+                        >
+                          <p>실물 사진을 추가하려면 클릭하세요</p>
+                          <span style={{ fontSize: "24px" }}>+</span>
+                        </div>
+                      ) : (
+                        <>
                           <img
-                            key={id}
-                            src={clothingMap[id]?.design_img_url}
-                            alt={clothingMap[id]?.name}
+                            className="fitting-real-base"
+                            src={fittingRealBaseUrl}
+                            alt="model"
+                            style={{
+                              transform: `scale(${fittingZoom})`,
+                              transformOrigin: "center",
+                            }}
                           />
-                        ))}
-                      </div>
+                          {/* Layer stack removed as per user request */}
+                        </>
+                      )
                     )}
                   </div>
                 )}
-                {isComposing && <div className="compose">AI 합성 중...</div>}
+
+                {/* AI Loading State Overlay */}
+                {isComposing && (
+                  <div style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(255,255,255,0.85)',
+                    zIndex: 20,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#333'
+                  }}>
+                    <div className="ai-loading-state">
+                      <Sparkles className="ai-loading-icon" size={32} />
+                      <p>AI가 피팅 결과를 생성하고 있습니다...</p>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              <div className="fitting-panel">
-                <div className="panel-block layer-panel">
+              <div className="fitting-panel" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                <div className="panel-block layer-panel" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                   <div className="layer-panel-header">
                     <h3>레이어링 피팅</h3>
                     <button
                       type="button"
                       className="layer-apply-btn"
-                      onClick={() => setFittingLayers(fittingLayersDraft)}
+                      onClick={async () => {
+                        // 1. Commit draft to actual layers
+                        setFittingLayers(fittingLayersDraft);
+
+                        // 2. Clear previous results to show change
+                        setFittingRealResult(null);
+                        setFittingMannequinResult(null);
+
+                        // 3. Trigger AI Generation
+                        if (!fittingRealBaseUrl) {
+                          alert("피팅을 위해 전신 사진(프로필)이 필요합니다.");
+                          return;
+                        }
+
+                        setIsComposing(true);
+                        try {
+                          // Call Backend API
+                          // Assuming imports: createFitting from api/services
+                          const payload = {
+                            base_photo_url: fittingRealBaseUrl,
+                            internal_cloth_ids: fittingLayersDraft // Use draft as it is the committed version now
+                          };
+
+                          const response = await createFitting(payload);
+
+                          // Response structure: { fitting: {...}, results: { tryOn: 'url' } }
+                          if (response && response.fitting && response.fitting.fitting_id) {
+                            // Store fitting ID for step 2 (Mannequin)
+                            // We need a state for this if not exist. 
+                            // Assuming we can use a ref or state. Let's add specific state for current session fitting ID.
+                            // But since I can't easily add top-level state here without context, I'll set it to a ref or assume user stays on page.
+                            // Better: Add `currentFittingId` state at top level.
+                            // For now, let's look at how to persist it.
+                            setCurrentFittingId(response.fitting.fitting_id);
+                          }
+
+                          if (response && response.results) {
+                            setFittingRealResult(normalizeAssetUrl(response.results.tryOn));
+                            // Mannequin is NOT generated yet.
+                            setFittingMannequinResult(null);
+
+                            // Auto-switch to Real view to see result
+                            setFittingView("real");
+                            setActiveTab("fitting");
+                          }
+                        } catch (error) {
+                          console.error("Fitting Generation Failed:", error);
+                          alert("AI 피팅 생성에 실패했습니다: " + (error.response?.data?.error?.message || error.message));
+                        } finally {
+                          setIsComposing(false);
+                        }
+                      }}
                     >
                       Fitting
                     </button>
                   </div>
-                  <div className="layer-list">
-                    {fittingLayersDraft.map((id, index) => (
-                      <div key={id} className="layer-item">
-                        <span>
-                          {index + 1}. {clothingMap[id]?.name}
-                        </span>
-                        <div>
-                          <button
-                            type="button"
-                            onClick={() => moveLayer(id, "up")}
-                          >
-                            ↑
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => moveLayer(id, "down")}
-                          >
-                            ↓
-                          </button>
-                          <button type="button" onClick={() => removeLayer(id)}>
-                            제거
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                    {fittingLayersDraft.length === 0 && (
-                      <p>현재 레이어가 비어 있습니다.</p>
-                    )}
-                  </div>
-                </div>
 
-                <div className="panel-block">
-                  <h3>AI 매칭 점수</h3>
-                  <div className="score">
-                    <strong>{fitAnalysis.score}</strong>
-                    <span>점</span>
+                  {/* Tops Group */}
+                  <div className="layer-group" style={{
+                    border: '2px solid #ddd',
+                    borderRadius: '12px',
+                    padding: '12px',
+                    marginBottom: '10px',
+                    flex: 1,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden',
+                    minHeight: 0
+                  }}>
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      marginBottom: '8px',
+                      color: '#555',
+                      fontWeight: '600',
+                      fontSize: '14px',
+                      flexShrink: 0
+                    }}>
+                      {/* Simple Shirt Icon SVG */}
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M20.38 3.4a1.6 1.6 0 00-1.58-1c-.5.03-1 .27-1.34.69L12 9.5 6.54 3.09c-.34-.42-.84-.66-1.34-.69a1.6 1.6 0 00-1.58 1L2.1 12l.14.7H6v8h12v-8h3.76l.14-.7-1.52-8.6z" />
+                      </svg>
+                      Tops
+                    </div>
+                    <div className="layer-list" style={{ flex: 1, overflowY: 'auto' }}>
+                      {fittingLayersDraft
+                        .filter(id => {
+                          const cat = clothingMap[id]?.category;
+                          if (!cat) return true;
+                          const upper = String(cat).toUpperCase();
+                          // If it is NOT bottom/shoes/acc, it goes to Tops
+                          return !['BOTTOM', 'SHOES', 'ACC', 'PANTS', 'SKIRT'].includes(upper);
+                        })
+                        .map((id, index) => (
+                          <div key={id} className="layer-item">
+                            <span>
+                              {clothingMap[id]?.name}
+                            </span>
+                            <div>
+                              <button
+                                type="button"
+                                onClick={() => moveLayer(id, "up")}
+                                aria-label="Move up"
+                              >
+                                ↑
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => moveLayer(id, "down")}
+                                aria-label="Move down"
+                              >
+                                ↓
+                              </button>
+                              <button type="button" onClick={() => removeLayer(id)}>
+                                제거
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      {fittingLayersDraft.filter(id => {
+                        const cat = clothingMap[id]?.category;
+                        if (!cat) return true;
+                        const upper = String(cat).toUpperCase();
+                        // If it is NOT bottom/shoes/acc, it goes to Tops
+                        return !['BOTTOM', 'SHOES', 'ACC', 'PANTS', 'SKIRT'].includes(upper);
+                      }).length === 0 && (
+                          <p style={{ color: '#aaa', fontSize: '13px', textAlign: 'center', padding: '10px 0' }}>선택된 상의가 없습니다.</p>
+                        )}
+                    </div>
                   </div>
-                  <p>{fitAnalysis.message}</p>
+
+                  {/* Bottoms Group */}
+                  <div className="layer-group" style={{
+                    border: '2px solid #ddd',
+                    borderRadius: '12px',
+                    padding: '12px',
+                    flex: 1,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden',
+                    minHeight: 0
+                  }}>
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      marginBottom: '8px',
+                      color: '#555',
+                      fontWeight: '600',
+                      fontSize: '14px',
+                      flexShrink: 0
+                    }}>
+                      {/* Pants Icon SVG */}
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M4 22h16M4 2v20M20 2v20M8 2v13M16 2v13" />
+                      </svg>
+                      Bottoms
+                    </div>
+                    <div className="layer-list" style={{ flex: 1, overflowY: 'auto' }}>
+                      {fittingLayersDraft
+                        .filter(id => {
+                          const cat = clothingMap[id]?.category;
+                          if (!cat) return false;
+                          const upper = String(cat).toUpperCase();
+                          return ['BOTTOM', 'SHOES', 'ACC', 'PANTS', 'SKIRT'].includes(upper);
+                        })
+                        .map((id, index) => (
+                          <div key={id} className="layer-item">
+                            <span>
+                              {clothingMap[id]?.name}
+                            </span>
+                            <div>
+                              <button
+                                type="button"
+                                onClick={() => moveLayer(id, "up")}
+                                aria-label="Move up"
+                              >
+                                ↑
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => moveLayer(id, "down")}
+                                aria-label="Move down"
+                              >
+                                ↓
+                              </button>
+                              <button type="button" onClick={() => removeLayer(id)}>
+                                제거
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      {fittingLayersDraft.filter(id => {
+                        const cat = clothingMap[id]?.category;
+                        if (!cat) return false;
+                        const upper = String(cat).toUpperCase();
+                        return ['BOTTOM', 'SHOES', 'ACC', 'PANTS', 'SKIRT'].includes(upper);
+                      }).length === 0 && (
+                          <p style={{ color: '#aaa', fontSize: '13px', textAlign: 'center', padding: '10px 0' }}>선택된 하의가 없습니다.</p>
+                        )}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -4006,9 +6141,8 @@ const handleProfilePhotoChange = (event) => {
                 {closetItems.map((item) => (
                   <div
                     key={item.id}
-                    className={`closet-card ${
-                      focusClothingId === item.id ? "selected" : ""
-                    }`}
+                    className={`closet-card ${focusClothingId === item.id ? "selected" : ""
+                      }`}
                   >
                     <button
                       type="button"
@@ -4019,10 +6153,10 @@ const handleProfilePhotoChange = (event) => {
                           prev.map((funding) =>
                             funding.clothing_id === item.id
                               ? {
-                                  ...funding,
-                                  liked: false,
-                                  likes: Math.max(0, funding.likes - 1),
-                                }
+                                ...funding,
+                                liked: false,
+                                likes: Math.max(0, funding.likes - 1),
+                              }
                               : funding,
                           ),
                         );
@@ -4064,9 +6198,8 @@ const handleProfilePhotoChange = (event) => {
             {fittingAlbumOpen && (
               <div className="modal" role="dialog" aria-modal="true">
                 <div
-                  className={`modal-content album-modal-content ${
-                    fittingHistory.length <= 2 ? "compact" : ""
-                  }`}
+                  className={`modal-content album-modal-content ${fittingHistory.length <= 2 ? "compact" : ""
+                    }`}
                 >
                   <button
                     className="close"
@@ -4079,42 +6212,92 @@ const handleProfilePhotoChange = (event) => {
                     <h3>Fitting Album</h3>
                     <span>{fittingHistory.length} items</span>
                   </div>
+
+                  {/* Album Tabs */}
+                  <div className="album-tabs" style={{ display: 'flex', gap: '10px', padding: '0 24px', marginBottom: '16px' }}>
+                    <button
+                      className={`pill ${fittingAlbumTab === 'real' ? 'active' : ''}`}
+                      onClick={() => setFittingAlbumTab('real')}
+                    >
+                      Real
+                    </button>
+                    <button
+                      className={`pill ${fittingAlbumTab === 'mannequin' ? 'active' : ''}`}
+                      onClick={() => setFittingAlbumTab('mannequin')}
+                    >
+                      Mannequin
+                    </button>
+                  </div>
+
                   <div className="album">
-                    {fittingHistory.map((item) => (
-                      <div key={item.id} className="album-card">
-                        <button
-                          type="button"
-                          className="album-remove"
-                          aria-label="Remove album item"
-                          onClick={() =>
-                            setFittingHistory((prev) =>
-                              prev.filter((entry) => entry.id !== item.id),
-                            )
-                          }
-                        >
-                          ×
-                        </button>
-                        <img src={item.image} alt={item.title} />
-                        <div className="album-meta">
-                          <div className="album-meta-row">
-                            <strong>{item.title}</strong>
-                            <button
-                              type="button"
-                              className="album-load-btn"
-                              onClick={() => {
-                                setFittingRealBaseUrl(item.image);
-                                setFittingView("real");
-                                setFittingLayers([]);
-                                setFittingAlbumOpen(false);
-                              }}
-                            >
-                              불러오기
-                            </button>
+                    {fittingHistory.map((item) => {
+                      // Debug log
+                      // console.log("Rendering Album Item:", item.id, item.results);
+
+                      // Filter result by tab
+                      let targetResult = item.results?.find(r =>
+                        fittingAlbumTab === 'real'
+                          ? r.type === 'REAL'
+                          : r.type === 'MANNEQUIN'
+                      );
+
+                      // Fallback for Real tab: if no explicit REAL result, use the main preview image (likely base photo or legacy result)
+                      // This ensures items counted in the header are actually visible.
+                      if (!targetResult && fittingAlbumTab === 'real') {
+                        targetResult = { url: item.image, type: 'REAL' };
+                      }
+
+                      // If tab is Mannequin but no mannequin result, skip rendering this item in this tab
+                      // Unless we want to show it as available to generate? For now skip.
+                      if (!targetResult) return null;
+
+                      return (
+                        <div key={item.id} className="album-card">
+                          <button
+                            type="button"
+                            className="album-remove"
+                            aria-label="Remove album item"
+                            onClick={() =>
+                              setFittingHistory((prev) =>
+                                prev.filter((entry) => entry.id !== item.id),
+                              )
+                            }
+                          >
+                            ×
+                          </button>
+                          <img src={targetResult.url} alt={item.title} style={{ objectFit: 'contain' }} />
+                          <div className="album-meta">
+                            <div className="album-meta-row">
+                              <strong>{item.title}</strong>
+                              <button
+                                type="button"
+                                className="album-load-btn"
+                                onClick={() => {
+                                  // Load appropriate result into view
+                                  if (fittingAlbumTab === 'real') {
+                                    setFittingRealResult(targetResult.url);
+                                    setFittingView("real");
+                                  } else {
+                                    setFittingMannequinResult(targetResult.url);
+                                    setFittingView("3d");
+                                  }
+                                  setCurrentFittingId(item.id);
+                                  setFittingAlbumOpen(false);
+                                }}
+                              >
+                                불러오기
+                              </button>
+                            </div>
+                            <span>{formatAlbumDate(item.date)}</span>
                           </div>
-                          <span>{formatAlbumDate(item.date)}</span>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
+                    {fittingHistory.every(item => !item.results?.some(r => fittingAlbumTab === 'real' ? r.type === 'REAL' : r.type === 'MANNEQUIN')) && (
+                      <p style={{ padding: '20px', color: '#666', width: '100%', textAlign: 'center' }}>
+                        {fittingAlbumTab === 'real' ? '생성된 실물 피팅 결과가 없습니다.' : '생성된 마네킹 결과가 없습니다.'}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -4132,18 +6315,16 @@ const handleProfilePhotoChange = (event) => {
               <div className="portfolio-tabs">
                 <button
                   type="button"
-                  className={`pill ${
-                    portfolioTab === "investee" ? "active" : ""
-                  }`}
+                  className={`pill ${portfolioTab === "investee" ? "active" : ""
+                    }`}
                   onClick={() => setPortfolioTab("investee")}
                 >
                   Investee
                 </button>
                 <button
                   type="button"
-                  className={`pill ${
-                    portfolioTab === "investor" ? "active" : ""
-                  }`}
+                  className={`pill ${portfolioTab === "investor" ? "active" : ""
+                    }`}
                   onClick={() => setPortfolioTab("investor")}
                 >
                   Investor
@@ -4155,27 +6336,40 @@ const handleProfilePhotoChange = (event) => {
               <div className="portfolio-grid portfolio-brands-layout">
                 <div className="panel my-brands-panel">
                   <div className="panel-title-row">
-                    <h3>My Brands</h3>
-                    {brands.length > 2 && (
-                      <button
-                        type="button"
-                        className="ghost"
-                        onClick={() => setBrandFundingOpen(true)}
-                      >
-                        더보기
-                      </button>
-                    )}
+                    <h3>내 펀딩</h3>
+                    <span style={{ color: '#666', fontSize: '14px' }}>{generatedDesigns.length}개 디자인</span>
                   </div>
-                  <div className="chart">
-                    {brands.map((item) => (
-                      <div key={item.id} className="chart-row">
-                        <span>{item.brand}</span>
-                        <div className="chart-bar">
-                          <div style={{ width: `${item.progress * 100}%` }} />
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+                    {generatedDesigns.slice(0, 6).map((design) => (
+                      <div key={design.id} style={{
+                        position: 'relative',
+                        background: '#f8f8f8',
+                        borderRadius: '8px',
+                        overflow: 'hidden',
+                        cursor: 'pointer'
+                      }}
+                      onClick={() => {
+                        const funding = fundings.find(f => f.clothing_id === design.id);
+                        if (funding) {
+                          openClothingDetail(design.id);
+                        }
+                      }}>
+                        <img
+                          src={design.design_img_url || design.final_result_front_url}
+                          alt={design.name}
+                          style={{ width: '100%', height: '150px', objectFit: 'cover' }}
+                        />
+                        <div style={{ padding: '12px' }}>
+                          <div style={{ fontSize: '13px', fontWeight: '600', marginBottom: '4px' }}>{design.name}</div>
+                          <div style={{ fontSize: '12px', color: '#666' }}>{currency.format(design.price || 0)}</div>
                         </div>
-                        <span>{Math.round(item.progress * 100)}%</span>
                       </div>
                     ))}
+                    {generatedDesigns.length === 0 && (
+                      <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px', color: '#999' }}>
+                        아직 업로드한 디자인이 없습니다
+                      </div>
+                    )}
                   </div>
                   <div className="brand-list">
                     {brands.slice(0, 2).map((item) => (
@@ -4187,6 +6381,26 @@ const handleProfilePhotoChange = (event) => {
                             {currency.format(item.currentCoin)}
                           </p>
                         </div>
+                        {(() => {
+                          const brandFunding = fundings.find(
+                            (entry) =>
+                              entry.brand?.toLowerCase() ===
+                              item.brand?.toLowerCase(),
+                          );
+                          const brandClothing = brandFunding
+                            ? clothingMap[brandFunding.clothing_id]
+                            : null;
+                          if (!brandClothing) return null;
+                          return (
+                            <button
+                              type="button"
+                              className="brand-product"
+                              onClick={() => openClothingDetail(brandClothing.id)}
+                            >
+                              {brandClothing.name}
+                            </button>
+                          );
+                        })()}
                         <textarea
                           value={item.production_note}
                           onChange={(event) =>
@@ -4200,7 +6414,7 @@ const handleProfilePhotoChange = (event) => {
 
                 <div className="portfolio-side">
                   <div className="brand-page-panel">
-                    <h3>Brand Page</h3>
+                    <h3>내 브랜드 페이지</h3>
                     {hasBrandPage ? (
                       <button
                         type="button"
@@ -4215,7 +6429,7 @@ const handleProfilePhotoChange = (event) => {
                         <button
                           type="button"
                           className="secondary"
-                          onClick={createBrandPage}
+                          onClick={() => setBrandCreatePromptOpen(true)}
                         >
                           브랜드 페이지 만들기
                         </button>
@@ -4400,47 +6614,46 @@ const handleProfilePhotoChange = (event) => {
                   <div className="follow-modal-list">
                     {portfolioListOpen === "followers"
                       ? followerProfiles.map((profile) => (
-                          <div
-                            key={profile.handle}
-                            className="follow-list-item"
-                          >
-                            <div>
-                              <strong>{profile.name}</strong>
-                              <span>{profile.handle}</span>
-                            </div>
-                            <button
-                              type="button"
-                              className={`follow-cta ${
-                                followedBrands.includes(profile.handle)
-                                  ? "is-mutual"
-                                  : ""
+                        <div
+                          key={profile.handle}
+                          className="follow-list-item"
+                        >
+                          <div>
+                            <strong>{profile.name}</strong>
+                            <span>{profile.handle}</span>
+                          </div>
+                          <button
+                            type="button"
+                            className={`follow-cta ${followedBrands.includes(profile.handle)
+                              ? "is-mutual"
+                              : ""
                               }`}
-                              onClick={() => toggleFollowBrand(profile.handle)}
-                            >
-                              {followedBrands.includes(profile.handle)
-                                ? "맞팔로우"
-                                : "팔로우"}
-                            </button>
-                          </div>
-                        ))
-                      : followingProfiles.map((profile) => (
-                          <div
-                            key={profile.handle}
-                            className="follow-list-item"
+                            onClick={() => toggleFollowBrand(profile.handle)}
                           >
-                            <div>
-                              <strong>{profile.brand}</strong>
-                              <span>{profile.handle}</span>
-                            </div>
-                            <button
-                              type="button"
-                              className="ghost"
-                              onClick={() => toggleFollowBrand(profile.handle)}
-                            >
-                              Unfollow
-                            </button>
+                            {followedBrands.includes(profile.handle)
+                              ? "맞팔로우"
+                              : "팔로우"}
+                          </button>
+                        </div>
+                      ))
+                      : followingProfiles.map((profile) => (
+                        <div
+                          key={profile.handle}
+                          className="follow-list-item"
+                        >
+                          <div>
+                            <strong>{profile.brand}</strong>
+                            <span>{profile.handle}</span>
                           </div>
-                        ))}
+                          <button
+                            type="button"
+                            className="ghost"
+                            onClick={() => toggleFollowBrand(profile.handle)}
+                          >
+                            Unfollow
+                          </button>
+                        </div>
+                      ))}
                     {portfolioListOpen === "following" &&
                       followingProfiles.length === 0 && (
                         <div className="follow-empty">
@@ -4458,32 +6671,60 @@ const handleProfilePhotoChange = (event) => {
           <section className="content">
             <div className="page-title brand-title brand-title-row">
               <div>
-                <h1>{selectedBrandProfile.brand}</h1>
-                <p>{selectedBrandProfile.handle}</p>
+                <h1>
+                  {selectedBrandKey === "my-brand" ||
+                    selectedBrandProfile.handle === myBrandDetails.handle
+                    ? "My Brand"
+                    : selectedBrandProfile.brand}
+                </h1>
+                {(selectedBrandKey === "my-brand" ||
+                  selectedBrandProfile.handle === myBrandDetails.handle) && (
+                    <p>나만의 브랜드 페이지</p>
+                  )}
               </div>
               {selectedBrandProfile.handle === myBrandDetails.handle &&
                 hasBrandPage && (
                   <div className="brand-title-actions">
+                    {brandPageReady && (
+                      <button
+                        type="button"
+                        className="brand-studio-btn"
+                        onClick={() => setActiveTab("studio")}
+                      >
+                        <span className="brand-studio-icon">
+                          <Palette size={16} strokeWidth={1.6} />
+                        </span>
+                        <span>Studio</span>
+                      </button>
+                    )}
                     <button
                       type="button"
                       className="brand-edit-btn"
                       aria-label={
-                        brandEditing || !brandPageReady
-                          ? "Save brand profile"
-                          : "Edit brand profile"
+                        !brandPageReady
+                          ? "Create brand profile"
+                          : brandEditing
+                            ? "Save brand profile"
+                            : "Edit brand profile"
                       }
                       onClick={() => {
                         if (brandEditing || !brandPageReady) {
-                          setBrandEditing(false);
-                          setBrandPageReady(true);
-                          setSelectedBrandKey(myBrandDetails.handle);
+                          if (!brandPageReady) {
+                            handleCreateBrand();
+                            return;
+                          }
+                          if (brandEditing) {
+                            handleUpdateBrand();
+                          }
                         } else {
                           setBrandEditing(true);
                         }
                       }}
                     >
-                      {brandEditing || !brandPageReady ? (
-                        "저장"
+                      {!brandPageReady ? (
+                        "생성"
+                      ) : brandEditing ? (
+                        "수정"
                       ) : (
                         <Pencil size={16} strokeWidth={1.6} />
                       )}
@@ -4506,20 +6747,32 @@ const handleProfilePhotoChange = (event) => {
               <div className="brand-hero-card">
                 <div className="brand-hero-info">
                   {brandEditing &&
-                  selectedBrandProfile.handle === myBrandDetails.handle ? (
+                    selectedBrandProfile.handle === myBrandDetails.handle ? (
                     <>
                       <div className="brand-logo-upload">
                         <input
                           type="file"
                           accept="image/*"
-                          onChange={(event) => {
+                          onChange={async (event) => {
                             const file = event.target.files[0];
                             if (!file) return;
-                            const url = URL.createObjectURL(file);
-                            setMyBrandDetails((prev) => ({
-                              ...prev,
-                              logoUrl: url,
-                            }));
+                            if (!window.localStorage.getItem("token")) {
+                              openAuthModal("login-required");
+                              return;
+                            }
+                            try {
+                              const { url } = await uploadBrandLogo(file);
+                              setMyBrandDetails((prev) => ({
+                                ...prev,
+                                logoUrl: normalizeAssetUrl(url),
+                              }));
+                            } catch (err) {
+                              console.error(err);
+                              alert(
+                                err.response?.data?.message ||
+                                "브랜드 로고 업로드에 실패했습니다.",
+                              );
+                            }
                           }}
                         />
                         {myBrandDetails.logoUrl ? (
@@ -4570,11 +6823,19 @@ const handleProfilePhotoChange = (event) => {
                     <>
                       <img
                         className="brand-hero-logo"
-                        src={myBrandDetails.logoUrl}
+                        src={
+                          selectedBrandProfile.handle === myBrandDetails.handle
+                            ? myBrandDetails.logoUrl
+                            : selectedBrandProfile.logoUrl
+                        }
                         alt={`${selectedBrandProfile.brand} logo`}
                       />
                       <strong>{selectedBrandProfile.brand}</strong>
-                      <p>{selectedBrandProfile.bio}</p>
+                      <p>
+                        {selectedBrandProfile.handle === myBrandDetails.handle
+                          ? myBrandDetails.bio
+                          : selectedBrandProfile.bio}
+                      </p>
                     </>
                   )}
                 </div>
@@ -4616,12 +6877,44 @@ const handleProfilePhotoChange = (event) => {
                 <p className="empty empty-brand">등록된 디자인이 없습니다.</p>
               ) : (
                 brandFeed.map((entry) => (
-                  <button
+                  <div
                     key={entry.clothing.id}
-                    type="button"
                     className="brand-feed-card"
+                    role="button"
+                    tabIndex={0}
                     onClick={() => openClothingDetail(entry.clothing.id)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        openClothingDetail(entry.clothing.id);
+                      }
+                    }}
                   >
+                    {canEditBrandDesigns && (
+                      <div className="brand-feed-actions">
+                        <button
+                          type="button"
+                          className="brand-feed-edit"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            openBrandDesignEditor(entry.clothing);
+                          }}
+                        >
+                          수정
+                        </button>
+                        <button
+                          type="button"
+                          className="brand-feed-remove"
+                          aria-label="Remove design"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            removeBrandDesign(entry.clothing.id);
+                          }}
+                        >
+                          삭제
+                        </button>
+                      </div>
+                    )}
                     <img
                       src={entry.clothing.design_img_url}
                       alt={entry.clothing.name}
@@ -4633,7 +6926,7 @@ const handleProfilePhotoChange = (event) => {
                         {entry.funding.participant_count}명 참여
                       </span>
                     </div>
-                  </button>
+                  </div>
                 ))
               )}
             </div>
@@ -4675,33 +6968,33 @@ const handleProfilePhotoChange = (event) => {
                           userProfile.profile_photo_url) ||
                           (profilePhotoMode === "body" &&
                             userProfile.base_photo_url)) && (
-                        <button
-                          type="button"
-                          className="profile-photo-remove"
-                          aria-label="Remove photo"
-                          onClick={() => {
-                            if (profilePhotoMode === "profile") {
-                              updateProfileField("profile_photo_url", null);
-                            } else {
-                              updateProfileField("base_photo_url", null);
-                            }
-                          }}
-                        >
-                          ×
-                        </button>
-                      )}
+                          <button
+                            type="button"
+                            className="profile-photo-remove"
+                            aria-label="Remove photo"
+                            onClick={() => {
+                              if (profilePhotoMode === "profile") {
+                                updateProfileField("profile_photo_url", null);
+                              } else {
+                                updateProfileField("base_photo_url", null);
+                              }
+                            }}
+                          >
+                            ×
+                          </button>
+                        )}
                     </div>
                     <div className="profile-photo-box">
                       <label className="profile-photo-frame">
                         {profilePhotoMode === "profile" &&
-                        userProfile.profile_photo_url ? (
+                          userProfile.profile_photo_url ? (
                           <img
                             className="profile-photo"
                             src={userProfile.profile_photo_url}
                             alt="profile"
                           />
                         ) : profilePhotoMode === "body" &&
-                        userProfile.base_photo_url ? (
+                          userProfile.base_photo_url ? (
                           <img
                             className="profile-photo"
                             src={userProfile.base_photo_url}
@@ -4790,10 +7083,7 @@ const handleProfilePhotoChange = (event) => {
                           <button
                             type="button"
                             className="primary"
-                            onClick={() => {
-                              setIsProfileEditing(false);
-                              setProfilePasswordDraft({ password: "", confirm: "" });
-                            }}
+                            onClick={handleProfileSave}
                           >
                             저장
                           </button>
@@ -4972,57 +7262,90 @@ const handleProfilePhotoChange = (event) => {
         </div>
       )}
       {loginModalOpen && (
-        <div className="auth-modal" role="dialog" aria-modal="true">
-          <div className="auth-modal-content">
-            <button
-              type="button"
-              className="auth-modal-close"
-              aria-label="Close"
-              onClick={closeLoginModal}
-            >
-              ×
-            </button>
-            <h3>로그인</h3>
-            <div className="auth-modal-form">
-              <label>
-                아이디
-                <input
-                  value={loginDraft.handle}
-                  onChange={(event) =>
-                    setLoginDraft((prev) => ({
-                      ...prev,
-                      handle: event.target.value,
-                    }))
-                  }
-                  placeholder="your.id"
-                />
-              </label>
-              <label>
-                비밀번호
-                <input
-                  type="password"
-                  value={loginDraft.password}
-                  onChange={(event) =>
-                    setLoginDraft((prev) => ({
-                      ...prev,
-                      password: event.target.value,
-                    }))
-                  }
-                  placeholder="비밀번호 입력"
-                />
-              </label>
-            </div>
-            <div className="auth-modal-actions">
-              <button
-                type="button"
-                className="secondary"
-                onClick={startOnboarding}
-              >
-                회원가입
-              </button>
-              <button type="button" className="primary" onClick={submitLogin}>
-                로그인
-              </button>
+        <div className="intro-overlay" role="dialog" aria-modal="true">
+          <section className="intro-hero">
+            <video
+              className="intro-video"
+              src="/background.mp4"
+              autoPlay
+              muted
+              loop
+              playsInline
+            />
+            <div className="intro-fade" />
+          </section>
+
+          <div className="auth-selection">
+            <div className="auth-selection-card auth-selection-card--login">
+              <div className="auth-selection-header">
+                <h3 className="auth-selection-title">로그인</h3>
+                <button
+                  type="button"
+                  className="auth-selection-close"
+                  onClick={() => {
+                    setLoginModalOpen(false);
+                    setIntroOpen(true);
+                  }}
+                  aria-label="Close login"
+                >
+                  ×
+                </button>
+              </div>
+              <p className="auth-selection-subtitle">
+                Modif에 오신 것을 환영합니다.
+              </p>
+
+              <div className="auth-selection-form">
+                <label className="onboarding-field">
+                  이메일
+                  <input
+                    value={loginDraft.handle}
+                    onChange={(event) =>
+                      setLoginDraft((prev) => ({
+                        ...prev,
+                        handle: event.target.value,
+                      }))
+                    }
+                    placeholder="name@example.com"
+                  />
+                </label>
+                <label className="onboarding-field">
+                  비밀번호
+                  <input
+                    type="password"
+                    value={loginDraft.password}
+                    onChange={(event) =>
+                      setLoginDraft((prev) => ({
+                        ...prev,
+                        password: event.target.value,
+                      }))
+                    }
+                    placeholder="비밀번호 입력"
+                  />
+                </label>
+
+                <button
+                  className="auth-selection-btn auth-selection-btn--primary auth-selection-btn--compact"
+                  onClick={submitLogin}
+                >
+                  로그인
+                </button>
+
+                <div className="auth-selection-footer">
+                  계정이 없으신가요?{" "}
+                  <button
+                    type="button"
+                    className="auth-selection-link"
+                    onClick={() => {
+                      setLoginModalOpen(false);
+                      resetOnboarding();
+                      setOnboardingOpen(true);
+                    }}
+                  >
+                    회원가입하기
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -5035,10 +7358,10 @@ const handleProfilePhotoChange = (event) => {
           onClick={() => setIsGalleryOpen(false)}
         >
           <div
-            className={`studio-gallery-content ${
-              generatedDesigns.length + tempDesigns.length <= 2 ? "compact" : ""
-            }`}
+            className={`studio-gallery-content ${generatedDesigns.length + tempDesigns.length <= 2 ? "compact" : ""
+              }`}
             onClick={(event) => event.stopPropagation()}
+            style={{ width: "95%", maxWidth: "1400px", height: "85vh", maxHeight: "900px" }}
           >
             <button
               type="button"
@@ -5051,14 +7374,14 @@ const handleProfilePhotoChange = (event) => {
             <div className="studio-gallery-header">
               <h3>Generated Gallery</h3>
               <span className="studio-gallery-count">
-                현재 디자인 수: {generatedDesigns.length + tempDesigns.length} /
-                10
+                현재 디자인 수: {generatedDesigns.length + tempDesigns.length} / 10
               </span>
             </div>
+
             <div className="gallery-grid">
-              {generatedDesigns.length + tempDesigns.length === 0 && (
+              {generatedDesigns.length + tempDesigns.length === 0 ? (
                 <p className="empty">아직 생성된 디자인이 없습니다.</p>
-              )}
+              ) : null}
               {[...tempDesigns, ...generatedDesigns]
                 .slice(0, 10)
                 .map((item, index) => (
@@ -5075,24 +7398,37 @@ const handleProfilePhotoChange = (event) => {
                     >
                       ×
                     </button>
-                    <img src={item.design_img_url} alt={item.name} />
+                    <div style={{ overflow: 'hidden', width: '100%', height: '240px', borderRadius: '4px', background: '#f5f5f5', position: 'relative' }}>
+                      <img
+                        src={item.final_result_all_url || item.design_img_url}
+                        alt={item.name}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'contain',
+                          transform: `scale(${galleryScales[item.id] || 1})`,
+                          transformOrigin: 'center',
+                          transition: activeGalleryDrag === item.id ? 'none' : 'transform 0.1s ease-out',
+                          cursor: activeGalleryDrag === item.id ? 'grabbing' : 'grab',
+                          userSelect: 'none'
+                        }}
+                        onMouseDown={(e) => handleGalleryMouseDown(e, item.id)}
+                        onDragStart={(e) => e.preventDefault()}
+                      />
+                    </div>
                     <div className="album-meta">
                       <div className="album-meta-row">
                         <strong>{item.name}</strong>
-                        <button
-                          type="button"
-                          className="album-load-btn"
-                          onClick={() => {
-                            setStudioSideImages((prev) => ({
-                              ...prev,
-                              [studioSide]: item.design_img_url,
-                            }));
-                            loadDesignToCanvas(item.design_img_url);
-                            setIsGalleryOpen(false);
-                          }}
-                        >
-                          불러오기
-                        </button>
+                        <div className="album-meta-actions">
+                          <button
+                            type="button"
+                            className="album-load-btn"
+                            onClick={() => loadSavedDesign(item)}
+                          >
+                            불러오기
+                          </button>
+
+                        </div>
                       </div>
                       <span>{item.savedAt}</span>
                     </div>
@@ -5200,7 +7536,7 @@ const handleProfilePhotoChange = (event) => {
               ×
             </button>
             <div className="ai-design-header">
-              <h3>AI Design</h3>
+              <h3>Upload #{aiDesignModal.design?.id}</h3>
               <div className="ai-design-actions">
                 <button
                   type="button"
@@ -5212,12 +7548,7 @@ const handleProfilePhotoChange = (event) => {
                 <button
                   type="button"
                   className="primary"
-                  onClick={() => {
-                    if (!hasBrandPage) {
-                      setBrandPageRequiredOpen(true);
-                      return;
-                    }
-                  }}
+                  onClick={handleAiDesignUpload}
                 >
                   업로드
                 </button>
@@ -5228,23 +7559,9 @@ const handleProfilePhotoChange = (event) => {
                 <div className="modal-header">
                   <div>
                     <h2>{brand.name}</h2>
-                    {aiDesignEditMode ? (
-                      <input
-                        className="ai-design-input"
-                        value={aiDesignDraft.name}
-                        onChange={(event) =>
-                          setAiDesignDraft((prev) => ({
-                            ...prev,
-                            name: event.target.value,
-                          }))
-                        }
-                        aria-label="Design name"
-                      />
-                    ) : (
-                      <p>{aiDesignModal.design.name}</p>
-                    )}
+                    <p>{aiDesignDraft.name || aiDesignModal.design.name}</p>
                   </div>
-                  <div className="pill-group">
+                  <div className="pill-group detail-tabs">
                     {["overview", "story", "feedback"].map((tab) => (
                       <button
                         key={tab}
@@ -5260,18 +7577,69 @@ const handleProfilePhotoChange = (event) => {
                   </div>
                 </div>
                 <div className="modal-body">
-                  <div className="detail-media">
-                    <div className="image-placeholder" aria-label="Image area">
-                      이미지 영역
-                    </div>
+                  <div className="detail-media" style={{ position: 'relative', minHeight: '300px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                    <img
+                      src={
+                        modalViewSide === "front"
+                          ? aiDesignModal.design.final_result_front_url || aiDesignModal.design.design_img_url || aiDesignModal.design.url
+                          : aiDesignModal.design.final_result_back_url || aiDesignModal.design.design_img_url || aiDesignModal.design.url
+                      }
+                      alt="Design Detail"
+                      style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain', width: '100%', height: '100%' }}
+                    />
+                    <button
+                      type="button"
+                      className="ai-result-arrow left"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setModalViewSide("front");
+                      }}
+                      style={{
+                        position: "absolute",
+                        left: "10px",
+                        zIndex: 10,
+                        opacity: modalViewSide === "front" ? 0.5 : 1,
+                        pointerEvents: "auto",
+                        background: 'rgba(255,255,255,0.8)',
+                        border: '1px solid #ddd',
+                        borderRadius: '50%',
+                        width: '32px',
+                        height: '32px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      &lt;
+                    </button>
+                    <button
+                      type="button"
+                      className="ai-result-arrow right"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setModalViewSide("back");
+                      }}
+                      style={{
+                        position: "absolute",
+                        right: "10px",
+                        zIndex: 10,
+                        opacity: modalViewSide === "back" ? 0.5 : 1,
+                        pointerEvents: "auto",
+                        background: 'rgba(255,255,255,0.8)',
+                        border: '1px solid #ddd',
+                        borderRadius: '50%',
+                        width: '32px',
+                        height: '32px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      &gt;
+                    </button>
                   </div>
-                <div
-                  className={`detail-scroll ${
-                    detailTab === "feedback" ? "detail-scroll-feedback" : ""
-                  }`}
-                >
+                  <div
+                    className={`detail-scroll ${detailTab === "feedback" ? "detail-scroll-feedback" : ""
+                      }`}
+                  >
                     {detailTab === "overview" && (
-                      <div className="detail-block">
+                      <div className="detail-block detail-tab-panel">
                         <div className="price-row">
                           <div className="price-main">
                             <span className="price-label">Price</span>
@@ -5298,87 +7666,54 @@ const handleProfilePhotoChange = (event) => {
                             )}
                           </div>
                         </div>
-                        <h4>옷 세부내용</h4>
-                        {aiDesignEditMode ? (
-                          <textarea
-                            className="ai-design-textarea"
-                            value={aiDesignDraft.description}
-                            onChange={(event) =>
-                              setAiDesignDraft((prev) => ({
-                                ...prev,
-                                description: event.target.value,
-                              }))
-                            }
-                          />
-                        ) : (
-                          <p>
-                            {aiDesignModal.design.description ||
-                              "AI가 생성한 컨셉을 기반으로 실루엣과 소재 밸런스를 설계했습니다."}
-                          </p>
-                        )}
-                        <div className="detail-tags">
-                          <span className="detail-tag">#니트</span>
-                          <span className="detail-tag">#미니멀</span>
-                          <span className="detail-tag">#여성</span>
+                        <div className="ai-upload-fields">
+                          <label className="field ai-upload-field">
+                            Cloth Name
+                            <input
+                              className="ai-design-input"
+                              value={aiDesignDraft.name}
+                              onChange={(event) =>
+                                setAiDesignDraft((prev) => ({
+                                  ...prev,
+                                  name: event.target.value,
+                                }))
+                              }
+                            />
+                          </label>
+                          <label className="field ai-upload-field">
+                            Cloth Description
+                            <textarea
+                              className="ai-design-textarea"
+                              value={aiDesignDraft.description}
+                              onChange={(event) =>
+                                setAiDesignDraft((prev) => ({
+                                  ...prev,
+                                  description: event.target.value,
+                                }))
+                              }
+                            />
+                          </label>
                         </div>
-                        <div className="spec-grid">
+                        <div className="spec-grid studio-preview-grid">
                           <div>
                             <span>카테고리</span>
-                            {aiDesignEditMode ? (
-                              <input
-                                className="ai-design-input"
-                                value={aiDesignDraft.category}
-                                onChange={(event) =>
-                                  setAiDesignDraft((prev) => ({
-                                    ...prev,
-                                    category: event.target.value,
-                                  }))
-                                }
-                                aria-label="Design category"
-                              />
-                            ) : (
-                              <strong>{aiDesignModal.design.category}</strong>
-                            )}
+                            <strong>{designCategory}</strong>
                           </div>
                           <div>
-                            <span>스타일</span>
-                            {aiDesignEditMode ? (
-                              <input
-                                className="ai-design-input"
-                                value={aiDesignDraft.style}
-                                onChange={(event) =>
-                                  setAiDesignDraft((prev) => ({
-                                    ...prev,
-                                    style: event.target.value,
-                                  }))
-                                }
-                                aria-label="Design style"
-                              />
-                            ) : (
-                              <strong>{aiDesignModal.design.style}</strong>
-                            )}
+                            <span>길이</span>
+                            <strong>{designLength}</strong>
                           </div>
                           <div>
                             <span>성별</span>
-                            {aiDesignEditMode ? (
-                              <input
-                                className="ai-design-input"
-                                value={aiDesignDraft.gender}
-                                onChange={(event) =>
-                                  setAiDesignDraft((prev) => ({
-                                    ...prev,
-                                    gender: event.target.value,
-                                  }))
-                                }
-                                aria-label="Design gender"
-                              />
-                            ) : (
-                              <strong>{aiDesignModal.design.gender}</strong>
-                            )}
+                            <strong>{designGender}</strong>
+                          </div>
+                          <div>
+                            <span>스타일</span>
+                            <strong>{aiDesignDraft.style || "-"}</strong>
                           </div>
                           <div>
                             <span>사이즈</span>
-                            <strong>XS - XL</strong>
+                            <strong>{sizeRangeLabels.join(" - ")}</strong>
                           </div>
                         </div>
                         <div className="spec-bar">
@@ -5404,29 +7739,35 @@ const handleProfilePhotoChange = (event) => {
                       </div>
                     )}
                     {detailTab === "story" && (
-                      <div className="detail-block">
+                      <div className="detail-block detail-tab-panel">
                         <h4>브랜드 스토리</h4>
                         {aiDesignEditMode ? (
                           <textarea
                             className="ai-design-textarea"
-                            value={aiDesignDraft.story}
-                            onChange={(event) =>
+                            value={myBrandDetails.bio}
+                            onChange={(event) => {
+                              const value = event.target.value;
+                              setMyBrandDetails((prev) => ({
+                                ...prev,
+                                bio: value,
+                              }));
                               setAiDesignDraft((prev) => ({
                                 ...prev,
-                                story: event.target.value,
-                              }))
-                            }
+                                story: value,
+                              }));
+                            }}
                           />
                         ) : (
                           <p>
-                            {aiDesignModal.design.story ||
+                            {myBrandDetails.bio ||
+                              aiDesignModal.design.story ||
                               "AI가 트렌드 데이터를 분석해 감각적인 컬렉션 스토리를 구성했습니다. 디자이너가 세부 디테일을 다듬을 수 있도록 여지를 남겨두었습니다."}
                           </p>
                         )}
                       </div>
                     )}
                     {detailTab === "feedback" && (
-                      <div className="detail-block">
+                      <div className="detail-block detail-tab-panel">
                         <h4>소셜 피드백</h4>
                         <p className="comment-empty">
                           아직 생성된 피드백이 없습니다.
@@ -5537,6 +7878,34 @@ const handleProfilePhotoChange = (event) => {
           </div>
         </div>
       )}
+      {brandCreatePromptOpen && (
+        <div className="auth-modal" role="dialog" aria-modal="true">
+          <div className="auth-modal-content">
+            <button
+              type="button"
+              className="auth-modal-close"
+              aria-label="Close"
+              onClick={() => setBrandCreatePromptOpen(false)}
+            >
+              ×
+            </button>
+            <h3>브랜드를 생성하시겠습니까?</h3>
+            <p>브랜드 페이지를 만든 뒤 바로 포트폴리오를 시작할 수 있습니다.</p>
+            <div className="auth-modal-actions">
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => setBrandCreatePromptOpen(false)}
+              >
+                취소
+              </button>
+              <button type="button" className="primary" onClick={createBrandPage}>
+                계속
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {brandDeleteConfirmOpen && (
         <div className="auth-modal" role="dialog" aria-modal="true">
           <div className="auth-modal-content">
@@ -5558,7 +7927,11 @@ const handleProfilePhotoChange = (event) => {
               >
                 취소
               </button>
-              <button type="button" className="primary" onClick={resetBrandPage}>
+              <button
+                type="button"
+                className="primary"
+                onClick={handleDeleteBrandPage}
+              >
                 삭제
               </button>
             </div>
@@ -5639,9 +8012,8 @@ const handleProfilePhotoChange = (event) => {
       )}
       {designCoinAlertOpen && (
         <div
-          className={`toast-banner ${
-            designCoinAlertClosing ? "is-leaving" : ""
-          }`}
+          className={`toast-banner ${designCoinAlertClosing ? "is-leaving" : ""
+            }`}
           role="status"
         >
           <div className="toast-content">
@@ -5671,7 +8043,7 @@ const handleProfilePhotoChange = (event) => {
               ×
             </button>
             <div className="design-generate-top">
-              <h3>디자인 토큰이 소모됩니다.</h3>
+              <h3>디자인 토큰 1개를 소모하시겠습니까?</h3>
               <button
                 type="button"
                 className="design-coin"
@@ -5712,7 +8084,7 @@ const handleProfilePhotoChange = (event) => {
                 <span className="design-coin-count">{designCoins}</span>
               </button>
             </div>
-            <p>확인하면 AI 디자인 생성 페이지로 이동합니다.</p>
+            <p>확인하면 바로 디자인 생성을 시작합니다.</p>
             <div className="auth-modal-actions">
               <button
                 type="button"
@@ -5726,7 +8098,7 @@ const handleProfilePhotoChange = (event) => {
                 className="primary"
                 onClick={confirmGenerateDesign}
               >
-                확인
+                소모하고 생성
               </button>
             </div>
           </div>
@@ -5841,6 +8213,52 @@ const handleProfilePhotoChange = (event) => {
           </div>
         </div>
       )}
+      {previewImage && (
+        <div
+          onClick={() => setPreviewImage(null)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            background: 'rgba(0,0,0,0.85)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 99999,
+            cursor: 'zoom-out'
+          }}
+        >
+          <img
+            src={previewImage}
+            style={{
+              maxWidth: '90%',
+              maxHeight: '90%',
+              objectFit: 'contain',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+              borderRadius: '8px'
+            }}
+            alt="Preview"
+          />
+          <button
+            type="button"
+            style={{
+              position: 'absolute',
+              top: '20px',
+              right: '20px',
+              background: 'none',
+              border: 'none',
+              color: 'white',
+              fontSize: '32px',
+              cursor: 'pointer'
+            }}
+            onClick={() => setPreviewImage(null)}
+          >
+            ×
+          </button>
+        </div>
+      )}
     </div>
   );
 
@@ -5854,3 +8272,4 @@ const handleProfilePhotoChange = (event) => {
 }
 
 export default App;
+

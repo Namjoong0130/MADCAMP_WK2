@@ -111,6 +111,7 @@ router.post('/', authMiddleware, clothController.createCloth);
  *       200:
  *         description: Physics updated
  */
+router.patch('/:clothId', authMiddleware, clothController.updateCloth);
 router.patch('/:clothId/physics', authMiddleware, clothController.updateClothPhysics);
 
 /**
@@ -144,9 +145,25 @@ router.patch('/:clothId/physics', authMiddleware, clothController.updateClothPhy
 router.get('/:clothId/attempts', authMiddleware, clothController.listDesignAttempts);
 router.post('/:clothId/attempts', authMiddleware, clothController.createDesignAttempt);
 
-const uploadMiddleware = require('../middlewares/uploadMiddleware');
+/**
+ * @swagger
+ * /api/clothes/{clothId}:
+ *   delete:
+ *     summary: Delete a clothing item
+ *     tags: [Clothes]
+ *     parameters:
+ *       - in: path
+ *         name: clothId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Cloth deleted
+ */
+router.delete('/:clothId', authMiddleware, clothController.deleteCloth);
 
-// ...
+const uploadMiddleware = require('../middlewares/uploadMiddleware');
 
 /**
  * @swagger
@@ -162,7 +179,6 @@ const uploadMiddleware = require('../middlewares/uploadMiddleware');
  *             properties:
  *               prompt:
  *                 type: string
-// ...
  *               images:
  *                 type: array
  *                 items:

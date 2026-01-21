@@ -41,7 +41,24 @@ exports.getFittingDetail = async (userId, fittingId) => {
   return fitting;
 };
 
-exports.createFittingResult = async (userId, fittingId, payload) => {
+exports.updateFitting = async (userId, fittingId, data) => {
+  const fitting = await prisma.fitting.findUnique({
+    where: { fitting_id: fittingId },
+  });
+  if (!fitting || fitting.user_id !== userId) {
+    throw createError(404, '피팅을 찾을 수 없습니다.');
+  }
+
+  const updated = await prisma.fitting.update({
+    where: { fitting_id: fittingId },
+    data: data,
+    include: { results: true }
+  });
+
+  return updated;
+};
+
+exports.createFittingResult = async (userId, fittingId, fileUrl) => {
   requireFields(payload, ['result_img_url', 'generation_prompt']);
 
   const fitting = await prisma.fitting.findUnique({
@@ -91,7 +108,7 @@ exports.createFittingResult = async (userId, fittingId, payload) => {
 exports.listFittingAlbum = async (userId) => {
   const fittings = await prisma.fitting.findMany({
     where: { user_id: userId, deleted_at: null },
-    include: { results: { orderBy: { created_at: 'desc' }, take: 1 } },
+    include: { results: { orderBy: { created_at: 'desc' } } },
     orderBy: { created_at: 'desc' },
   });
 
@@ -112,6 +129,7 @@ exports.generateFittingImage = async (userId, fittingId) => {
   });
 
   try {
+    console.log(`[FittingService] Starting AI generation for Fitting ID: ${fittingId}`);
     // Prepare clothing list for prompt
     // For now, mapping external/internal checks ideally. 
     // Simplified: Assuming fitting.tags or similar holds info, or fetching cloth details
@@ -121,12 +139,44 @@ exports.generateFittingImage = async (userId, fittingId) => {
       const cloths = await prisma.cloth.findMany({
         where: { clothing_id: { in: fitting.internal_cloth_ids } }
       });
-      cloths.forEach((c, idx) => {
-        clothingList.push({
-          category: c.category,
-          order: c.layer_order || (idx + 1),
-          name: c.clothing_name
-        });
+
+      // Create a lookup map
+      const clothMap = new Map();
+      cloths.forEach(c => clothMap.set(c.clothing_id, c));
+
+      // Iterate in the order of IDs preserved in fitting record
+      fitting.internal_cloth_ids.forEach((id, idx) => {
+        const c = clothMap.get(id);
+        if (c) {
+          clothingList.push({
+            category: c.sub_category || c.category, // Use sub-category if available (e.g. detailed 'Top', 'Dress')
+            order: idx + 1, // Strict user order
+            name: c.clothing_name,
+            url: c.final_result_front_url
+          });
+        }
+      });
+    }
+
+    // Prepare External Clothing from Tags
+    const externalClothItems = [];
+    if (fitting.tags) {
+      fitting.tags.forEach(tag => {
+        if (tag.startsWith('META_CLOTH_JSON:')) {
+          try {
+            const jsonStr = tag.replace('META_CLOTH_JSON:', '');
+            externalClothItems.push(JSON.parse(jsonStr));
+          } catch (e) {
+            console.error('Failed to parse cloth meta tag', e);
+          }
+        }
+      });
+    }
+
+    // If no meta tags but urls exist (legacy or simple upload), fallback to basic
+    if (externalClothItems.length === 0 && fitting.external_cloth_urls && fitting.external_cloth_urls.length > 0) {
+      fitting.external_cloth_urls.forEach((url, idx) => {
+        externalClothItems.push({ url, category: 'UNKNOWN', order: 10 + idx });
       });
     }
 
@@ -134,11 +184,9 @@ exports.generateFittingImage = async (userId, fittingId) => {
     const tryOnUrl = await aiService.generateFittingResult(
       fittingId,
       fitting.base_photo_url,
-      clothingList
+      clothingList,
+      externalClothItems
     );
-
-    // 2. Generate Mannequin Ver.
-    const mannequinUrl = await aiService.generateMannequinResult(fittingId, tryOnUrl);
 
     // Create Result Record (Primary Try-On)
     const result = await prisma.fittingResult.create({
@@ -146,22 +194,7 @@ exports.generateFittingImage = async (userId, fittingId) => {
         fitting_id: fittingId,
         user_id: userId,
         result_img_url: tryOnUrl,
-        generation_prompt: 'AI Virtual Try-On',
-        status: 'COMPLETED'
-      }
-    });
-
-    // Ideally store mannequinUrl too, but schema might not have it.
-    // We can store it in a separate result or note.
-    // For now, let's create a second result entry or just log it.
-    // Creating second result for Mannequin
-    await prisma.fittingResult.create({
-      data: {
-        fitting_id: fittingId,
-        user_id: userId,
-        result_img_url: mannequinUrl,
-        generation_prompt: 'AI Mannequin Transformation',
-        status: 'COMPLETED'
+        generation_prompt: 'AI Virtual Try-On'
       }
     });
 
@@ -173,18 +206,70 @@ exports.generateFittingImage = async (userId, fittingId) => {
     await notificationService.createNotification({
       userId,
       title: 'AI 피팅 완료',
-      message: '피팅 결과(착용샷 + 마네킹)가 생성되었습니다.',
+      message: '가상 피팅(Real) 결과가 생성되었습니다.',
       type: 'GENERAL',
       url: `/fittings/${fittingId}`,
       data: { fitting_id: fittingId },
     });
 
-    return { tryOn: tryOnUrl, mannequin: mannequinUrl };
+    return { tryOn: tryOnUrl };
   } catch (error) {
     await prisma.fitting.update({
       where: { fitting_id: fittingId },
       data: { status: 'FAILED' },
     });
+    throw error;
+  }
+};
+
+exports.generateMannequinImage = async (userId, fittingId) => {
+  const fitting = await prisma.fitting.findUnique({
+    where: { fitting_id: fittingId },
+    include: { results: true }
+  });
+  if (!fitting || fitting.user_id !== userId) {
+    throw createError(404, '피팅을 찾을 수 없습니다.');
+  }
+
+  // Find the Try-On result to use as input
+  // Look for the latest result that is NOT a mannequin result (heuristic based on prompt or just latest)
+  // Or simpler: The prompt 'AI Virtual Try-On'
+  const tryOnResult = fitting.results
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    .find(r => r.generation_prompt === 'AI Virtual Try-On');
+
+  if (!tryOnResult) {
+    throw createError(400, '먼저 가상 피팅(Real)을 생성해야 마네킹 변환이 가능합니다.');
+  }
+
+  try {
+    console.log(`[FittingService] Starting Mannequin generation for Fitting ID: ${fittingId}`);
+
+    // Generate Mannequin Ver.
+    const mannequinUrl = await aiService.generateMannequinResult(fittingId, tryOnResult.result_img_url);
+
+    // Create Result Record for Mannequin
+    await prisma.fittingResult.create({
+      data: {
+        fitting_id: fittingId,
+        user_id: userId,
+        result_img_url: mannequinUrl,
+        generation_prompt: 'AI Mannequin Transformation'
+      }
+    });
+
+    await notificationService.createNotification({
+      userId,
+      title: '마네킹 변환 완료',
+      message: '마네킹 피팅 결과가 생성되었습니다.',
+      type: 'GENERAL',
+      url: `/fittings/${fittingId}`,
+      data: { fitting_id: fittingId },
+    });
+
+    return { mannequin: mannequinUrl };
+  } catch (error) {
+    console.error('Mannequin generation failed:', error);
     throw error;
   }
 };

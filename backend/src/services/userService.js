@@ -1,7 +1,16 @@
-const prisma = require('../config/prisma');
+﻿const prisma = require('../config/prisma');
 const { createError } = require('../utils/responseHandler');
 const { toNumber } = require('../utils/validator');
 const { buildHandle } = require('../utils/transformers');
+
+const getServerUrl = () => process.env.SERVER_URL || '';
+
+const normalizeUrl = (url) => {
+  if (!url) return null;
+  if (url.startsWith('http')) return url;
+  if (url.startsWith('/')) return `${getServerUrl()}${url}`;
+  return url;
+};
 
 exports.getUserHeader = async (userId) => {
   const user = await prisma.user.findUnique({
@@ -15,7 +24,14 @@ exports.getUserHeader = async (userId) => {
     },
   });
 
-  if (!user) throw createError(404, '사용자를 찾을 수 없습니다.');
+  if (!user) throw createError(404, 'User not found.');
+  if (!user.is_creator) {
+    await prisma.user.update({
+      where: { user_id: userId },
+      data: { is_creator: true },
+    });
+    user.is_creator = true;
+  }
   return user;
 };
 
@@ -57,14 +73,26 @@ exports.getUserProfile = async (userId) => {
     include: { brand: true, follows: true },
   });
 
-  if (!user) throw createError(404, '사용자를 찾을 수 없습니다.');
+  if (!user) throw createError(404, 'User not found.');
+  if (!user.is_creator) {
+    await prisma.user.update({
+      where: { user_id: userId },
+      data: { is_creator: true },
+    });
+    user.is_creator = true;
+  }
+
+  // Ensure image URLs are properly formatted with full path
+  const profileImgUrl = normalizeUrl(user.profile_img_url);
+  const basePhotoUrl = normalizeUrl(user.basePhotoUrl);
 
   return {
     name: user.userName,
     handle: buildHandle(user.userName),
     followerCount: user.brand?.totalFollowers || 0,
     followingCount: user.follows?.length || 0,
-    base_photo_url: user.basePhotoUrl || user.profile_img_url || null,
+    profile_img_url: profileImgUrl,
+    base_photo_url: basePhotoUrl,
     measurements: {
       height: user.height,
       weight: user.weight,
@@ -106,10 +134,21 @@ exports.updateUserProfile = async (userId, payload) => {
   return {
     user_id: user.user_id,
     userName: user.userName,
-    profile_img_url: user.profile_img_url,
+    profile_img_url: normalizeUrl(user.profile_img_url),
     styleTags: user.styleTags,
     bodyTypeLabel: user.bodyTypeLabel,
-    basePhotoUrl: user.basePhotoUrl,
+    basePhotoUrl: normalizeUrl(user.basePhotoUrl),
     updatedAt: user.updatedAt,
   };
 };
+
+exports.deleteAccount = async (userId) => {
+  await prisma.user.delete({
+    where: { user_id: userId },
+  });
+  return true;
+};
+
+
+
+

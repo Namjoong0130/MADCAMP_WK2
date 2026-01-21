@@ -10,8 +10,10 @@ module.exports = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log('[OptionalAuth] Decoded:', decoded);
     req.user = decoded;
-  } catch {
+  } catch (err) {
+    console.log('[OptionalAuth] Token verification failed:', err.message);
     return next();
   }
 

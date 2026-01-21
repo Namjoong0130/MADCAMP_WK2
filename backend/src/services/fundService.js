@@ -39,7 +39,14 @@ exports.listFundingFeed = async (userId) => {
 
   return funds.map((fund) => {
     const likedUserIds = fund.cloth?.likedUserIds || [];
-    const liked = userId ? likedUserIds.includes(userId) : false;
+    const numUserId = Number(userId);
+    const liked = userId ? likedUserIds.includes(numUserId) : false;
+
+    // Debug logging
+    if (userId) {
+      console.log(`[FundService] Checking like for user ${userId}(${numUserId}) on cloth ${fund.cloth?.clothing_id}. LikedIDs: ${JSON.stringify(likedUserIds)}, Result: ${liked}`);
+    }
+
     const likes = fund.cloth?.likeCount || 0;
     const designerHandle = buildHandle(fund.cloth?.brand?.owner?.userName);
 
@@ -226,6 +233,13 @@ exports.createInvestment = async (userId, fundId, payload) => {
 exports.createComment = async (userId, fundId, payload) => {
   requireFields(payload, ['content']);
 
+  const user = await prisma.user.findUnique({
+    where: { user_id: userId },
+  });
+  if (!user || user.deleted_at) {
+    throw createError(401, 'Invalid user. Please log in again.');
+  }
+
   const fund = await prisma.fund.findUnique({
     where: { funding_id: fundId },
     include: {
@@ -236,7 +250,7 @@ exports.createComment = async (userId, fundId, payload) => {
   });
   if (!fund) throw createError(404, '펀딩을 찾을 수 없습니다.');
 
-  const isBrandOwner = fund.user_id === userId;
+  const isBrandOwner = fund.cloth?.brand?.owner_id === userId;
 
   const comment = await prisma.comment.create({
     data: {
@@ -293,6 +307,63 @@ exports.listComments = async (fundId) => {
   });
 
   return comments.map((comment) => toFrontendComment(comment, fund.clothing_id));
+};
+
+exports.updateComment = async (userId, fundId, commentId, payload) => {
+  requireFields(payload, ['content']);
+
+  const existing = await prisma.comment.findUnique({
+    where: { comment_id: commentId },
+    include: {
+      fund: { select: { clothing_id: true } },
+      user: { select: { user_id: true, userName: true, profile_img_url: true } },
+    },
+  });
+
+  if (!existing || existing.deleted_at) {
+    throw createError(404, '?“ê???? ì°¾ì„ ???†ìŠµ?ˆë‹¤.');
+  }
+  if (existing.funding_id !== fundId) {
+    throw createError(404, '?“ê???? ì°¾ì„ ???†ìŠµ?ˆë‹¤.');
+  }
+  if (existing.user_id !== userId) {
+    throw createError(403, '?˜ì • ê¶Œí•œ???†ìŠµ?ˆë‹¤.');
+  }
+
+  const updated = await prisma.comment.update({
+    where: { comment_id: commentId },
+    data: {
+      content: payload.content,
+      rating: payload.rating ?? existing.rating,
+    },
+    include: {
+      user: { select: { user_id: true, userName: true, profile_img_url: true } },
+    },
+  });
+
+  return toFrontendComment(updated, existing.fund?.clothing_id);
+};
+
+exports.deleteComment = async (userId, fundId, commentId) => {
+  const existing = await prisma.comment.findUnique({
+    where: { comment_id: commentId },
+  });
+
+  if (!existing) {
+    throw createError(404, '?“ê???? ì°¾ì„ ???†ìŠµ?ˆë‹¤.');
+  }
+  if (existing.funding_id !== fundId) {
+    throw createError(404, '?“ê???? ì°¾ì„ ???†ìŠµ?ˆë‹¤.');
+  }
+  if (existing.user_id !== userId) {
+    throw createError(403, '?˜ì • ê¶Œí•œ???†ìŠµ?ˆë‹¤.');
+  }
+
+  await prisma.comment.delete({
+    where: { comment_id: commentId },
+  });
+
+  return { deleted: true };
 };
 
 exports.updateProductionNote = async (userId, fundId, payload) => {

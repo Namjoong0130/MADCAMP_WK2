@@ -28,6 +28,19 @@ exports.createCloth = async (req, res, next) => {
   }
 };
 
+exports.updateCloth = async (req, res, next) => {
+  try {
+    const cloth = await clothService.updateCloth(
+      req.user.userId,
+      Number(req.params.clothId),
+      req.body
+    );
+    return success(res, cloth, '의류 정보가 업데이트되었습니다.');
+  } catch (error) {
+    next(error);
+  }
+};
+
 exports.updateClothPhysics = async (req, res, next) => {
   try {
     const cloth = await clothService.updateClothPhysics(
@@ -78,6 +91,7 @@ exports.listDesignHistory = async (req, res, next) => {
 
 exports.generateDesign = async (req, res, next) => {
   try {
+    console.log('[Controller] generateDesign called');
     const { prompt } = req.body;
     let input_images = [];
 
@@ -89,6 +103,11 @@ exports.generateDesign = async (req, res, next) => {
       // Fallback to URL string/array if provided manually
       input_images = Array.isArray(req.body.input_images) ? req.body.input_images : [req.body.input_images];
     }
+
+    console.log('[Controller] Inputs:', {
+      prompt,
+      imageCount: input_images.length
+    });
 
     // Strict validation
     if (!prompt || input_images.length !== 2) {
@@ -102,6 +121,16 @@ exports.generateDesign = async (req, res, next) => {
       input_images
     );
     return created(res, attempt, '디자인이 생성되었습니다.');
+  } catch (error) {
+    console.error('[Controller] generateDesign Error:', error);
+    next(error);
+  }
+};
+
+exports.deleteCloth = async (req, res, next) => {
+  try {
+    await clothService.deleteCloth(req.user.userId, Number(req.params.clothId));
+    return success(res, null, '디자인이 삭제되었습니다.');
   } catch (error) {
     next(error);
   }

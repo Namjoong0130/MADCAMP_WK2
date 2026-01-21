@@ -147,6 +147,18 @@
   resize: none;
 }
 
+.brand-product {
+  border: none;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  color: #111111;
+}
+
 .investment-list {
   display: flex;
   flex-direction: column;
@@ -467,6 +479,12 @@
   gap: 10px;
 }
 
+.album-meta-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .album-meta strong {
   font-size: 14px;
   color: #111111;
@@ -732,6 +750,10 @@
   margin-top: 6px;
 }
 
+.brand-title h1 {
+  font-size: 40px;
+}
+
 .brand-title-row {
   display: flex;
   justify-content: space-between;
@@ -743,6 +765,27 @@
   display: inline-flex;
   gap: 10px;
   align-items: center;
+}
+
+.brand-studio-btn {
+  border: 1px solid #111111;
+  background: #111111;
+  color: #ffffff;
+  border-radius: 999px;
+  height: 36px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.brand-studio-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .brand-edit-btn {
@@ -939,6 +982,7 @@
   gap: 10px;
   text-align: left;
   cursor: pointer;
+  position: relative;
 }
 
 .brand-feed-card img {
@@ -951,6 +995,26 @@
 .brand-feed-card span {
   font-size: 12px;
   color: var(--muted);
+}
+
+.brand-feed-actions {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: inline-flex;
+  gap: 6px;
+  z-index: 2;
+}
+
+.brand-feed-edit,
+.brand-feed-remove {
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  background: rgba(255, 255, 255, 0.92);
+  color: #111111;
+  font-size: 12px;
+  padding: 5px 10px;
+  cursor: pointer;
 }
 
 @keyframes fade {

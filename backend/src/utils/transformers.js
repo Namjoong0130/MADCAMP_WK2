@@ -92,6 +92,8 @@ const toFrontendCloth = (cloth) => ({
   style: cloth.style,
   price: cloth.price,
   design_img_url: normalizeUrl(cloth.final_result_front_url || cloth.thumbnail_url),
+  final_result_all_url: normalizeUrl(cloth.final_result_all_url),
+  final_result_back_url: normalizeUrl(cloth.final_result_back_url),
   size_specs: cloth.size_specs || {},
   brand_id: cloth.brand_id,
   brand_name: cloth.brand?.brand_name,
@@ -118,6 +120,7 @@ const toFrontendFunding = (fund, options = {}) => ({
 
 const toFrontendComment = (comment, clothingId) => ({
   id: comment.comment_id,
+  user_id: comment.user_id,
   clothing_id: clothingId,
   user: comment.user?.userName || 'unknown',
   rating: comment.rating ?? null,
@@ -138,12 +141,18 @@ const toFrontendInvestment = (invest, cloth, brand) => ({
 });
 
 const toFrontendFittingHistory = (fitting) => {
+  // Use latest result as preview, but pass all results
   const latestResult = fitting.results?.[0];
   return {
     id: fitting.fitting_id,
     title: fitting.note || `Fitting #${fitting.fitting_id}`,
     image: normalizeUrl(latestResult?.result_img_url || fitting.base_photo_url),
     date: fitting.created_at,
+    results: fitting.results ? fitting.results.map(r => ({
+      url: normalizeUrl(r.result_img_url),
+      type: r.generation_prompt.includes('Mannequin') ? 'MANNEQUIN' : 'REAL',
+      created_at: r.created_at
+    })) : []
   };
 };
 

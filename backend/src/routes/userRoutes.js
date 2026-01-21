@@ -86,6 +86,18 @@ router.patch('/me/body', authMiddleware, userController.updateBodyMetrics);
 router.get('/me/profile', authMiddleware, userController.getProfile);
 router.patch('/me/profile', authMiddleware, userController.updateProfile);
 
+/**
+ * @swagger
+ * /api/users/me:
+ *   delete:
+ *     summary: Delete current user account
+ *     tags: [Users]
+ *     responses:
+ *       200:
+ *         description: Account deleted
+ */
+router.delete('/me', authMiddleware, userController.deleteMe);
+
 const uploadMiddleware = require('../middlewares/uploadMiddleware');
 
 /**

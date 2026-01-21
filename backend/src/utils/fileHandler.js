@@ -34,7 +34,7 @@ exports.saveLocalFile = (buffer, category, filename) => {
 
     fs.writeFileSync(filePath, buffer);
 
-    return `/images/${category}/${finalName}`;
+    return `${BASE_URL}/images/${category}/${finalName}`;
 };
 
 /**

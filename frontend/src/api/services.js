@@ -1,0 +1,191 @@
+import axios from './axios';
+
+// Brands
+export const getPublicBrands = async () => {
+    const response = await axios.get('/api/brands/public');
+    return response.data.data;
+};
+
+export const getBrandProfiles = async () => {
+    const response = await axios.get('/api/brands/profiles');
+    return response.data.data;
+};
+
+export const createBrand = async (payload) => {
+    const response = await axios.post('/api/brands', payload);
+    return response.data.data;
+};
+
+export const updateBrand = async (brandId, payload) => {
+    const response = await axios.patch(`/api/brands/${brandId}`, payload);
+    return response.data.data;
+};
+
+export const deleteBrand = async (brandId) => {
+    const response = await axios.delete(`/api/brands/${brandId}`);
+    return response.data.data;
+};
+
+export const uploadBrandLogo = async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await axios.post('/api/upload/brand-logo', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data.data;
+};
+
+// Clothes
+export const getClothes = async (params) => {
+    const response = await axios.get('/api/clothes', { params });
+    return response.data.data;
+};
+
+export const deleteCloth = async (clothId) => {
+    const response = await axios.delete(`/api/clothes/${clothId}`);
+    return response.data.data;
+};
+
+export const createCloth = async (payload) => {
+    const response = await axios.post('/api/clothes', payload);
+    return response.data.data;
+};
+
+export const generateDesign = async (clothId, prompt, images) => {
+    const formData = new FormData();
+    formData.append('prompt', prompt);
+    if (images && images.length > 0) {
+        images.forEach((img) => formData.append('images', img));
+    }
+
+    const response = await axios.post(`/api/clothes/${clothId}/generate`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data.data;
+};
+
+// Funds
+export const getFundingFeed = async () => {
+    // Add timestamp to prevent caching
+    const response = await axios.get(`/api/funds/feed?t=${new Date().getTime()}`);
+    return response.data.data;
+};
+
+export const getUserInvestments = async () => {
+    const response = await axios.get('/api/funds/investments/me');
+    return response.data.data;
+};
+
+// Fittings
+export const createFitting = async (payload) => {
+    // payload: { base_photo_url, internal_cloth_ids, ... }
+    const response = await axios.post('/api/fittings', payload);
+    return response.data.data;
+};
+
+export const getMyFittings = async () => {
+    const response = await axios.get('/api/fittings');
+    return response.data.data;
+};
+
+export const generateMannequin = async (fittingId) => {
+    const response = await axios.post(`/api/fittings/${fittingId}/mannequin`);
+    return response.data.data;
+};
+
+export const updateFitting = async (fittingId, payload) => {
+    const response = await axios.patch(`/api/fittings/${fittingId}`, payload);
+    return response.data.data;
+};
+
+export const getDesignHistory = async () => {
+    const response = await axios.get('/api/clothes/design/history');
+    return response.data.data;
+};
+
+export const toggleLike = async (fundId) => {
+    const response = await axios.post(`/api/funds/${fundId}/like`);
+    return response.data.data;
+};
+
+// Comments
+export const getFundComments = async (fundId) => {
+    const response = await axios.get(`/api/funds/${fundId}/comments`);
+    return response.data.data;
+};
+
+export const createFundComment = async (fundId, payload) => {
+    const response = await axios.post(`/api/funds/${fundId}/comments`, payload);
+    return response.data.data;
+};
+
+export const updateFundComment = async (fundId, commentId, payload) => {
+    const response = await axios.patch(`/api/funds/${fundId}/comments/${commentId}`, payload);
+    return response.data.data;
+};
+
+export const deleteFundComment = async (fundId, commentId) => {
+    const response = await axios.delete(`/api/funds/${fundId}/comments/${commentId}`);
+    return response.data.data;
+};
+
+// Garments (fal.ai integration)
+export const uploadGarment = async (file, metadata = {}) => {
+    const formData = new FormData();
+    formData.append('photo', file);
+
+    if (metadata.name) formData.append('name', metadata.name);
+    if (metadata.category) formData.append('category', metadata.category);
+    if (metadata.description) formData.append('description', metadata.description);
+
+    const response = await axios.post('/api/garments', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data.data;
+};
+
+export const getGarments = async (filters = {}) => {
+    const params = new URLSearchParams();
+    if (filters.status) params.append('status', filters.status);
+    if (filters.category) params.append('category', filters.category);
+
+    const response = await axios.get(`/api/garments?${params.toString()}`);
+    return response.data.data;
+};
+
+export const getGarment = async (garmentId) => {
+    const response = await axios.get(`/api/garments/${garmentId}`);
+    return response.data.data;
+};
+
+export const updateGarment = async (garmentId, data) => {
+    const response = await axios.patch(`/api/garments/${garmentId}`, data);
+    return response.data.data;
+};
+
+export const deleteGarment = async (garmentId) => {
+    const response = await axios.delete(`/api/garments/${garmentId}`);
+    return response.data.data;
+};
+
+export const getGarmentStatus = async (garmentId) => {
+    const response = await axios.get(`/api/garments/${garmentId}/status`);
+    return response.data.data;
+};
+
+// Notifications
+export const getNotifications = async () => {
+    const response = await axios.get('/api/notifications');
+    return response.data.data;
+};
+
+export const markNotificationAsRead = async (notiId) => {
+    const response = await axios.patch(`/api/notifications/${notiId}/read`);
+    return response.data.data;
+};
+
+// Update Cloth (for sharing)
+export const updateCloth = async (clothId, payload) => {
+    const response = await axios.patch(`/api/clothes/${clothId}`, payload);
+    return response.data.data;
+};

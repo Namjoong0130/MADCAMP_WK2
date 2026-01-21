@@ -15,11 +15,13 @@
   border-radius: 20px;
   max-width: 1090px; /* 아까 넓힌 크기 유지 */
   width: 90%;
-  padding: 0px auto; /* 내부 여백 */
+  padding: 32px;
+  box-sizing: border-box; /* 내부 여백 */
 
   position: relative;
   display: flex;
   flex-direction: column;
+  align-items: center;
 
   /* ✨ 치트키: 이 한 줄이면 무조건 화면 정중앙으로 붕 뜹니다! */
   margin: auto;
@@ -27,7 +29,6 @@
   /* 높이 설정 정리 (화면의 85%만큼만 커지게) */
   max-height: 78vh;   /* ⭕ 최대 높이만 제한 */
   height: 78vh;
-  padding-bottom: 72px;
   overflow: hidden;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
 }
@@ -42,8 +43,9 @@
   justify-content: space-between;
   align-items: center;
   gap: 32px;
-  margin-bottom: 20px;
-  padding-right: 50px;
+  margin-bottom: 16px;
+  padding: 0 50px;
+  width: 100%;
 }
 
 .modal-header .brand-link {
@@ -55,17 +57,23 @@
   color: inherit;
   cursor: pointer;
 }
+
+.modal-header p {
+  margin: 6px 0 0;
+}
 /* modal.css */
 
 /* modal.css */
 
 .modal-body {
   display: flex;
-  align-items: stretch;
-  gap: 50px;
-  margin-top: 10px;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
   flex: 1;
   min-height: 0;
+  max-width: 980px;
+  margin: 6px auto 0;
 
 }
 
@@ -90,8 +98,7 @@
   background: transparent;
   border-radius: 8px;
   overflow: hidden;
-  padding: 0;
-   padding-top: 24px;
+  padding: 16px 0;
   margin-bottom: 0;}
 
 /* 박스 안의 이미지 크기 잡아주기 */
@@ -123,10 +130,34 @@
   object-fit: contain;
 }
 
+.detail-media-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  background: rgba(255, 255, 255, 0.9);
+  color: #111111;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.detail-media-nav.prev {
+  left: 16px;
+}
+
+.detail-media-nav.next {
+  right: 16px;
+}
+
 .floating-tryon {
   position: absolute;
-  right: 20px;
-  bottom: 20px;
+  right: 24px;
+  bottom: 24px;
   border-radius: 999px;
   padding: 10px 16px;
   font-size: 12px;
@@ -168,11 +199,16 @@
   display: flex;
   flex-direction: column;
   max-width: 520px;
-  margin-right: auto; /* 좌측에 고정 */
+  margin: 0; /* 좌측에 고정 */
   min-height: 0;
   height: 100%;
+  align-self: stretch;
   overflow-y: auto;
   overflow-x: hidden;
+}
+
+.detail-scroll-feedback {
+  overflow: hidden;
 }
 
 
@@ -183,6 +219,9 @@
   min-height: 100%;
 }
 
+.detail-scroll .detail-tab-panel {
+  padding: 12px 0 26px;
+}
 .close {
   position: absolute;
   top: 16px;
@@ -232,7 +271,7 @@
 }
 
 .ai-design-stack .modal-header {
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
 
 .ai-design-stack .modal-body {
@@ -268,7 +307,8 @@
   gap: 24px;
   flex: 1;
   min-height: 0;
-  align-items: stretch;
+  align-items: center;
+  justify-content: center;
 }
 
 .ai-design-preview-container .detail-media {
@@ -362,6 +402,11 @@
   flex-wrap: wrap;
 }
 
+.detail-tabs {
+  align-items: center;
+  margin-top: 2px;
+}
+
 .modal-header .pill {
   width: 92px;
   height: 28px;
@@ -396,6 +441,43 @@
   justify-content: flex-start;
   padding: 12px 0 26px;
   gap: 16px;
+}
+
+.detail-tab-panel {
+  margin: 0;
+}
+
+.detail-tab-panel > :first-child {
+  margin-top: 0;
+}
+
+.feedback-card {
+  height: 520px;
+  display: flex;
+  flex-direction: column;
+}
+
+.feedback-card-body {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 0;
+}
+
+.feedback-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 18px 96px;
+}
+
+.feedback-input-container {
+  flex-shrink: 0;
+  padding: 12px 18px 16px;
+  border-top: 1px solid var(--border);
+  background: #ffffff;
+  position: sticky;
+  bottom: 56px;
+  z-index: 2;
 }
 
 .detail-mode-row {
@@ -924,7 +1006,8 @@
 
 .modal-stack {
   max-width: 1000px;
-  margin: 50px auto 0; /* 🔥 bottom 제거 */
+  width: 100%;
+  margin: 0 auto; /* 🔥 bottom 제거 */
 }
 
 .comment-list.compact {

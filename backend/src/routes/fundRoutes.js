@@ -98,6 +98,70 @@ router.get('/:fundId/comments', fundController.listComments);
 
 /**
  * @swagger
+ * /api/funds/{fundId}/comments/{commentId}:
+ *   patch:
+ *     summary: Update a comment
+ *     tags: [Funds]
+ *     parameters:
+ *       - in: path
+ *         name: fundId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *       - in: path
+ *         name: commentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               content:
+ *                 type: string
+ *               rating:
+ *                 type: integer
+ *     responses:
+ *       200:
+ *         description: Comment updated
+ */
+router.patch(
+  '/:fundId/comments/:commentId',
+  authMiddleware,
+  fundController.updateComment
+);
+
+/**
+ * @swagger
+ * /api/funds/{fundId}/comments/{commentId}:
+ *   delete:
+ *     summary: Delete a comment
+ *     tags: [Funds]
+ *     parameters:
+ *       - in: path
+ *         name: fundId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *       - in: path
+ *         name: commentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Comment deleted
+ */
+router.delete(
+  '/:fundId/comments/:commentId',
+  authMiddleware,
+  fundController.deleteComment
+);
+
+/**
+ * @swagger
  * /api/funds:
  *   post:
  *     summary: Create a new funding project

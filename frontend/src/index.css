@@ -48,3 +48,28 @@ input,
 textarea {
   font-family: inherit;
 }
+
+/* Loading State */
+.ai-loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #666;
+  gap: 16px;
+}
+
+.ai-loading-icon {
+  animation: spin 3s linear infinite;
+  color: #111;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

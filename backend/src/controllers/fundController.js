@@ -66,6 +66,33 @@ exports.listComments = async (req, res, next) => {
   }
 };
 
+exports.updateComment = async (req, res, next) => {
+  try {
+    const comment = await fundService.updateComment(
+      req.user.userId,
+      Number(req.params.fundId),
+      Number(req.params.commentId),
+      req.body
+    );
+    return success(res, comment, '?“ê????ì´ ?…ë°?´íŠ¸?˜ì—ˆ?µë‹ˆ??');
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.deleteComment = async (req, res, next) => {
+  try {
+    const result = await fundService.deleteComment(
+      req.user.userId,
+      Number(req.params.fundId),
+      Number(req.params.commentId)
+    );
+    return success(res, result, '?“ê????ì´ ì‚­ì œ?˜ì—ˆ?µë‹ˆ??');
+  } catch (error) {
+    next(error);
+  }
+};
+
 exports.updateProductionNote = async (req, res, next) => {
   try {
     const updated = await fundService.updateProductionNote(
